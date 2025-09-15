@@ -1,0 +1,3 @@
+[submodule "3rdParty/OpenFOAM-dev"]
+	path = 3rdParty/OpenFOAM-dev
+	url = git@github.com:daisytuner/OpenFOAM-dev.git
