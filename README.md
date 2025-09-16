@@ -14,16 +14,16 @@ In particular, we explore different offloading strategies with minimal impact on
 
 ### Dependencies
 
-``bash
+```bash
 sudo apt-get install -y build-essential libopenmpi-dev zlib1g-dev gnuplot gnuplot-x11 libxt-dev cmake flex ninja-build
 sudo apt-get install -y libxml2-dev libhdf5-dev libavfilter-dev libtheora-dev libgl2ps-dev libx11-dev libqt5x11extras5-dev libglew-dev libutfcpp-dev 
-``
+```
 
 ### Build
 
 First, generate the original include paths of OpenFOAM and build the project.
 
-``bash
+```bash
 cd 3rdParty/OpenFOAM-dev/
 
 export WM_PROJECT_DIR=`pwd`
@@ -33,30 +33,30 @@ export WM_PROJECT_DIR=`pwd`
 ./Allwmake -j$(nproc)
 
 cd ../../
-``
+```
 
 Second, to build this project simply run:
 
-``bash
+```bash
 mkdir build && cd build
 
 cmake -G Ninja ..
 ninja
-``
+```
 
 ### Run (Cavity)
 
 Generate the additional files once:
 
-``bash
+```bash
 cd ${WM_PROJECT_DIR}/tutorials/incompressibleFluid/cavity
 ${FOAM_APPBIN}/blockMesh
 cd ${WM_PROJECT_DIR}
 cd ../../
-``
+```
 
 Run the experiment:
 
-``bash
+```bash
 LD_LIBRARY_PATH=$PWD/build:$LD_LIBRARY_PATH ./3rdParty/OpenFOAM-dev/bin/foamRun -case ./3rdParty/OpenFOAM-dev/tutorials/incompressibleFluid/cavity
-``
+```
