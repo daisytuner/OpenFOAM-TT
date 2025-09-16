@@ -282,13 +282,13 @@ add_library(OpenFOAM SHARED
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/LUscalarMatrix/LUscalarMatrix.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/LUscalarMatrix/procLduMatrix.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/LUscalarMatrix/procLduInterface.C
-  ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrix.C
-  ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixOperations.C
-  ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixATmul.C
-  ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixUpdateMatrixInterfaces.C
-  ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixSolver.C
-  ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixSmoother.C
-  ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixPreconditioner.C
+  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrix.C
+  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixOperations.C
+  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixATmul.C
+  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixUpdateMatrixInterfaces.C
+  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixSolver.C
+  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixSmoother.C
+  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixPreconditioner.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/solvers/diagonalSolver/diagonalSolver.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/solvers/smoothSolver/smoothSolver.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/solvers/PCG/PCG.C
@@ -563,6 +563,14 @@ add_library(OpenFOAM SHARED
   ${OPENFOAM_SRC_DIR}/OpenFOAM/geometry/splines/BSpline/BSpline.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/geometry/splines/CatmullRomSpline/CatmullRomSpline.C
 
+  src/lduMatrix/lduMatrix.cpp
+  src/lduMatrix/lduMatrixATmul.cpp
+  src/lduMatrix/lduMatrixOperations.cpp
+  src/lduMatrix/lduMatrixSolver.cpp
+  src/lduMatrix/lduMatrixSmoother.cpp
+  src/lduMatrix/lduMatrixPreconditioner.cpp
+  src/lduMatrix/lduMatrixUpdateMatrixInterfaces.cpp
+
   ${OPENFOAM_PSTREAM_SOURCES}
 )
 
@@ -571,11 +579,10 @@ target_compile_features(OpenFOAM PUBLIC cxx_std_17)
 
 target_include_directories(OpenFOAM PUBLIC
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/lnInclude
+  src/lduMatrix
   ${OPENFOAM_SRC_DIR}/OpenFOAM/lnInclude
   ${OPENFOAM_SRC_DIR}/OpenFOAM/include
 )
-
-# target_precompile_headers(OpenFOAM PRIVATE "${OPENFOAM_SRC_DIR}/OpenFOAM/include/OSspecific.H")
 
 target_compile_options(OpenFOAM PRIVATE
   -Wall
