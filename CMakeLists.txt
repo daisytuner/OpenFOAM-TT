@@ -28,10 +28,18 @@ set(OPENFOAM_PSTREAM_SOURCES
   ${OPENFOAM_SRC_DIR}/Pstream/dummy/UOPwrite.C
 )
 
+add_custom_command(
+  OUTPUT ${CMAKE_BINARY_DIR}/global.Cver.C
+  COMMAND sed -e 's!BUILD_STRING!-!' ${OPENFOAM_SRC_DIR}/OpenFOAM/global/global.Cver > ${CMAKE_BINARY_DIR}/global.Cver.C
+  DEPENDS ${OPENFOAM_SRC_DIR}/OpenFOAM/global/global.Cver
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMENT "Generating global.Cver.C"
+)
+
 
 add_library(OpenFOAM SHARED
   ${OPENFOAM_OS_SPECIFIC_SOURCES}
-  ${OPENFOAM_SRC_DIR}/OpenFOAM/global/global.Cver
+  ${CMAKE_BINARY_DIR}/global.Cver.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/global/argList/argList.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/global/clock/clock.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/global/etcFiles/etcFiles.C
@@ -567,7 +575,7 @@ target_include_directories(OpenFOAM PUBLIC
   ${OPENFOAM_SRC_DIR}/OpenFOAM/include
 )
 
-target_precompile_headers(OpenFOAM PRIVATE "${OPENFOAM_SRC_DIR}/OpenFOAM/include/OSspecific.H")
+# target_precompile_headers(OpenFOAM PRIVATE "${OPENFOAM_SRC_DIR}/OpenFOAM/include/OSspecific.H")
 
 target_compile_options(OpenFOAM PRIVATE
   -Wall
@@ -583,6 +591,9 @@ target_compile_options(OpenFOAM PRIVATE
 
 target_compile_definitions(OpenFOAM PRIVATE
     LIB_NAME=libOpenFOAM.so
+)
+
+target_compile_definitions(OpenFOAM PUBLIC
     linux64
     WM_SP
     WM_ARCH_OPTION=64
