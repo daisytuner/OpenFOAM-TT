@@ -36,6 +36,11 @@ add_custom_command(
   COMMENT "Generating global.Cver.C"
 )
 
+set(TT_SOURCES
+  src/tenstorrent/kernel_launcher.cpp
+  src/tenstorrent/setup.cpp
+)
+
 
 add_library(OpenFOAM SHARED
   ${OPENFOAM_OS_SPECIFIC_SOURCES}
@@ -573,17 +578,59 @@ add_library(OpenFOAM SHARED
   src/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.cpp
 
   ${OPENFOAM_PSTREAM_SOURCES}
+  ${TT_SOURCES}
 )
 
-target_link_libraries(OpenFOAM PUBLIC z)
-target_compile_features(OpenFOAM PUBLIC cxx_std_17)
+# add_library(tt SHARED
+#   ${TT_SOURCES}
+# )
+
+# target_link_directories(tt PUBLIC $ENV{TT_METAL_INSTALL_DIR}/lib)
+
+# target_link_libraries(tt PUBLIC tt_metal fmt)
+
+# target_compile_definitions(tt PUBLIC
+#   SPDLOG_FMT_EXTERNAL
+# )
+
+# target_include_directories(tt PUBLIC
+#   src/tenstorrent
+#   $ENV{TT_METAL_INSTALL_DIR}/include
+#   $ENV{TT_METAL_INSTALL_DIR}/include/metalium-thirdparty
+#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/container/include
+#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/assert/include
+#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/config/include
+#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/intrusive/include
+#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/move/include
+#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/core/include
+#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/static_assert/include
+#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/throw_exception/include
+# )
+
+# target_compile_features(tt PUBLIC cxx_std_20)
+
+target_link_directories(OpenFOAM PUBLIC $ENV{TT_METAL_INSTALL_DIR}/lib)
+
+target_link_libraries(OpenFOAM PUBLIC z tt_metal fmt)
+target_compile_features(OpenFOAM PUBLIC cxx_std_20)
 
 target_include_directories(OpenFOAM PUBLIC
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/lnInclude
   src/lduMatrix/lduMatrix
   src/lduMatrix/smoothers/GaussSeidel
+  src/tenstorrent
   ${OPENFOAM_SRC_DIR}/OpenFOAM/lnInclude
   ${OPENFOAM_SRC_DIR}/OpenFOAM/include
+  $ENV{TT_METAL_INSTALL_DIR}/include
+  $ENV{TT_METAL_INSTALL_DIR}/include/metalium-thirdparty
+  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/container/include
+  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/assert/include
+  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/config/include
+  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/intrusive/include
+  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/move/include
+  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/core/include
+  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/static_assert/include
+  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/throw_exception/include
 )
 
 target_compile_options(OpenFOAM PRIVATE
@@ -608,6 +655,7 @@ target_compile_definitions(OpenFOAM PUBLIC
     WM_ARCH_OPTION=64
     WM_LABEL_SIZE=32
     NoRepository
+    SPDLOG_FMT_EXTERNAL
 )
 
 add_subdirectory(tests)

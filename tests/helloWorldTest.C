@@ -27,7 +27,7 @@ TEST(HelloWorld, Mul) {
     // Lower and upper coefficients (off-diagonal)
     Foam::labelList upper{2, 2}; // upper  
     Foam::labelList lower{0, 1}; // lower
-    // both form the coordinates of the off-diagonal entries together. For lower entries upperAddr,lowerAddr. For upper entries lowerAddr,lowerAddr
+    // both form the coordinates of the off-diagonal entries together. For lower entries upperAddr,lowerAddr. For upper entries lowerAddr,upperAddr
     // position of non-zero elems in upper and lower triangle ARE MIRRORED. They model interaction between neighboring cells of the simulation
     // The connections between neughboring cells are called "faces" and have a native order
 
