@@ -29,6 +29,10 @@ Description
 
 #include "lduMatrix.H"
 
+#ifdef __DAISY_INSTRUMENTATION
+#include <daisy_rtl/daisy_rtl.h>
+#endif
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 void Foam::lduMatrix::Amul
@@ -40,7 +44,20 @@ void Foam::lduMatrix::Amul
     const direction cmpt
 ) const
 {
-    Foam::Info << "lduMatrix::Amul " << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixATmul.cpp",
+        .function_name = "Foam::lduMatrix::Amul",
+        .line_begin = 38,
+        .line_end = 119,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_Amul",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
 
     scalar* __restrict__ ApsiPtr = Apsi.begin();
 
@@ -91,6 +108,10 @@ void Foam::lduMatrix::Amul
     );
 
     tpsi.clear();
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 
@@ -103,7 +124,23 @@ void Foam::lduMatrix::Tmul
     const direction cmpt
 ) const
 {
-    Foam::Info << "lduMatrix::Tmul " << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixATmul.cpp",
+        .function_name = "Foam::lduMatrix::Tmul",
+        .line_begin = 121,
+        .line_end = 200,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_Tmul",
+                .loopnest_index = 0
+
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
+
 
     scalar* __restrict__ TpsiPtr = Tpsi.begin();
 
@@ -152,6 +189,11 @@ void Foam::lduMatrix::Tmul
     );
 
     tpsi.clear();
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
+#endif
 }
 
 
@@ -162,7 +204,21 @@ void Foam::lduMatrix::sumA
     const lduInterfaceFieldPtrsList& interfaces
 ) const
 {
-    Foam::Info << "lduMatrix::sumA " << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixATmul.cpp",
+        .function_name = "Foam::lduMatrix::sumA",
+        .line_begin = 203,
+        .line_end = 271,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_sumA",
+        .loopnest_index = 0
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
 
     scalar* __restrict__ sumAPtr = sumA.begin();
 
@@ -203,6 +259,11 @@ void Foam::lduMatrix::sumA
             }
         }
     }
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
+#endif
 }
 
 
@@ -216,6 +277,21 @@ void Foam::lduMatrix::residual
     const direction cmpt
 ) const
 {
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixATmul.cpp",
+        .function_name = "Foam::lduMatrix::residual",
+        .line_begin = 274,
+        .line_end = 371,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_residual",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
+
     scalar* __restrict__ rAPtr = rA.begin();
 
     const scalar* const __restrict__ psiPtr = psi.begin();
@@ -283,6 +359,10 @@ void Foam::lduMatrix::residual
         rA,
         cmpt
     );
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 

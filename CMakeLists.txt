@@ -4,6 +4,8 @@ project(OpenFOAM-TT VERSION "1.0.0" LANGUAGES CXX)
 
 set(OPENFOAM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/OpenFOAM-dev/src)
 
+option(DAISY_INSTRUMENTATION "Enable Daisy instrumentation" OFF)
+
 set(OPENFOAM_OS_SPECIFIC_SOURCES
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/signals/sigFpe.C
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/signals/sigSegv.C
@@ -657,5 +659,15 @@ target_compile_definitions(OpenFOAM PUBLIC
     NoRepository
     SPDLOG_FMT_EXTERNAL
 )
+
+if (DAISY_INSTRUMENTATION)
+  message(STATUS "Building with DAISY instrumentation")
+  target_compile_definitions(OpenFOAM PRIVATE
+    __DAISY_INSTRUMENTATION
+  )
+  target_link_libraries(OpenFOAM PRIVATE
+    daisy_rtl arg_capture_io
+  )
+endif()
 
 add_subdirectory(tests)

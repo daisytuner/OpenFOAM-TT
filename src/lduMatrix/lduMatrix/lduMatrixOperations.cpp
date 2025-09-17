@@ -28,11 +28,28 @@ Description
 
 #include "lduMatrix.H"
 
+#ifdef __DAISY_INSTRUMENTATION
+#include <daisy_rtl/daisy_rtl.h>
+#endif
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 void Foam::lduMatrix::sumDiag()
 {
-    Foam::Info << "lduMat:sumDiag " << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixOperations.cpp",
+        .function_name = "Foam::lduMatrix::sumDiag",
+        .line_begin = 70,
+        .line_end = 210,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_sumDiag",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
 
     if (!lowerPtr_ && !upperPtr_)
     {
@@ -51,12 +68,29 @@ void Foam::lduMatrix::sumDiag()
         Diag[l[face]] += Lower[face];
         Diag[u[face]] += Upper[face];
     }
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 
 void Foam::lduMatrix::negSumDiag()
 {
-    Foam::Info << "lduMat:negDiagSum " << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixOperations.cpp",
+        .function_name = "Foam::lduMatrix::negSumDiag",
+        .line_begin = 70,
+        .line_end = 210,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_negSumDiag",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
 
     if (!lowerPtr_ && !upperPtr_)
     {
@@ -75,6 +109,10 @@ void Foam::lduMatrix::negSumDiag()
         Diag[l[face]] -= Lower[face];
         Diag[u[face]] -= Upper[face];
     }
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 
@@ -83,6 +121,22 @@ void Foam::lduMatrix::sumMagOffDiag
     scalarField& sumOff
 ) const
 {
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixOperations.cpp",
+        .function_name = "Foam::lduMatrix::sumMagOffDiag",
+        .line_begin = 70,
+        .line_end = 210,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_sumMagOffDiag",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
+
+
     if (!lowerPtr_ && !upperPtr_)
     {
         return;
@@ -99,6 +153,10 @@ void Foam::lduMatrix::sumMagOffDiag
         sumOff[u[face]] += mag(Lower[face]);
         sumOff[l[face]] += mag(Upper[face]);
     }
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 
@@ -143,7 +201,20 @@ void Foam::lduMatrix::operator=(const lduMatrix& A)
 
 void Foam::lduMatrix::negate()
 {
-    Foam::Info << "lduMat:neg" << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixOperations.cpp",
+        .function_name = "Foam::lduMatrix::negate",
+        .line_begin = 70,
+        .line_end = 210,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_negate",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
 
     if (lowerPtr_)
     {
@@ -159,12 +230,29 @@ void Foam::lduMatrix::negate()
     {
         diagPtr_->negate();
     }
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 
 void Foam::lduMatrix::operator+=(const lduMatrix& A)
 {
-    Foam::Info << "lduMat:+= mat" << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixOperations.cpp",
+        .function_name = "Foam::lduMatrix::+=",
+        .line_begin = 70,
+        .line_end = 210,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_+=",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
 
     if (A.diagPtr_)
     {
@@ -240,12 +328,29 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
                 << endl;
         }
     }
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 
 void Foam::lduMatrix::operator-=(const lduMatrix& A)
 {
-    Foam::Info << "lduMat:-= " << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixOperations.cpp",
+        .function_name = "Foam::lduMatrix::-=",
+        .line_begin = 70,
+        .line_end = 210,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_-=",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
 
     if (A.diagPtr_)
     {
@@ -321,12 +426,29 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
                 << endl;
         }
     }
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 
 void Foam::lduMatrix::operator*=(const scalarField& sf)
 {
-    Foam::Info << "lduMat:*= vec " << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixOperations.cpp",
+        .function_name = "Foam::lduMatrix::*=",
+        .line_begin = 70,
+        .line_end = 210,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_*=",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
 
     if (diagPtr_)
     {
@@ -353,12 +475,28 @@ void Foam::lduMatrix::operator*=(const scalarField& sf)
             lower[face] *= sf[u[face]];
         }
     }
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 
 void Foam::lduMatrix::operator*=(scalar s)
 {
-    Foam::Info << "lduMat:*= elem" << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixOperations.cpp",
+        .function_name = "Foam::lduMatrix::*=_scalar",
+        .line_begin = 70,
+        .line_end = 210,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_*=_scalar",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
 
     if (diagPtr_)
     {
@@ -374,12 +512,29 @@ void Foam::lduMatrix::operator*=(scalar s)
     {
         *lowerPtr_ *= s;
     }
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 
 void Foam::lduMatrix::operator/=(const scalarField& sf)
 {
-    Foam::Info << "lduMat:/= vec " << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixOperations.cpp",
+        .function_name = "Foam::lduMatrix::/=",
+        .line_begin = 70,
+        .line_end = 210,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_/=",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
 
     if (diagPtr_)
     {
@@ -406,12 +561,29 @@ void Foam::lduMatrix::operator/=(const scalarField& sf)
             lower[face] /= sf[u[face]];
         }
     }
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 
 void Foam::lduMatrix::operator/=(scalar s)
 {
-    Foam::Info << "lduMat:/= elem" << Foam::endl;
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixOperations.cpp",
+        .function_name = "Foam::lduMatrix::/=_scalar",
+        .line_begin = 70,
+        .line_end = 210,
+        .column_begin = 0,
+        .column_end = 0,
+        .region_name = "foam_lduMatrix_/=_scalar",
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+
+    __daisy_instrumentation_enter(region_id);
+#endif
 
     if (diagPtr_)
     {
@@ -427,6 +599,10 @@ void Foam::lduMatrix::operator/=(scalar s)
     {
         *lowerPtr_ /= s;
     }
+
+#ifdef __DAISY_INSTRUMENTATION
+    __daisy_instrumentation_exit(region_id);
+#endif
 }
 
 
