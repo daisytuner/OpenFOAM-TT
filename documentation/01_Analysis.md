@@ -12,9 +12,10 @@
 ### ldu Matrix storage native format
 - split into non-sparse diagonal vector
 - split into vectors of sparse upper and lower triangles. If one is missing, the other triangle is mirrored
-- upper and lower triangle non-zero positions are always mirrored.
-- non-zero entries in triangles follow the ordering of the mesh creator (ordered by faces = direct neighbor relationship), not some canonical ordering. 
-- due to mirroring, each triangle only has a scalar address vector with an "address" for every entry. The location in the matrix in coordinates is defined by using both the upper and lower address as column and row index respectively (i,j just swapped for the other)
+- upper and lower triangle non-zero positions are always mirrored, also in the order inside their respective vectors.
+- non-zero entries in triangles follow the ordering of the mesh creator (ordered by `faces` = direct cell-neighbor relationship), not some canonical ordering. 
+- due to mirroring, each triangle only has a scalar address vector with an "address" for every entry. The location in the matrix in coordinates is defined by using both the upper and lower address as column and row index respectively (i,j just swapped for the other triangle)
+=> each sparse entry is coupled with 1 integer value for its column or row index. Sparsity naturally present between cells which are not direct neighbors in any dimension
 
 ### Profiling
 
