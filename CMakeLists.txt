@@ -294,7 +294,7 @@ add_library(OpenFOAM SHARED
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/solvers/PCG/PCG.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/solvers/PBiCG/PBiCG.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/solvers/PBiCGStab/PBiCGStab.C
-  ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.C
+  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/smoothers/symGaussSeidel/symGaussSeidelSmoother.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/smoothers/nonBlockingGaussSeidel/nonBlockingGaussSeidelSmoother.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/smoothers/DIC/DICSmoother.C
@@ -563,13 +563,14 @@ add_library(OpenFOAM SHARED
   ${OPENFOAM_SRC_DIR}/OpenFOAM/geometry/splines/BSpline/BSpline.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/geometry/splines/CatmullRomSpline/CatmullRomSpline.C
 
-  src/lduMatrix/lduMatrix.cpp
-  src/lduMatrix/lduMatrixATmul.cpp
-  src/lduMatrix/lduMatrixOperations.cpp
-  src/lduMatrix/lduMatrixSolver.cpp
-  src/lduMatrix/lduMatrixSmoother.cpp
-  src/lduMatrix/lduMatrixPreconditioner.cpp
-  src/lduMatrix/lduMatrixUpdateMatrixInterfaces.cpp
+  src/lduMatrix/lduMatrix/lduMatrix.cpp
+  src/lduMatrix/lduMatrix/lduMatrixATmul.cpp
+  src/lduMatrix/lduMatrix/lduMatrixOperations.cpp
+  src/lduMatrix/lduMatrix/lduMatrixSolver.cpp
+  src/lduMatrix/lduMatrix/lduMatrixSmoother.cpp
+  src/lduMatrix/lduMatrix/lduMatrixPreconditioner.cpp
+  src/lduMatrix/lduMatrix/lduMatrixUpdateMatrixInterfaces.cpp
+  src/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.cpp
 
   ${OPENFOAM_PSTREAM_SOURCES}
 )
@@ -579,7 +580,8 @@ target_compile_features(OpenFOAM PUBLIC cxx_std_17)
 
 target_include_directories(OpenFOAM PUBLIC
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/lnInclude
-  src/lduMatrix
+  src/lduMatrix/lduMatrix
+  src/lduMatrix/smoothers/GaussSeidel
   ${OPENFOAM_SRC_DIR}/OpenFOAM/lnInclude
   ${OPENFOAM_SRC_DIR}/OpenFOAM/include
 )
