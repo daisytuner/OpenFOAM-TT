@@ -111,6 +111,7 @@ void Foam::lduMatrix::Amul
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 
@@ -362,6 +363,7 @@ void Foam::lduMatrix::residual
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 

@@ -206,6 +206,7 @@ void Foam::GaussSeidelSmoother::smooth
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 

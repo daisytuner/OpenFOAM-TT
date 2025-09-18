@@ -71,6 +71,7 @@ void Foam::lduMatrix::sumDiag()
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 
@@ -112,6 +113,7 @@ void Foam::lduMatrix::negSumDiag()
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 
@@ -156,6 +158,7 @@ void Foam::lduMatrix::sumMagOffDiag
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 
@@ -233,6 +236,7 @@ void Foam::lduMatrix::negate()
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 
@@ -331,6 +335,7 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 
@@ -429,6 +434,7 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 
@@ -477,6 +483,7 @@ void Foam::lduMatrix::operator*=(const scalarField& sf)
     }
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 
@@ -515,6 +522,7 @@ void Foam::lduMatrix::operator*=(scalar s)
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 
@@ -564,6 +572,7 @@ void Foam::lduMatrix::operator/=(const scalarField& sf)
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 
@@ -602,6 +611,7 @@ void Foam::lduMatrix::operator/=(scalar s)
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
+    __daisy_instrumentation_finalize(region_id);
 #endif
 }
 
