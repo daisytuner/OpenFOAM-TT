@@ -26,6 +26,7 @@ License
 #include "lduMatrix.H"
 #include "IOstreams.H"
 #include "Switch.H"
+#include "ttLduData.hpp"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -162,6 +163,8 @@ Foam::lduMatrix::~lduMatrix()
     {
         delete upperPtr_;
     }
+
+    clear_tt_meta(this, ldu_tt_meta_map);
 }
 
 

@@ -32,8 +32,27 @@ Description
 #ifdef __DAISY_INSTRUMENTATION
 #include <daisy_rtl/daisy_rtl.h>
 #endif
+#include "kernel_launcher.hpp"
+#include "messageStream.H"
+#include "scalarField.H"
+#include "ttLduData.hpp"
+#include "device_transfers.hpp"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+const bool useTt = true;
+
+bool matches(const Foam::scalarField& a, const Foam::scalarField& b, float tol) {
+    if (a.size() != b.size()) {
+        return false;
+    }
+    for (int i = 0; i < a.size(); ++i) {
+        if (std::abs(a[i] - b[i]) > tol) {
+            return false;
+        }
+    }
+    return true;
+}
 
 void Foam::lduMatrix::Amul
 (
@@ -58,61 +77,114 @@ void Foam::lduMatrix::Amul
 
     __daisy_instrumentation_enter(region_id);
 #endif
+    
+        scalar* __restrict__ ApsiPtr = Apsi.begin();
 
-    scalar* __restrict__ ApsiPtr = Apsi.begin();
+        const scalarField& psi = tpsi();
 
-    const scalarField& psi = tpsi();
-    const scalar* const __restrict__ psiPtr = psi.begin();
+        // Initialise the update of interfaced interfaces
+        initMatrixInterfaces
+        (
+            interfaceBouCoeffs,
+            interfaces,
+            psi,
+            Apsi,
+            cmpt
+        );
 
-    const scalar* const __restrict__ diagPtr = diag().begin();
+        scalarField tt_result(Apsi.size(), 0.0);
 
-    const label* const __restrict__ uPtr = lduAddr().upperAddr().begin();
-    const label* const __restrict__ lPtr = lduAddr().lowerAddr().begin();
+        if (useTt) {
 
-    const scalar* const __restrict__ upperPtr = upper().begin();
-    const scalar* const __restrict__ lowerPtr = lower().begin();
+            auto& k = require_kernel_launcher();
 
-    // Initialise the update of interfaced interfaces
-    initMatrixInterfaces
-    (
-        interfaceBouCoeffs,
-        interfaces,
-        psi,
-        Apsi,
-        cmpt
-    );
+            auto& tt_meta = get_tt_meta(this, ldu_tt_meta_map);
 
-    const label nCells = diag().size();
-    for (label cell=0; cell<nCells; cell++)
-    {
-        ApsiPtr[cell] = diagPtr[cell]*psiPtr[cell];
-    }
+            if (!tt_meta.addrs_on_device_) {
+                this->copy_addrs_to_device(tt_meta);
+            }
+
+            if (!tt_meta.contents_on_device_) {
+                this->copy_contents_to_device(tt_meta);
+            }
+
+            Foam::Info << "Done ensuring data on TT for " << reinterpret_cast<const void*>(this) << Foam::endl;
 
 
-    const label nFaces = upper().size();
+            auto& tt_psi = copy_scalarField_to_device(k, psi);
+            auto& tt_Apsi = k.allocateBuffer(sizeof(float)*Apsi.size());
+            auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
-    for (label face=0; face<nFaces; face++)
-    {
-        ApsiPtr[uPtr[face]] += lowerPtr[face]*psiPtr[lPtr[face]];
-        ApsiPtr[lPtr[face]] += upperPtr[face]*psiPtr[uPtr[face]];
-    }
+            k.launch_amul(
+                tt_meta,
+                *tt_psi.buffer,
+                *tt_Apsi.buffer,
+                *tt_iface_contents.buffer,
+                iface_count,
+                cmpt
+            );
 
-    // Update interface interfaces
-    updateMatrixInterfaces
-    (
-        interfaceBouCoeffs,
-        interfaces,
-        psi,
-        Apsi,
-        cmpt
-    );
+            copy_scalarField_from_device(k, tt_Apsi, tt_result);
 
-    tpsi.clear();
+            k.freeBuffer(tt_Apsi);
+            k.freeBuffer(tt_psi);
+            k.freeBuffer(tt_iface_contents);
+        }
 
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_instrumentation_exit(region_id);
-    __daisy_instrumentation_finalize(region_id);
-#endif
+        const scalar* const __restrict__ psiPtr = psi.begin();
+
+        const scalar* const __restrict__ diagPtr = diag().begin();
+
+        const label* const __restrict__ uPtr = lduAddr().upperAddr().begin();
+        const label* const __restrict__ lPtr = lduAddr().lowerAddr().begin();
+
+        const scalar* const __restrict__ upperPtr = upper().begin();
+        const scalar* const __restrict__ lowerPtr = lower().begin();
+
+        const label nCells = diag().size();
+        for (label cell=0; cell<nCells; cell++)
+        {
+            ApsiPtr[cell] = diagPtr[cell]*psiPtr[cell];
+        }
+
+
+        const label nFaces = upper().size();
+
+        for (label face=0; face<nFaces; face++)
+        {
+            ApsiPtr[uPtr[face]] += lowerPtr[face]*psiPtr[lPtr[face]];
+            ApsiPtr[lPtr[face]] += upperPtr[face]*psiPtr[uPtr[face]];
+        }
+
+        if (!matches(tt_result, Apsi, 1e-5f)) {
+            Foam::Warning << "Amul TT results do not match!" << Foam::endl;
+            Foam::Info << "TT  Result: " << tt_result << Foam::endl;
+            Foam::Info << "CPU Result: " << Apsi << Foam::endl;
+            Foam::Info << "Amul inVec: " << psi << Foam::endl;
+            Foam::Info << "Amul matVec: " << *this << Foam::endl;
+            Foam::Info << "Amul l_addr: " << lduAddr().lowerAddr() << Foam::endl;
+            Foam::Info << "Amul u_addr: " << lduAddr().upperAddr() << Foam::endl;
+            throw new std::runtime_error("Amul TT results do not match!");
+        } else {
+            Foam::Info << "Amul TT success" << Foam::endl;
+        }
+
+        // Update interface interfaces
+        updateMatrixInterfaces
+        (
+            interfaceBouCoeffs,
+            interfaces,
+            psi,
+            Apsi,
+            cmpt
+        );
+
+        tpsi.clear();
+    
+        #ifdef __DAISY_INSTRUMENTATION
+        __daisy_instrumentation_exit(region_id);
+        __daisy_instrumentation_finalize(region_id);
+        #endif
 }
 
 

@@ -62,6 +62,8 @@ SourceFiles
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+struct tt_ldu_meta;
+
 namespace Foam
 {
 
@@ -86,7 +88,6 @@ class lduMatrix
 
         //- Coefficients (not including interfaces)
         scalarField *lowerPtr_, *diagPtr_, *upperPtr_;
-
 
 public:
 
@@ -760,6 +761,10 @@ public:
 
         friend Ostream& operator<<(Ostream&, const lduMatrix&);
         friend Ostream& operator<<(Ostream&, const InfoProxy<lduMatrix>&);
+
+    // Tenstorrent
+        void copy_contents_to_device(tt_ldu_meta& tt_meta) const;
+        void copy_addrs_to_device(tt_ldu_meta& tt_meta) const;
 };
 
 

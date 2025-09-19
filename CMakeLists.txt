@@ -39,8 +39,9 @@ add_custom_command(
 )
 
 set(TT_SOURCES
+  src/tenstorrent/device_transfers.cpp
   src/tenstorrent/kernel_launcher.cpp
-  src/tenstorrent/setup.cpp
+  src/tenstorrent/ttLduData.cpp
 )
 
 
@@ -573,8 +574,9 @@ add_library(OpenFOAM SHARED
   src/lduMatrix/lduMatrix/lduMatrix.cpp
   src/lduMatrix/lduMatrix/lduMatrixATmul.cpp
   src/lduMatrix/lduMatrix/lduMatrixOperations.cpp
-  src/lduMatrix/lduMatrix/lduMatrixSolver.cpp
   src/lduMatrix/lduMatrix/lduMatrixSmoother.cpp
+  src/lduMatrix/lduMatrix/lduMatrixSolver.cpp
+  src/lduMatrix/lduMatrix/lduMatrixTenstorrentTransfer.cpp
   src/lduMatrix/lduMatrix/lduMatrixPreconditioner.cpp
   src/lduMatrix/lduMatrix/lduMatrixUpdateMatrixInterfaces.cpp
   src/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.cpp
@@ -583,38 +585,11 @@ add_library(OpenFOAM SHARED
   ${TT_SOURCES}
 )
 
-# add_library(tt SHARED
-#   ${TT_SOURCES}
-# )
-
-# target_link_directories(tt PUBLIC $ENV{TT_METAL_INSTALL_DIR}/lib)
-
-# target_link_libraries(tt PUBLIC tt_metal fmt)
-
-# target_compile_definitions(tt PUBLIC
-#   SPDLOG_FMT_EXTERNAL
-# )
-
-# target_include_directories(tt PUBLIC
-#   src/tenstorrent
-#   $ENV{TT_METAL_INSTALL_DIR}/include
-#   $ENV{TT_METAL_INSTALL_DIR}/include/metalium-thirdparty
-#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/container/include
-#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/assert/include
-#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/config/include
-#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/intrusive/include
-#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/move/include
-#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/core/include
-#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/static_assert/include
-#   $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/throw_exception/include
-# )
-
-# target_compile_features(tt PUBLIC cxx_std_20)
-
 target_link_directories(OpenFOAM PUBLIC $ENV{TT_METAL_INSTALL_DIR}/lib)
 
 target_link_libraries(OpenFOAM PUBLIC z tt_metal fmt)
 target_compile_features(OpenFOAM PUBLIC cxx_std_20)
+target_link_options(OpenFOAM PRIVATE)
 
 target_include_directories(OpenFOAM PUBLIC
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/lnInclude
@@ -645,6 +620,7 @@ target_compile_options(OpenFOAM PRIVATE
   -Wno-attributes
   -ftemplate-depth-100
   -fPIC
+  # -fsanitize=address
 )
 
 target_compile_definitions(OpenFOAM PRIVATE
