@@ -19,6 +19,15 @@ struct AmulKernelMeta {
     tt::tt_metal::KernelHandle kernel_0;
 };
 
+struct SumAKernelMeta {
+    tt::tt_metal::Program program;
+    int addr_size_alloc = 8192;
+    int data_size_alloc = 8192;
+    int iface_size_alloc = 8192;
+    int res_size_alloc = 8192;
+    tt::tt_metal::KernelHandle kernel_0;
+};
+
 class KernelLauncher {
 public:
     tt::tt_metal::IDevice* device_;
@@ -27,12 +36,14 @@ private:
     std::vector<ReusableTtBuffer*> buffers_;
 
     AmulKernelMeta program_amul_;
+    SumAKernelMeta program_suma_;
 
 public:
     KernelLauncher():
         device_(tt::tt_metal::CreateDevice(0))
     {
         init_amul_program();
+        init_suma_program();
     }
 
     ~KernelLauncher() {
@@ -56,7 +67,15 @@ public:
         const Foam::direction cmpt
     );
 
+    void launch_suma(
+        const tt_ldu_meta& lduMeta,
+        tt::tt_metal::Buffer& d_res,
+        tt::tt_metal::Buffer& d_iface_contents,
+        int iface_count
+    );
+
     void init_amul_program();
+    void init_suma_program();
 };
 
 KernelLauncher& require_kernel_launcher();

@@ -116,8 +116,6 @@ void Foam::lduMatrix::Amul
                 this->copy_contents_to_device(tt_meta);
             }
 
-            Foam::Info << "Done ensuring data on TT for " << reinterpret_cast<const void*>(this) << Foam::endl;
-
 
             auto& tt_psi = copy_scalarField_to_device(k, psi);
             auto& tt_Apsi = k.allocateBuffer(sizeof(float)*Apsi.size());
@@ -167,18 +165,19 @@ void Foam::lduMatrix::Amul
         }
 
         #if defined(ENABLE_TT) && defined(VERIFY_TT)
-        if (!matches(*tt_result, Apsi, 1e-10f)) {
-            Foam::Warning << "Amul TT results do not match!" << Foam::endl;
-            Foam::Info << "TT  Result: " << tt_result << Foam::endl;
-            Foam::Info << "CPU Result: " << Apsi << Foam::endl;
-            Foam::Info << "Amul inVec: " << psi << Foam::endl;
-            Foam::Info << "Amul matVec: " << *this << Foam::endl;
-            Foam::Info << "Amul l_addr: " << lduAddr().lowerAddr() << Foam::endl;
-            Foam::Info << "Amul u_addr: " << lduAddr().upperAddr() << Foam::endl;
-            throw new std::runtime_error("Amul TT results do not match!");
-        } else {
-            Foam::Info << "Amul TT success" << Foam::endl;
-        }
+            if (!matches(*tt_result, Apsi, 1e-10f)) {
+                Foam::SeriousError << "Amul TT results do not match!" << Foam::endl;
+                Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
+                Foam::Info << "CPU Result: " << Apsi << Foam::endl;
+                Foam::Info << "Amul inVec: " << psi << Foam::endl;
+                Foam::Info << "Amul matVec: " << *this << Foam::endl;
+                Foam::Info << "Amul l_addr: " << lduAddr().lowerAddr() << Foam::endl;
+                Foam::Info << "Amul u_addr: " << lduAddr().upperAddr() << Foam::endl;
+                throw new std::runtime_error("Amul TT results do not match!");
+            } else {
+                Foam::Info << "Amul TT success" << Foam::endl;
+                memcpy(ApsiPtr, tt_result->begin(), sizeof(scalar)*Apsi.size());
+            }
         #endif
 
         // Update interface interfaces
@@ -307,6 +306,45 @@ void Foam::lduMatrix::sumA
     __daisy_instrumentation_enter(region_id);
 #endif
 
+    scalarField* tt_result;
+
+    #ifdef ENABLE_TT
+        #ifdef VERIFY_TT
+            tt_result = new scalarField(sumA.size(), 0.0);
+        #else
+            tt_result = &sumA;
+        #endif
+
+        auto& k = require_kernel_launcher();
+
+        auto& tt_meta = get_tt_meta(this, ldu_tt_meta_map);
+
+        if (!tt_meta.addrs_on_device_) {
+            this->copy_addrs_to_device(tt_meta);
+        }
+
+        if (!tt_meta.contents_on_device_) {
+            this->copy_contents_to_device(tt_meta);
+        }
+
+        auto& tt_res = k.allocateBuffer(sizeof(float)*sumA.size());
+        auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
+
+        k.launch_suma(
+            tt_meta,
+            *tt_res.buffer,
+            *tt_iface_contents.buffer,
+            iface_count
+        );
+
+        copy_scalarField_from_device(k, tt_res, tt_result);
+
+        k.freeBuffer(tt_res);
+        k.freeBuffer(tt_iface_contents);
+    #endif
+
+    #if !defined(ENABLE_TT) || defined(VERIFY_TT)
+
     scalar* __restrict__ sumAPtr = sumA.begin();
 
     const scalar* __restrict__ diagPtr = diag().begin();
@@ -346,6 +384,24 @@ void Foam::lduMatrix::sumA
             }
         }
     }
+
+    #endif
+
+    #if defined(ENABLE_TT) && defined(VERIFY_TT)
+    if (!matches(*tt_result, sumA, 1e-10f)) {
+            Foam::SeriousError << "sumA TT results do not match!" << Foam::endl;
+            Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
+            Foam::Info << "CPU Result: " << sumA << Foam::endl;
+            Foam::Info << "sumA matVec: " << *this << Foam::endl;
+            Foam::Info << "sumA l_addr: " << lduAddr().lowerAddr() << Foam::endl;
+            Foam::Info << "sumA u_addr: " << lduAddr().upperAddr() << Foam::endl;
+            Foam::Info << "sumA ifaceCoeffs: " << interfaceBouCoeffs << Foam::endl;
+            throw new std::runtime_error("sumA TT results do not match!");
+        } else {
+            Foam::Info << "sumA TT success" << Foam::endl;
+            memcpy(sumAPtr, tt_result->begin(), sizeof(scalar)*sumA.size());
+        }
+    #endif
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
