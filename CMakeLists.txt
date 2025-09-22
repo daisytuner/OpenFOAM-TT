@@ -6,6 +6,9 @@ set(OPENFOAM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/OpenFOAM-dev/src)
 
 option(DAISY_INSTRUMENTATION "Enable Daisy instrumentation" OFF)
 
+option(ENABLE_TT "Enable Manual Tenstorrent offloading" OFF)
+option(VERIFY_TT "Enable verification of Tenstorrent offloading results" ON)
+
 set(OPENFOAM_OS_SPECIFIC_SOURCES
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/signals/sigFpe.C
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/signals/sigSegv.C
@@ -42,6 +45,7 @@ set(TT_SOURCES
   src/tenstorrent/device_transfers.cpp
   src/tenstorrent/kernel_launcher.cpp
   src/tenstorrent/ttLduData.cpp
+  src/lduMatrix/lduMatrix/lduMatrixTenstorrentTransfer.cpp
 )
 
 
@@ -576,18 +580,14 @@ add_library(OpenFOAM SHARED
   src/lduMatrix/lduMatrix/lduMatrixOperations.cpp
   src/lduMatrix/lduMatrix/lduMatrixSmoother.cpp
   src/lduMatrix/lduMatrix/lduMatrixSolver.cpp
-  src/lduMatrix/lduMatrix/lduMatrixTenstorrentTransfer.cpp
   src/lduMatrix/lduMatrix/lduMatrixPreconditioner.cpp
   src/lduMatrix/lduMatrix/lduMatrixUpdateMatrixInterfaces.cpp
   src/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.cpp
 
   ${OPENFOAM_PSTREAM_SOURCES}
-  ${TT_SOURCES}
 )
 
-target_link_directories(OpenFOAM PUBLIC $ENV{TT_METAL_INSTALL_DIR}/lib)
-
-target_link_libraries(OpenFOAM PUBLIC z tt_metal fmt)
+target_link_libraries(OpenFOAM PUBLIC z)
 target_compile_features(OpenFOAM PUBLIC cxx_std_20)
 target_link_options(OpenFOAM PRIVATE)
 
@@ -595,19 +595,8 @@ target_include_directories(OpenFOAM PUBLIC
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/lnInclude
   src/lduMatrix/lduMatrix
   src/lduMatrix/smoothers/GaussSeidel
-  src/tenstorrent
   ${OPENFOAM_SRC_DIR}/OpenFOAM/lnInclude
   ${OPENFOAM_SRC_DIR}/OpenFOAM/include
-  $ENV{TT_METAL_INSTALL_DIR}/include
-  $ENV{TT_METAL_INSTALL_DIR}/include/metalium-thirdparty
-  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/container/include
-  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/assert/include
-  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/config/include
-  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/intrusive/include
-  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/move/include
-  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/core/include
-  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/static_assert/include
-  $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/throw_exception/include
 )
 
 target_compile_options(OpenFOAM PRIVATE
@@ -635,6 +624,39 @@ target_compile_definitions(OpenFOAM PUBLIC
     NoRepository
     SPDLOG_FMT_EXTERNAL
 )
+
+if (ENABLE_TT)
+  message(STATUS "Building with Tenstorrent offloading")
+  target_compile_definitions(OpenFOAM PRIVATE
+    ENABLE_TT
+  )
+  if (VERIFY_TT)
+    message(STATUS "Building with Tenstorrent verification")
+    target_compile_definitions(OpenFOAM PRIVATE
+      VERIFY_TT
+    )
+  endif()
+  target_link_libraries(OpenFOAM PRIVATE
+    tt_metal fmt
+  )
+  target_link_directories(OpenFOAM PUBLIC $ENV{TT_METAL_INSTALL_DIR}/lib)
+  target_sources(OpenFOAM PRIVATE
+    ${TT_SOURCES}
+  )
+  target_include_directories(OpenFOAM PUBLIC
+    src/tenstorrent
+    $ENV{TT_METAL_INSTALL_DIR}/include
+    $ENV{TT_METAL_INSTALL_DIR}/include/metalium-thirdparty
+    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/container/include
+    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/assert/include
+    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/config/include
+    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/intrusive/include
+    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/move/include
+    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/core/include
+    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/static_assert/include
+    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/throw_exception/include
+  )
+endif()
 
 if (DAISY_INSTRUMENTATION)
   message(STATUS "Building with DAISY instrumentation")

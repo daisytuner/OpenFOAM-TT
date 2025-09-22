@@ -19,15 +19,15 @@ ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, con
     return buffer;
 }
 
-void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuffer& buffer, Foam::scalarField& field) {
+void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuffer& buffer, Foam::scalarField* field) {
     auto* device = kernelLauncher.device_;
 
-    size_t bytes = sizeof(float)*field.size();
+    size_t bytes = sizeof(float)*field->size();
     size_t padded_bytes = round_up(bytes, tt_block_size);
 
     float* data = nullptr;
     if (bytes == padded_bytes) {
-        data = field.data();
+        data = field->data();
     } else {
         data = new float[padded_bytes/sizeof(float)];
     }
@@ -41,7 +41,7 @@ void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuff
     );
 
     if (bytes != padded_bytes) {
-        std::memcpy(field.data(), data, bytes);
+        std::memcpy(field->data(), data, bytes);
         delete[] data;
     }
 }

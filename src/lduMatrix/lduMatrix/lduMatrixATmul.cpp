@@ -32,15 +32,18 @@ Description
 #ifdef __DAISY_INSTRUMENTATION
 #include <daisy_rtl/daisy_rtl.h>
 #endif
-#include "kernel_launcher.hpp"
 #include "messageStream.H"
 #include "scalarField.H"
+
+#ifdef ENABLE_TT
+#include "kernel_launcher.hpp"
 #include "ttLduData.hpp"
 #include "device_transfers.hpp"
+#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-const bool useTt = true;
+
 
 bool matches(const Foam::scalarField& a, const Foam::scalarField& b, float tol) {
     if (a.size() != b.size()) {
@@ -92,9 +95,14 @@ void Foam::lduMatrix::Amul
             cmpt
         );
 
-        scalarField tt_result(Apsi.size(), 0.0);
+        scalarField* tt_result;
 
-        if (useTt) {
+        #ifdef ENABLE_TT
+            #ifdef VERIFY_TT
+                tt_result = new scalarField(Apsi.size(), 0.0);
+            #else
+                tt_result = &Apsi;
+            #endif
 
             auto& k = require_kernel_launcher();
 
@@ -129,7 +137,9 @@ void Foam::lduMatrix::Amul
             k.freeBuffer(tt_Apsi);
             k.freeBuffer(tt_psi);
             k.freeBuffer(tt_iface_contents);
-        }
+        #endif
+
+        #if !defined(ENABLE_TT) || defined(VERIFY_TT)
 
         const scalar* const __restrict__ psiPtr = psi.begin();
 
@@ -156,7 +166,8 @@ void Foam::lduMatrix::Amul
             ApsiPtr[lPtr[face]] += upperPtr[face]*psiPtr[uPtr[face]];
         }
 
-        if (!matches(tt_result, Apsi, 1e-5f)) {
+        #if defined(ENABLE_TT) && defined(VERIFY_TT)
+        if (!matches(*tt_result, Apsi, 1e-10f)) {
             Foam::Warning << "Amul TT results do not match!" << Foam::endl;
             Foam::Info << "TT  Result: " << tt_result << Foam::endl;
             Foam::Info << "CPU Result: " << Apsi << Foam::endl;
@@ -168,6 +179,7 @@ void Foam::lduMatrix::Amul
         } else {
             Foam::Info << "Amul TT success" << Foam::endl;
         }
+        #endif
 
         // Update interface interfaces
         updateMatrixInterfaces
@@ -178,6 +190,8 @@ void Foam::lduMatrix::Amul
             Apsi,
             cmpt
         );
+
+        #endif
 
         tpsi.clear();
     

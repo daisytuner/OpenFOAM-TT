@@ -763,8 +763,10 @@ public:
         friend Ostream& operator<<(Ostream&, const InfoProxy<lduMatrix>&);
 
     // Tenstorrent
+    #if ENABLE_TT
         void copy_contents_to_device(tt_ldu_meta& tt_meta) const;
         void copy_addrs_to_device(tt_ldu_meta& tt_meta) const;
+    #endif
 };
 
 
