@@ -27,6 +27,10 @@ License
 #include "IOstreams.H"
 #include "Switch.H"
 
+#ifdef ENABLE_TT
+#include "ttLduData.hpp"
+#endif
+
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
@@ -162,6 +166,10 @@ Foam::lduMatrix::~lduMatrix()
     {
         delete upperPtr_;
     }
+
+    #if ENABLE_TT
+    clear_tt_meta(this, ldu_tt_meta_map);
+    #endif
 }
 
 
