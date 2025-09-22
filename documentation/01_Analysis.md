@@ -28,22 +28,28 @@ perf script -i cavity.tmp.profile -F +srcline --full-source-path > cavitiy.profi
 
 | Function                                             | Self-Time |
 | ---------------------------------------------------- | --------- |
+| Foam::tmp<...>                                       |      >10% |
 | Foam::GaussSeidelSmoother:smooth                     |      9.2% |
-| Foam::lduMatrix::Amul                                |      3.6% |
+| Foam::fv::gaussGrad::gradf                           |       >6% |
+| Foam::lduMatrix::Amul                                |      5.1% |
+| Foam::LimitedScheme::calcLimiter                     |      3.0% |
+| Foam::GAMGAgglomeration::restrictField               |      2.4% |
+| Foam::lduMatrix::negSumDiag                          |      1.8% |
+| Foam::lduMatrix::residual                            |      1.4% |
 | Foam::multiply                                       |      1.6% |
-| Foam::fv::gaussGrad::gradf                           |      1.6% |
 | Foam::surfaceInterpolationScheme<float>::interpolate |      1.2% |
-| Foam::LimitedScheme::calcLimiter                     |      1.1% |
 | Foam::GAMGSolver::scale                              |      1.1% |
 | Foam::fvc::surfaceIntegrate                          |      1.1% |
-| Foam::lduMatrix::residual                            |      1.1% |
 | Foam::tmp::dotInterpolate                            |      0.8% |
-| Foam::lduMatrix::negSumDiag                          |      0.7% |
 | Foam::lduMatrix::solver::normFactor                  |      0.6% |
 | Foam::lduMatrix::sumA                                |      0.6% |
 
-(excluding stdlib)
+```bash
+export LD_LIBRARY_PATH=$PWD/build:$LD_LIBRARY_PATH
+perf record  --quiet --all-user -e cycles:u -g --call-graph dwarf -o cavity.tmp.profile -- ./3rdParty/OpenFOAM-dev/bin/foamRun -case ./3rdParty/OpenFOAM-dev/tutorials/incompressibleFluid/cavity
 
+perf script -i cavity.tmp.profile -F +srcline --full-source-path > cavitiy.profile
+```
 
 ### Instrumentation
 
@@ -77,21 +83,46 @@ __DAISY_PAPI_VERSION=0x07020000 __DAISY_INSTRUMENTATION_EVENTS=$FLOP_EVENTS ./3r
 
 | Function                                           |                      FLOP |                                             Metric |                     Count |
 | -------------------------------------------------- | ------------------------- | -------------------------------------------------- | ------------------------- |
+| Foam::tmp<>innerProduct  |              |                                                    |                           |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:SCALAR_UOPS_RETIRED        |               245.854.270 |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK128_UOPS_RETIRED       |               439.858.238 |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK256_UOPS_RETIRED       |                        |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK512_UOPS_RETIRED       |                        |
 | Foam::GaussSeidelSmoother::smooth                  |             4,849,637,861 |                                                    |                           |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:SCALAR_UOPS_RETIRED        |               236,216,405 |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK128_UOPS_RETIRED       |               576,676,082 |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK256_UOPS_RETIRED       |                         0 |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK512_UOPS_RETIRED       |                       400 |
+| Foam::fv::gaussGrad::gradf  |              |                                                    |                           |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:SCALAR_UOPS_RETIRED        |               63.676.256 |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK128_UOPS_RETIRED       |                |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK256_UOPS_RETIRED       |                        |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK512_UOPS_RETIRED       |                        |
 | Foam::lduMatrix::Amul                              |             3,119,115,198 |                                                    |                           |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:SCALAR_UOPS_RETIRED        |               173,637,830 |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK128_UOPS_RETIRED       |               368,184,031 |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK256_UOPS_RETIRED       |                         0 |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK512_UOPS_RETIRED       |                       160 |
+| Foam::LimitedScheme::calcLimiter  |              |                                                    |                           |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:SCALAR_UOPS_RETIRED        |               110.634.421 |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK128_UOPS_RETIRED       |                |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK256_UOPS_RETIRED       |                        |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK512_UOPS_RETIRED       |                        |
 | Foam::lduMatrix::residual                          |               886,261,526 |                                                    |                           |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:SCALAR_UOPS_RETIRED        |                52,070,406 |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK128_UOPS_RETIRED       |               104,272,610 |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK256_UOPS_RETIRED       |                         0 |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK512_UOPS_RETIRED       |                       320 |
+| Foam::lduMatrix::solver::normFactor  |              |                                                    |                           |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:SCALAR_UOPS_RETIRED        |               9.342.462 |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK128_UOPS_RETIRED       |                |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK256_UOPS_RETIRED       |                        |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK512_UOPS_RETIRED       |                        |
+| Foam::fvc::surfaceIntegrate  |              |                                                    |                           |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:SCALAR_UOPS_RETIRED        |               26.675.188 |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK128_UOPS_RETIRED       |                |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK256_UOPS_RETIRED       |                        |
+|                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK512_UOPS_RETIRED       |                        |
 | Foam::lduMatrix::negSumDiag                        |               817,803,866 |                                                    |                           |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:SCALAR_UOPS_RETIRED        |                24,320,026 |
 |                                                    |                           | RETIRED_FP_OPS_BY_WIDTH:PACK128_UOPS_RETIRED       |                99,177,160 |
