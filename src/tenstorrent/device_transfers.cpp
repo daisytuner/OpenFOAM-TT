@@ -123,7 +123,7 @@ std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
  */
 void copy_ldu_addrs_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
 
-    Foam::Info << "Copying addresses to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
+    // Foam::Info << "Copying addresses to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
 
     auto* device = k.device_;
 
@@ -159,7 +159,7 @@ void copy_ldu_addrs_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam
         }
     }
 
-    Foam::Info << "  Total size " << total_size << ", triang_bytes " << triangBytes << ", interface_meta_bytes " << interfaceMetaBytes << Foam::endl;
+    // Foam::Info << "  Total size " << total_size << ", triang_bytes " << triangBytes << ", interface_meta_bytes " << interfaceMetaBytes << Foam::endl;
 
     tt::tt_metal::EnqueueWriteSubBuffer(
         device->command_queue(0),
@@ -211,7 +211,7 @@ void copy_ldu_addrs_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam
 
 
 void copy_ldu_contents_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
-    Foam::Info << "Copying contents to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
+    // Foam::Info << "Copying contents to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
 
     auto* device = k.device_;
 
