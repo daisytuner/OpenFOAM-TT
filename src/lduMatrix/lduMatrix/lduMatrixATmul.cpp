@@ -106,16 +106,7 @@ void Foam::lduMatrix::Amul
 
             auto& k = require_kernel_launcher();
 
-            auto& tt_meta = get_tt_meta(this, ldu_tt_meta_map);
-
-            if (!tt_meta.addrs_on_device_) {
-                this->copy_addrs_to_device(tt_meta);
-            }
-
-            if (!tt_meta.contents_on_device_) {
-                this->copy_contents_to_device(tt_meta);
-            }
-
+            auto& tt_meta = ensure_lduMat_on_device(k, this);
 
             auto& tt_psi = copy_scalarField_to_device(k, psi);
             auto& tt_Apsi = k.allocateBuffer(sizeof(float)*Apsi.size());
@@ -125,8 +116,8 @@ void Foam::lduMatrix::Amul
                 tt_meta,
                 *tt_psi.buffer,
                 *tt_Apsi.buffer,
-                *tt_iface_contents.buffer,
-                iface_count,
+                // *tt_iface_contents.buffer,
+                // iface_count,
                 cmpt
             );
 
@@ -317,15 +308,7 @@ void Foam::lduMatrix::sumA
 
         auto& k = require_kernel_launcher();
 
-        auto& tt_meta = get_tt_meta(this, ldu_tt_meta_map);
-
-        if (!tt_meta.addrs_on_device_) {
-            this->copy_addrs_to_device(tt_meta);
-        }
-
-        if (!tt_meta.contents_on_device_) {
-            this->copy_contents_to_device(tt_meta);
-        }
+        auto& tt_meta = ensure_lduMat_on_device(k, this);
 
         auto& tt_res = k.allocateBuffer(sizeof(float)*sumA.size());
         auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
@@ -478,6 +461,44 @@ void Foam::lduMatrix::residual
         cmpt
     );
 
+    scalarField* tt_result;
+
+    #ifdef ENABLE_TT
+        #ifdef VERIFY_TT
+            tt_result = new scalarField(rA.size());
+        #else
+            tt_result = &rA;
+        #endif
+
+        auto& k = require_kernel_launcher();
+
+        auto& tt_meta = ensure_lduMat_on_device(k, this);
+
+        auto& tt_psi = copy_scalarField_to_device(k, psi);
+        auto& tt_source = copy_scalarField_to_device(k, source);
+        auto& tt_res = k.allocateBuffer(sizeof(float)*rA.size());
+        // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
+
+        k.launch_residual(
+            tt_meta,
+            *tt_psi.buffer,
+            *tt_source.buffer,
+            *tt_res.buffer,
+            // *tt_iface_contents.buffer,
+            // iface_count,
+            cmpt
+        );
+
+        copy_scalarField_from_device(k, tt_res, tt_result);
+
+        k.freeBuffer(tt_psi);
+        k.freeBuffer(tt_source);
+        k.freeBuffer(tt_res);
+        // k.freeBuffer(tt_iface_contents);
+    #endif
+
+    #if !defined(ENABLE_TT) || defined(VERIFY_TT)
+
     const label nCells = diag().size();
     for (label cell=0; cell<nCells; cell++)
     {
@@ -492,6 +513,26 @@ void Foam::lduMatrix::residual
         rAPtr[uPtr[face]] -= lowerPtr[face]*psiPtr[lPtr[face]];
         rAPtr[lPtr[face]] -= upperPtr[face]*psiPtr[uPtr[face]];
     }
+
+    #endif
+
+    #if defined(ENABLE_TT) && defined(VERIFY_TT)
+    if (!matches(*tt_result, rA, 1e-10f)) {
+            Foam::SeriousError << "residual TT results do not match!" << Foam::endl;
+            Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
+            Foam::Info << "CPU Result: " << rA << Foam::endl;
+            Foam::Info << "residual matVec: " << *this << Foam::endl;
+            Foam::Info << "residual l_addr: " << lduAddr().lowerAddr() << Foam::endl;
+            Foam::Info << "residual u_addr: " << lduAddr().upperAddr() << Foam::endl;
+            Foam::Info << "residual psi: " << psi << Foam::endl;
+            Foam::Info << "residual source: " << source << Foam::endl;
+            // Foam::Info << "residual ifaceCoeffs: " << interfaceBouCoeffs << Foam::endl;
+            throw new std::runtime_error("residual TT results do not match!");
+        } else {
+            Foam::Info << "residual TT success" << Foam::endl;
+            memcpy(rAPtr, tt_result->begin(), sizeof(scalar)*rA.size());
+        }
+    #endif
 
     // Update interface interfaces
     updateMatrixInterfaces

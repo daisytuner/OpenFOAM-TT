@@ -45,7 +45,6 @@ set(TT_SOURCES
   src/tenstorrent/device_transfers.cpp
   src/tenstorrent/kernel_launcher.cpp
   src/tenstorrent/ttLduData.cpp
-  src/lduMatrix/lduMatrix/lduMatrixTenstorrentTransfer.cpp
 )
 
 

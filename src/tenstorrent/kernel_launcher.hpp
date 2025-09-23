@@ -28,6 +28,16 @@ struct SumAKernelMeta {
     tt::tt_metal::KernelHandle kernel_0;
 };
 
+struct ResidualKernelMeta {
+    tt::tt_metal::Program program;
+    int addr_size_alloc = 8192;
+    int data_size_alloc = 8192;
+    int psi_size_alloc = 8192;
+    int source_size_alloc = 8192;
+    int res_size_alloc = 8192;
+    tt::tt_metal::KernelHandle kernel_0;
+};
+
 class KernelLauncher {
 public:
     tt::tt_metal::IDevice* device_;
@@ -37,23 +47,11 @@ private:
 
     AmulKernelMeta program_amul_;
     SumAKernelMeta program_suma_;
+    ResidualKernelMeta program_residual_;
 
 public:
-    KernelLauncher():
-        device_(tt::tt_metal::CreateDevice(0))
-    {
-        init_amul_program();
-        init_suma_program();
-    }
-
-    ~KernelLauncher() {
-        for (auto buffer : buffers_) {
-            delete buffer;
-        }
-        if (device_) {
-            tt::tt_metal::CloseDevice(device_);
-        }
-    }
+    KernelLauncher();
+    ~KernelLauncher();
 
     ReusableTtBuffer& allocateBuffer(size_t size);
     void freeBuffer(ReusableTtBuffer& buffer);
@@ -62,8 +60,8 @@ public:
         const tt_ldu_meta& lduMeta,
         tt::tt_metal::Buffer& d_psi,
         tt::tt_metal::Buffer& d_Apsi,
-        tt::tt_metal::Buffer& d_iface_contents,
-        int iface_count,
+        // tt::tt_metal::Buffer& d_iface_contents,
+        // int iface_count,
         const Foam::direction cmpt
     );
 
@@ -74,8 +72,19 @@ public:
         int iface_count
     );
 
+    void launch_residual(
+        const tt_ldu_meta& lduMeta,
+        tt::tt_metal::Buffer& d_psi,
+        tt::tt_metal::Buffer& d_source,
+        tt::tt_metal::Buffer& d_res,
+        // tt::tt_metal::Buffer& d_iface_contents,
+        // int iface_count,
+        const Foam::direction cmpt
+    );
+
     void init_amul_program();
     void init_suma_program();
+    void init_residual_program();
 };
 
 KernelLauncher& require_kernel_launcher();

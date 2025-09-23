@@ -28,6 +28,8 @@ struct tt_ldu_meta {
 
 extern std::unordered_map<const void*, tt_ldu_meta> ldu_tt_meta_map;
 
+tt_ldu_meta& ensure_lduMat_on_device(class KernelLauncher& k, const class Foam::lduMatrix* lduMat);
+
 template<typename result> result& get_tt_meta(const void* key, std::unordered_map<const void*, result>& map) {
     auto it = map.find(key);
     if (it == map.end()) {
