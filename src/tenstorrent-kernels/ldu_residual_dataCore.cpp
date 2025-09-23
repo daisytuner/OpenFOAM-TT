@@ -24,8 +24,6 @@ void kernel_main() {
     // uint32_t ifaceCoeffsAddr = get_arg_val<uint32_t>(11);
     // uint32_t iface_count = get_arg_val<uint32_t>(12);
 
-
-
     constexpr uint8_t addr_cb = 0;
     constexpr uint8_t mat_cb = 1;
     constexpr uint8_t psi_cb = 2;
@@ -100,6 +98,9 @@ void kernel_main() {
     float* res_ptr = (float*)get_write_ptr(resVec_cb);
 
     noc_async_read_barrier();
+    {
+        DeviceZoneScopedN("resid ready");
+    }
     DPRINT << "All noc reads done" << ENDL();
 
     for (uint32_t i = 0; i < lduCellCount; ++i) {
@@ -109,6 +110,10 @@ void kernel_main() {
         auto res = source - diag * psi;
         res_ptr[i] = res;
         DPRINT << "diag " << i << ": " << source << " - " << diag << " * " << psi << " = " << res << ENDL();
+    }
+
+    {
+        DeviceZoneScopedN("resid diag done");
     }
 
     for (uint32_t i = 0; i < lduSparseCount; ++i) {
@@ -127,6 +132,10 @@ void kernel_main() {
         res = res_ptr[l_idx] - u_val * u_psi;
         res_ptr[l_idx] = res;
         DPRINT << "  " << u_val << " * " << u_psi << " -> " << res << ENDL();
+    }
+
+    {
+        DeviceZoneScopedN("resid iface done");
     }
 
     for (uint32_t i = 0; i < page_count; ++i) {

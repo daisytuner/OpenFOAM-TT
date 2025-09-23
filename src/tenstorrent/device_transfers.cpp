@@ -2,6 +2,7 @@
 #include "kernel_launcher.hpp"
 #include "messageStream.H"
 #include "LduMatrix.H"
+#include "tt-metalium/tt_metal_profiler.hpp"
 
 ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, const Foam::scalarField& field) {
     auto* device = kernelLauncher.device_;
@@ -46,6 +47,8 @@ void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuff
         std::memcpy(field->data(), data, bytes);
         delete[] data;
     }
+
+    tt::tt_metal::detail::DumpDeviceProfileResults(device);
 }
 
 /**

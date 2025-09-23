@@ -80,7 +80,14 @@ void kernel_main() {
     cb_reserve_back(resVec_cb, (page_count+3)/4);
     float* res_ptr = (float*)get_write_ptr(resVec_cb);
 
+    {
+        DeviceZoneScopedN("sumA noc reads");
+    }
+
     noc_async_read_barrier();
+    {
+        DeviceZoneScopedN("sumA ready");
+    }
     DPRINT << "All noc reads done" << ENDL();
 
     // send inVec to interfaces
@@ -89,6 +96,10 @@ void kernel_main() {
         auto diag = diag_ptr[i];
         res_ptr[i] = diag;
         DPRINT << "diag " << i << " " << diag << ENDL();
+    }
+
+    {
+        DeviceZoneScopedN("sumA diag done");
     }
 
     for (uint32_t i = 0; i < lduSparseCount; ++i) {
@@ -103,6 +114,9 @@ void kernel_main() {
         res = res_ptr[l_idx] + u_val;
         res_ptr[l_idx] = res;
         DPRINT << "  " << u_val << " -> " << res << ENDL();
+    }
+    {
+        DeviceZoneScopedN("sumA sparse done");
     }
 
     uint32_t incoming_idx = 0;
@@ -121,9 +135,17 @@ void kernel_main() {
         }
     }
 
+    {
+        DeviceZoneScopedN("sumA compute done");
+    }
+
     for (uint32_t i = 0; i < page_count; ++i) {
         noc_async_write_tile(i, resVec_gen, get_write_ptr(resVec_cb) + page_size * i);
         DPRINT << "Res: " << get_write_ptr(resVec_cb) + page_size * i << ": " << res_ptr[i*page_size/4] << ENDL();
+    }
+
+    {
+        DeviceZoneScopedN("sumA write done");
     }
 
     noc_async_write_barrier();

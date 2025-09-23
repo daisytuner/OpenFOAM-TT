@@ -21,8 +21,6 @@ void kernel_main() {
     // uint32_t ifaceCoeffsAddr = get_arg_val<uint32_t>(10);
     // uint32_t iface_count = get_arg_val<uint32_t>(11);
 
-
-
     constexpr uint8_t addr_cb = 0;
     constexpr uint8_t mat_cb = 1;
     constexpr uint8_t inVec_cb = 2;
@@ -94,6 +92,9 @@ void kernel_main() {
     float* res_ptr = (float*)get_write_ptr(resVec_cb);
 
     noc_async_read_barrier();
+    {
+        DeviceZoneScopedN("AMUL ready");
+    }
     DPRINT << "All noc reads done" << ENDL();
 
     // send inVec to interfaces
@@ -104,6 +105,10 @@ void kernel_main() {
         auto res = diag * in;
         res_ptr[i] = res;
         DPRINT << "diag " << i << " " << diag << "*" << in << "=" << res << ENDL();
+    }
+
+    {
+        DeviceZoneScopedN("AMUL diag done");
     }
 
     for (uint32_t i = 0; i < lduSparseCount; ++i) {
@@ -120,6 +125,10 @@ void kernel_main() {
         res = res_ptr[l_idx] + upper_val;
         res_ptr[l_idx] = res;
         DPRINT << "  " << u_val << " -> " << res << ENDL();
+    }
+
+    {
+        DeviceZoneScopedN("AMUL sparse done");
     }
 
     // uint32_t incoming_idx = 0;
