@@ -91,7 +91,12 @@ void KernelLauncher::init_amul_program() {
         .set_page_size(4, 4096);
     auto iface_cb = tt::tt_metal::CreateCircularBuffer(program_amul_.program, one_core, iface_cb_config);
 
-    auto kernel_naive = tt::tt_metal::CreateKernel(program_amul_.program, (kernel_dir_ / "ldu_Amul_dataCore.cpp").string(), one_core, tt::tt_metal::ReaderDataMovementConfig({ .compile_args = {} }));
+    auto kernel_naive = tt::tt_metal::CreateKernel(
+        program_amul_.program,
+        (kernel_dir_ / "ldu_Amul_dataCore.cpp").string(),
+        one_core,
+        tt::tt_metal::ReaderDataMovementConfig()
+    );
     program_amul_.kernel_0 = kernel_naive;
 
 }
@@ -153,7 +158,12 @@ void KernelLauncher::init_suma_program() {
         .set_page_size(3, 4096);
     auto iface_cb = tt::tt_metal::CreateCircularBuffer(program_suma_.program, one_core, iface_cb_config);
 
-    auto kernel_naive = tt::tt_metal::CreateKernel(program_suma_.program, (kernel_dir_ / "ldu_sumA_dataCore.cpp").string(), one_core, tt::tt_metal::ReaderDataMovementConfig({ .compile_args = {} }));
+    auto kernel_naive = tt::tt_metal::CreateKernel(
+        program_suma_.program,
+        (kernel_dir_ / "ldu_sumA_dataCore.cpp").string(),
+        one_core,
+        tt::tt_metal::ReaderDataMovementConfig()
+    );
     program_suma_.kernel_0 = kernel_naive;
 }
 
@@ -214,7 +224,12 @@ void KernelLauncher::init_residual_program() {
     auto res_cb = tt::tt_metal::CreateCircularBuffer(program_residual_.program, one_core, res_cb_config);
 
 
-    auto kernel_naive = tt::tt_metal::CreateKernel(program_residual_.program, (kernel_dir_ / "ldu_residual_dataCore.cpp").string(), one_core, tt::tt_metal::ReaderDataMovementConfig({ .compile_args = {} }));
+    auto kernel_naive = tt::tt_metal::CreateKernel(
+        program_residual_.program,
+        (kernel_dir_ / "ldu_residual_dataCore.cpp").string(),
+        one_core,
+        tt::tt_metal::ReaderDataMovementConfig()
+    );
     program_residual_.kernel_0 = kernel_naive;
 }
 
@@ -277,7 +292,7 @@ void KernelLauncher::init_sumDiag_program() {
             p.program,
             (kernel_dir_ / "ldu_sumDiag_dataCore.cpp").string(),
             one_core,
-            tt::tt_metal::ReaderDataMovementConfig({ .compile_args = {neg_mode} })
+            tt::tt_metal::ReaderDataMovementConfig({neg_mode})
         );
     };
 

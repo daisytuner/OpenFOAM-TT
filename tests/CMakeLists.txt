@@ -14,7 +14,7 @@ set(TEST_FILES
 # Now simply link against gtest or gtest_main as needed. Eg
 add_executable(OpenFOAM_test ${TEST_FILES})
 target_include_directories(OpenFOAM_test PRIVATE ./)
-target_link_libraries(OpenFOAM_test gtest_main OpenFOAM)
+target_link_libraries(OpenFOAM_test gtest_main OpenFOAM::OpenFOAM)
 
 add_test(NAME OpenFOAM_test_test COMMAND OpenFOAM_test)
 
