@@ -38,9 +38,18 @@ struct ResidualKernelMeta {
     tt::tt_metal::KernelHandle kernel_0;
 };
 
+struct LduMatInplaceKernelMeta {
+    tt::tt_metal::Program program;
+    int addr_size_alloc = 8192;
+    int data_size_alloc = 8192;
+    tt::tt_metal::KernelHandle kernel_0;
+};
+
 class KernelLauncher {
 public:
     tt::tt_metal::IDevice* device_;
+
+    std::filesystem::path kernel_dir_;
 
 private:
     std::vector<ReusableTtBuffer*> buffers_;
@@ -48,6 +57,13 @@ private:
     AmulKernelMeta program_amul_;
     SumAKernelMeta program_suma_;
     ResidualKernelMeta program_residual_;
+    LduMatInplaceKernelMeta program_posSumDiag_;
+    LduMatInplaceKernelMeta program_negSumDiag_;
+
+    void launch_sumDiag(
+        const tt_ldu_meta& lduMeta,
+        LduMatInplaceKernelMeta& program
+    );
 
 public:
     KernelLauncher();
@@ -82,9 +98,18 @@ public:
         const Foam::direction cmpt
     );
 
+    void launch_sumDiag(
+        const tt_ldu_meta& lduMeta
+    );
+
+    void launch_negSumDiag(
+        const tt_ldu_meta& lduMeta
+    );
+
     void init_amul_program();
     void init_suma_program();
     void init_residual_program();
+    void init_sumDiag_program();
 };
 
 KernelLauncher& require_kernel_launcher();

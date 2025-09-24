@@ -582,6 +582,7 @@ add_library(OpenFOAM SHARED
   src/lduMatrix/lduMatrix/lduMatrixPreconditioner.cpp
   src/lduMatrix/lduMatrix/lduMatrixUpdateMatrixInterfaces.cpp
   src/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.cpp
+  src/tenstorrent/result_matchers.cpp
 
   ${OPENFOAM_PSTREAM_SOURCES}
 )
@@ -594,6 +595,7 @@ target_include_directories(OpenFOAM PUBLIC
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/lnInclude
   src/lduMatrix/lduMatrix
   src/lduMatrix/smoothers/GaussSeidel
+  stc/tenstorrent
   ${OPENFOAM_SRC_DIR}/OpenFOAM/lnInclude
   ${OPENFOAM_SRC_DIR}/OpenFOAM/include
 )

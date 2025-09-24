@@ -9,7 +9,19 @@
 
 ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, const Foam::scalarField& field);
 
-void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuffer& buffer, Foam::scalarField* field);
+void copy_scalarField_from_device(
+    KernelLauncher& kernelLauncher,
+    std::variant<std::reference_wrapper<tt::tt_metal::Buffer>, std::shared_ptr<tt::tt_metal::Buffer>> buffer,
+    Foam::scalarField* field,
+    uint32_t buf_offset = 0
+);
+
+void copy_scalarField_from_device(
+    KernelLauncher& kernelLauncher,
+    ReusableTtBuffer& buffer,
+    Foam::scalarField* field,
+    uint32_t buf_offset = 0
+);
 
 std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
     KernelLauncher& kernelLauncher,

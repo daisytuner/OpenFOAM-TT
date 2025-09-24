@@ -34,6 +34,7 @@ Description
 #endif
 #include "messageStream.H"
 #include "scalarField.H"
+#include "result_matchers.hpp"
 
 #ifdef ENABLE_TT
 #include "kernel_launcher.hpp"
@@ -42,20 +43,6 @@ Description
 #endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-
-
-bool matches(const Foam::scalarField& a, const Foam::scalarField& b, float tol) {
-    if (a.size() != b.size()) {
-        return false;
-    }
-    for (int i = 0; i < a.size(); ++i) {
-        if (std::abs(a[i] - b[i]) > tol) {
-            return false;
-        }
-    }
-    return true;
-}
 
 void Foam::lduMatrix::Amul
 (
@@ -156,7 +143,7 @@ void Foam::lduMatrix::Amul
         }
 
         #if defined(ENABLE_TT) && defined(VERIFY_TT)
-            if (!matches(*tt_result, Apsi, 1e-10f)) {
+            if (!matches(*tt_result, Apsi)) {
                 Foam::SeriousError << "Amul TT results do not match!" << Foam::endl;
                 Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
                 Foam::Info << "CPU Result: " << Apsi << Foam::endl;
@@ -371,7 +358,7 @@ void Foam::lduMatrix::sumA
     #endif
 
     #if defined(ENABLE_TT) && defined(VERIFY_TT)
-    if (!matches(*tt_result, sumA, 1e-10f)) {
+    if (!matches(*tt_result, sumA)) {
             Foam::SeriousError << "sumA TT results do not match!" << Foam::endl;
             Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
             Foam::Info << "CPU Result: " << sumA << Foam::endl;
@@ -517,7 +504,7 @@ void Foam::lduMatrix::residual
     #endif
 
     #if defined(ENABLE_TT) && defined(VERIFY_TT)
-    if (!matches(*tt_result, rA, 1e-10f)) {
+    if (!matches(*tt_result, rA)) {
             Foam::SeriousError << "residual TT results do not match!" << Foam::endl;
             Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
             Foam::Info << "CPU Result: " << rA << Foam::endl;

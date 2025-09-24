@@ -1,8 +1,10 @@
 #include "kernel_launcher.hpp"
+#include "OSspecific.H"
 #include "ReusableTtBuffer.hpp"
 #include "tt-metalium/buffer.hpp"
 #include "ttLduData.hpp"
 #include <cassert>
+#include <cstdlib>
 #include <tt-metalium/host_api.hpp>
 
 static KernelLauncher* kernelLauncher = nullptr;
@@ -17,9 +19,18 @@ KernelLauncher& require_kernel_launcher() {
 KernelLauncher::KernelLauncher():
         device_(tt::tt_metal::CreateDevice(0))
 {
+    auto e = std::getenv("TT_FOAM_KERNEL_DIR");
+    if (e) {
+        kernel_dir_ = e;
+    } else {
+        kernel_dir_ = Foam::cwd() / "tenstorrent-kernels";
+    }
+    Foam::Info() << "expecting TT kernels in " << kernel_dir_ << Foam::endl;
+
     init_amul_program();
     init_suma_program();
     init_residual_program();
+    init_sumDiag_program();
 }
 
 KernelLauncher::~KernelLauncher() {
@@ -80,7 +91,7 @@ void KernelLauncher::init_amul_program() {
         .set_page_size(4, 4096);
     auto iface_cb = tt::tt_metal::CreateCircularBuffer(program_amul_.program, one_core, iface_cb_config);
 
-    auto kernel_naive = tt::tt_metal::CreateKernel(program_amul_.program, "/home/ramon/git/OpenFOAM-TT/src/tenstorrent-kernels/ldu_Amul_dataCore.cpp", one_core, tt::tt_metal::ReaderDataMovementConfig({ .compile_args = {} }));
+    auto kernel_naive = tt::tt_metal::CreateKernel(program_amul_.program, (kernel_dir_ / "ldu_Amul_dataCore.cpp").string(), one_core, tt::tt_metal::ReaderDataMovementConfig({ .compile_args = {} }));
     program_amul_.kernel_0 = kernel_naive;
 
 }
@@ -142,7 +153,7 @@ void KernelLauncher::init_suma_program() {
         .set_page_size(3, 4096);
     auto iface_cb = tt::tt_metal::CreateCircularBuffer(program_suma_.program, one_core, iface_cb_config);
 
-    auto kernel_naive = tt::tt_metal::CreateKernel(program_suma_.program, "/home/ramon/git/OpenFOAM-TT/src/tenstorrent-kernels/ldu_sumA_dataCore.cpp", one_core, tt::tt_metal::ReaderDataMovementConfig({ .compile_args = {} }));
+    auto kernel_naive = tt::tt_metal::CreateKernel(program_suma_.program, (kernel_dir_ / "ldu_sumA_dataCore.cpp").string(), one_core, tt::tt_metal::ReaderDataMovementConfig({ .compile_args = {} }));
     program_suma_.kernel_0 = kernel_naive;
 }
 
@@ -203,7 +214,7 @@ void KernelLauncher::init_residual_program() {
     auto res_cb = tt::tt_metal::CreateCircularBuffer(program_residual_.program, one_core, res_cb_config);
 
 
-    auto kernel_naive = tt::tt_metal::CreateKernel(program_residual_.program, "/home/ramon/git/OpenFOAM-TT/src/tenstorrent-kernels/ldu_residual_dataCore.cpp", one_core, tt::tt_metal::ReaderDataMovementConfig({ .compile_args = {} }));
+    auto kernel_naive = tt::tt_metal::CreateKernel(program_residual_.program, (kernel_dir_ / "ldu_residual_dataCore.cpp").string(), one_core, tt::tt_metal::ReaderDataMovementConfig({ .compile_args = {} }));
     program_residual_.kernel_0 = kernel_naive;
 }
 
@@ -247,4 +258,70 @@ void KernelLauncher::launch_residual(
     
     tt::tt_metal::EnqueueProgram(device_->command_queue(0), program_residual_.program, false);
 
+}
+
+void KernelLauncher::init_sumDiag_program() {
+
+    tt::tt_metal::CoreCoord all_cores = device_->compute_with_storage_grid_size();
+    tt::tt_metal::CoreCoord one_core = {3, 3};
+
+    auto create_sumDiag_kernel = [&](LduMatInplaceKernelMeta& p, uint32_t neg_mode) {
+        auto addr_cb_config = tt::tt_metal::CircularBufferConfig(p.addr_size_alloc, {{0, tt::DataFormat::UInt32}})
+            .set_page_size(0, 4096);
+        auto addr_cb = tt::tt_metal::CreateCircularBuffer(p.program, one_core, addr_cb_config);
+        auto data_cb_config = tt::tt_metal::CircularBufferConfig(p.data_size_alloc, {{1, tt::DataFormat::UInt32}})
+            .set_page_size(1, 4096);
+        auto data_cb = tt::tt_metal::CreateCircularBuffer(p.program, one_core, data_cb_config);
+
+        p.kernel_0 = tt::tt_metal::CreateKernel(
+            p.program,
+            (kernel_dir_ / "ldu_sumDiag_dataCore.cpp").string(),
+            one_core,
+            tt::tt_metal::ReaderDataMovementConfig({ .compile_args = {neg_mode} })
+        );
+    };
+
+    create_sumDiag_kernel(program_posSumDiag_, 0);
+    create_sumDiag_kernel(program_negSumDiag_,1);
+}
+
+void KernelLauncher::launch_sumDiag(
+    const tt_ldu_meta& lduMeta,
+    LduMatInplaceKernelMeta& program
+) {
+
+    assert(lduMeta.d_data_->size() <= static_cast<uint32_t>(program.data_size_alloc));
+    assert(lduMeta.d_addrs_->size() <= static_cast<uint32_t>(program.addr_size_alloc));
+    
+    tt::tt_metal::SetRuntimeArgs(
+        program.program,
+        program.kernel_0,
+        tt::tt_metal::CoreCoord {3, 3},
+        {
+            lduMeta.d_addrs_->address(),
+            lduMeta.upper_addrs_start_,
+            lduMeta.iface_map_start_,
+            lduMeta.d_data_->address(),
+            lduMeta.cell_count,
+            lduMeta.lower_contents_start_,
+            lduMeta.sparse_count,
+            lduMeta.upper_contents_start_,
+        }
+    );
+
+    
+    tt::tt_metal::EnqueueProgram(device_->command_queue(0), program.program, false);
+
+}
+
+void KernelLauncher::launch_sumDiag(
+    const tt_ldu_meta& lduMeta
+) {
+    launch_sumDiag(lduMeta, program_posSumDiag_);
+}
+
+void KernelLauncher::launch_negSumDiag(
+    const tt_ldu_meta& lduMeta
+) {
+    launch_sumDiag(lduMeta, program_negSumDiag_);
 }

@@ -22,7 +22,12 @@ ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, con
     return buffer;
 }
 
-void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuffer& buffer, Foam::scalarField* field) {
+void copy_scalarField_from_device(
+    KernelLauncher& kernelLauncher,
+    std::variant<std::reference_wrapper<tt::tt_metal::Buffer>, std::shared_ptr<tt::tt_metal::Buffer>> buffer,
+    Foam::scalarField* field,
+    uint32_t buf_offset
+) {
     auto* device = kernelLauncher.device_;
 
     size_t bytes = sizeof(float)*field->size();
@@ -37,9 +42,9 @@ void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuff
 
     tt::tt_metal::EnqueueReadSubBuffer(
         device->command_queue(0),
-        buffer.buffer,
+        buffer,
         data,
-        {0, padded_bytes},
+        {buf_offset, padded_bytes},
         true
     );
 
@@ -49,6 +54,10 @@ void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuff
     }
 
     tt::tt_metal::detail::DumpDeviceProfileResults(device);
+}
+
+void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuffer& buffer, Foam::scalarField* field, uint32_t buf_offset) {
+    copy_scalarField_from_device(kernelLauncher, buffer.buffer, field, buf_offset);
 }
 
 /**

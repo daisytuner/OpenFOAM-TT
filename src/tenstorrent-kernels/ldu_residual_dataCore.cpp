@@ -140,7 +140,6 @@ void kernel_main() {
 
     for (uint32_t i = 0; i < page_count; ++i) {
         noc_async_write_tile(i, resVec_gen, get_write_ptr(resVec_cb) + page_size * i);
-        DPRINT << "Res: " << get_write_ptr(resVec_cb) + page_size * i << ": " << res_ptr[i*page_size/4] << ENDL();
     }
 
     noc_async_write_barrier();
