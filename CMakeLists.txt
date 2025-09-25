@@ -48,8 +48,37 @@ set(TT_SOURCES
   src/tenstorrent/ttLduData.cpp
 )
 
+set(OPENFOAM_COMPILE_OPTIONS
+  -Wall
+  -Wextra
+  -Wold-style-cast
+  -Wnon-virtual-dtor
+  -Wno-unused-parameter
+  -Wno-invalid-offsetof
+  -Wno-attributes
+  -ftemplate-depth-100
+  -fPIC
+)
 
-add_library(OpenFOAM SHARED
+set(OPENFOAM_COMPILE_DEFINITIONS
+  linux64
+  WM_SP
+  WM_ARCH_OPTION=64
+  WM_LABEL_SIZE=32
+  NoRepository
+  SPDLOG_FMT_EXTERNAL
+)
+
+set(OPENFOAM_HEADERS
+  ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/lnInclude
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/smoothers/GaussSeidel
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/util
+  ${OPENFOAM_SRC_DIR}/OpenFOAM/lnInclude
+  ${OPENFOAM_SRC_DIR}/OpenFOAM/include
+)
+
+set(OPENFOAM_SOURCES
   ${OPENFOAM_OS_SPECIFIC_SOURCES}
   ${CMAKE_BINARY_DIR}/global.Cver.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/global/argList/argList.C
@@ -575,18 +604,22 @@ add_library(OpenFOAM SHARED
   ${OPENFOAM_SRC_DIR}/OpenFOAM/geometry/splines/BSpline/BSpline.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/geometry/splines/CatmullRomSpline/CatmullRomSpline.C
 
-  src/lduMatrix/lduMatrix/lduMatrix.cpp
-  src/lduMatrix/lduMatrix/lduMatrixATmul.cpp
-  src/lduMatrix/lduMatrix/lduMatrixOperations.cpp
-  src/lduMatrix/lduMatrix/lduMatrixSmoother.cpp
-  src/lduMatrix/lduMatrix/lduMatrixSolver.cpp
-  src/lduMatrix/lduMatrix/lduMatrixPreconditioner.cpp
-  src/lduMatrix/lduMatrix/lduMatrixUpdateMatrixInterfaces.cpp
-  src/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.cpp
-  
-  src/util/result_matchers.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrix.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixATmul.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixOperations.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixSmoother.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixSolver.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixPreconditioner.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixUpdateMatrixInterfaces.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.cpp
+
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/util/result_matchers.cpp
 
   ${OPENFOAM_PSTREAM_SOURCES}
+)
+
+add_library(OpenFOAM SHARED
+  ${OPENFOAM_SOURCES}
 )
 
 add_library(OpenFOAM::OpenFOAM ALIAS OpenFOAM)
@@ -596,25 +629,11 @@ target_compile_features(OpenFOAM PUBLIC cxx_std_20)
 target_link_options(OpenFOAM PRIVATE)
 
 target_include_directories(OpenFOAM PUBLIC
-  ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/lnInclude
-  src/lduMatrix/lduMatrix
-  src/lduMatrix/smoothers/GaussSeidel
-  src/util
-  ${OPENFOAM_SRC_DIR}/OpenFOAM/lnInclude
-  ${OPENFOAM_SRC_DIR}/OpenFOAM/include
+  ${OPENFOAM_HEADERS}
 )
 
 target_compile_options(OpenFOAM PRIVATE
-  -Wall
-  -Wextra
-  -Wold-style-cast
-  -Wnon-virtual-dtor
-  -Wno-unused-parameter
-  -Wno-invalid-offsetof
-  -Wno-attributes
-  -ftemplate-depth-100
-  -fPIC
-  # -fsanitize=address
+  ${OPENFOAM_COMPILE_OPTIONS}
 )
 
 target_compile_definitions(OpenFOAM PRIVATE
@@ -622,12 +641,7 @@ target_compile_definitions(OpenFOAM PRIVATE
 )
 
 target_compile_definitions(OpenFOAM PUBLIC
-    linux64
-    WM_SP
-    WM_ARCH_OPTION=64
-    WM_LABEL_SIZE=32
-    NoRepository
-    SPDLOG_FMT_EXTERNAL
+    ${OPENFOAM_COMPILE_DEFINITIONS}
 )
 
 if (ENABLE_TT)
