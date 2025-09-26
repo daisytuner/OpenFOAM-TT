@@ -45,6 +45,13 @@ struct LduMatInplaceKernelMeta {
     tt::tt_metal::KernelHandle kernel_0;
 };
 
+struct LduMatOpAssignkernelMeta {
+    tt::tt_metal::Program program;
+    int dest_data_size_alloc = 8192;
+    int a_data_size_alloc = 8192;
+    tt::tt_metal::KernelHandle kernel_0;
+};
+
 class KernelLauncher {
 public:
     tt::tt_metal::IDevice* device_;
@@ -59,11 +66,27 @@ private:
     ResidualKernelMeta program_residual_;
     LduMatInplaceKernelMeta program_posSumDiag_;
     LduMatInplaceKernelMeta program_negSumDiag_;
+    LduMatInplaceKernelMeta program_negate_;
+    LduMatOpAssignkernelMeta program_matAddAssign_;
+    LduMatOpAssignkernelMeta program_matSubAssign_;
 
     void launch_sumDiag(
         const tt_ldu_meta& lduMeta,
         LduMatInplaceKernelMeta& program
     );
+
+    void launch_matOpAssign(
+        tt_ldu_meta& lduDestMeta,
+        const tt_ldu_meta& lduAMeta,
+        LduMatOpAssignkernelMeta& program
+    );
+
+    void init_amul_program();
+    void init_suma_program();
+    void init_residual_program();
+    void init_sumDiag_program();
+    void init_negate_program();
+    void init_matOpAssign_program();
 
 public:
     KernelLauncher();
@@ -84,7 +107,7 @@ public:
     void launch_suma(
         const tt_ldu_meta& lduMeta,
         tt::tt_metal::Buffer& d_res,
-        tt::tt_metal::Buffer& d_iface_contents,
+        tt::tt_metal::Buffer* d_iface_contents,
         int iface_count
     );
 
@@ -106,10 +129,19 @@ public:
         const tt_ldu_meta& lduMeta
     );
 
-    void init_amul_program();
-    void init_suma_program();
-    void init_residual_program();
-    void init_sumDiag_program();
+    void launch_negate(
+        const tt_ldu_meta& lduMeta
+    );
+
+    void launch_matAddAssign(
+        tt_ldu_meta& lduDestMeta,
+        const tt_ldu_meta& lduAMeta
+    );
+
+    void launch_matSubAssign(
+        tt_ldu_meta& lduDestMeta,
+        const tt_ldu_meta& lduAMeta
+    );
 };
 
 KernelLauncher& require_kernel_launcher();

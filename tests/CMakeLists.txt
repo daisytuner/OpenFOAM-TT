@@ -11,6 +11,11 @@ set(TEST_FILES
     test.C
 )
 
+option(ENABLE_TT "Enable Tenstorrent kernel tests" OFF)
+if(ENABLE_TT)
+  list(APPEND TEST_FILES tenstorrent_kernel_tests.cpp)
+endif()
+
 # Now simply link against gtest or gtest_main as needed. Eg
 add_executable(OpenFOAM_test ${TEST_FILES})
 target_include_directories(OpenFOAM_test PRIVATE ./)

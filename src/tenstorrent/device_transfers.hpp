@@ -29,6 +29,15 @@ std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
     const Foam::lduInterfaceFieldPtrsList& interfaces
 );
 
-void copy_ldu_addrs_to_device(KernelLauncher& KernelLauncher,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat);
+void copy_ldu_addrs_to_device(
+    KernelLauncher& kernelLauncher,
+    tt_ldu_meta& tt_meta,
+    const Foam::lduMatrix* lduMat
+);
 
-void copy_ldu_contents_to_device(KernelLauncher& KernelLauncher,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat);
+void copy_ldu_contents_to_device(
+    KernelLauncher& kernelLauncher,
+    tt_ldu_meta& tt_meta,
+    const Foam::lduMatrix* lduMat,
+    bool reserve_all = false
+);

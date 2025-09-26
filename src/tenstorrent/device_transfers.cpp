@@ -1,8 +1,9 @@
 #include "device_transfers.hpp"
 #include "kernel_launcher.hpp"
 #include "messageStream.H"
-#include "LduMatrix.H"
+#include "lduMatrix.H"
 #include "tt-metalium/tt_metal_profiler.hpp"
+#include <cstddef>
 
 ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, const Foam::scalarField& field) {
     auto* device = kernelLauncher.device_;
@@ -90,33 +91,37 @@ std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
         }
     }
 
-    auto& buffer = kernelLauncher.allocateBuffer(total_size);
+    if (used_iface_count) {
 
-    std::vector<uint32_t> interface_data(total_size / sizeof(uint32_t));
-    size_t idx = 0;
-    for (int i = 0; i < iface_count; ++i) {
-        if (interfaces.set(i)) {
-            interface_data[idx++] = i;
-            auto num_coeffs = interfaceCoeffs[i].size();
-            interface_data[idx++] = num_coeffs;
-        
-            for (int j = 0; j < interfaceCoeffs[i].size(); ++j) {
-                interface_data[idx++] = reinterpret_cast<const uint32_t&>(interfaceCoeffs[i][j]);
+        auto& buffer = kernelLauncher.allocateBuffer(total_size);
+
+        std::vector<uint32_t> interface_data(total_size / sizeof(uint32_t));
+        size_t idx = 0;
+        for (int i = 0; i < iface_count; ++i) {
+            if (interfaces.set(i)) {
+                interface_data[idx++] = i;
+                auto num_coeffs = interfaceCoeffs[i].size();
+                interface_data[idx++] = num_coeffs;
+            
+                for (int j = 0; j < interfaceCoeffs[i].size(); ++j) {
+                    interface_data[idx++] = reinterpret_cast<const uint32_t&>(interfaceCoeffs[i][j]);
+                }
             }
         }
+
+        tt::tt_metal::EnqueueWriteSubBuffer(
+            device->command_queue(0),
+            buffer.buffer,
+            interface_data.data(),
+            {0, total_size},
+            false
+        );
+
+        return {buffer, used_iface_count};
+
+    } else {
+        return {ReusableTtBuffer::unusedPlaceholder(), 0};
     }
-
-    tt::tt_metal::EnqueueWriteSubBuffer(
-        device->command_queue(0),
-        buffer.buffer,
-        interface_data.data(),
-        {0, total_size},
-        false
-    );
-
-    return {buffer, used_iface_count};
-
-
 }
 
 /**
@@ -139,7 +144,7 @@ void copy_ldu_addrs_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam
 
     auto* device = k.device_;
 
-    tt_meta.sparse_count = lduMat->lower().size();
+    tt_meta.sparse_count = lduMat->lduAddr().lowerAddr().size();
     auto triangBytes = tt::round_up(sizeof(float)*tt_meta.sparse_count, tt_block_size);
     size_t interfaceBytesSum = 0;
     auto iface_count = lduMat->mesh().interfaces().size();
@@ -222,18 +227,40 @@ void copy_ldu_addrs_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam
 }
 
 
-void copy_ldu_contents_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
+void copy_ldu_contents_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat, bool reserve_all) {
     // Foam::Info << "Copying contents to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
 
     auto* device = k.device_;
 
-    tt_meta.cell_count = lduMat->diag().size();
+    bool hasDiag = lduMat->hasDiag();
+    tt_meta.diag_zero = !hasDiag;
+    tt_meta.cell_count = lduMat->lduAddr().size();
     auto diagBytes = tt::round_up(sizeof(float)*tt_meta.cell_count, tt_block_size);
-    auto triangBytes = tt::round_up(sizeof(float)*(lduMat->lower().size()), tt_block_size);
+    size_t triang_bytes = tt::round_up(sizeof(float)*(lduMat->lduAddr().lowerAddr().size()), tt_block_size);
+    size_t lower_bytes, upper_bytes;
+    bool hasLower = lduMat->hasLower();
+    bool hasUpper = lduMat->hasUpper();
+    tt_meta.triang_zero = !(hasLower || hasUpper);
+    if ((hasLower && !hasUpper) || (!hasLower && hasUpper) || (!hasLower && !hasUpper)) {
+        tt_meta.lower_contains_also_upper = true; // do this irrespective of address layout. I.e. if this flag is set, upper data needs to be read from lower. Or, without reserve_all it can also be read from upper
+    } else {
+        tt_meta.lower_contains_also_upper = false;
+    }
 
-    size_t total_size = diagBytes + triangBytes + triangBytes;
+    if (hasLower || reserve_all) {
+        lower_bytes = triang_bytes;
+    } else {
+        lower_bytes = 0;
+    }
+    if (hasUpper || reserve_all) {
+        upper_bytes = triang_bytes;
+    } else {
+        upper_bytes = 0;
+    }
 
-    if (!tt_meta.d_data_) {
+    size_t total_size = diagBytes + lower_bytes + upper_bytes;
+
+    if (!tt_meta.d_data_ || tt_meta.d_data_->size() < total_size) { // if we need more size for reservation, we may need to reallocate
         tt_meta.d_data_ = tt::tt_metal::CreateBuffer({
             .device = device,
             .size = total_size,
@@ -242,29 +269,40 @@ void copy_ldu_contents_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const F
         });
     }
 
-    tt::tt_metal::EnqueueWriteSubBuffer(
-        device->command_queue(0),
-        tt_meta.d_data_,
-        lduMat->diag().cdata(),
-        {0, diagBytes},
-        false
-    );
-    tt_meta.lower_contents_start_ = diagBytes/4;
-    tt::tt_metal::EnqueueWriteSubBuffer(
-        device->command_queue(0),
-        tt_meta.d_data_,
-        lduMat->lower().cdata(),
-        {tt_meta.lower_contents_start_*4, triangBytes},
-        false
-    );
-    tt_meta.upper_contents_start_ = diagBytes/4 + triangBytes/4;
-    tt::tt_metal::EnqueueWriteSubBuffer(
-        device->command_queue(0),
-        tt_meta.d_data_,
-        lduMat->upper().cdata(),
-        {tt_meta.upper_contents_start_*4, triangBytes},
-        false
-    );
+    if (hasDiag) {
+        tt::tt_metal::EnqueueWriteSubBuffer(
+            device->command_queue(0),
+            tt_meta.d_data_,
+            lduMat->diag().cdata(),
+            {0, diagBytes},
+            false
+        );
+    }
+    tt_meta.lower_contents_start_ = diagBytes/4; // we always reserve diag
+    if (hasLower) {
+        tt::tt_metal::EnqueueWriteSubBuffer(
+            device->command_queue(0),
+            tt_meta.d_data_,
+            lduMat->lower().cdata(),
+            {tt_meta.lower_contents_start_*4, lower_bytes},
+            false
+        );
+    }
+    if (hasUpper || reserve_all) {
+        tt_meta.upper_contents_start_ = tt_meta.lower_contents_start_ + lower_bytes/4;
+    } else {
+        tt_meta.upper_contents_start_ = tt_meta.lower_contents_start_; // reuse the lower part
+    }
+    if (hasUpper) { // transfer
+        uint32_t upper_write_offset = hasLower? tt_meta.upper_contents_start_*4 : tt_meta.lower_contents_start_*4;
+        tt::tt_metal::EnqueueWriteSubBuffer(
+            device->command_queue(0),
+            tt_meta.d_data_,
+            lduMat->upper().cdata(),
+            {upper_write_offset, upper_bytes},
+            false
+        );
+    }
     
     
 

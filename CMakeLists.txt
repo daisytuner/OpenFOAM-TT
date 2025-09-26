@@ -628,6 +628,7 @@ target_compile_definitions(OpenFOAM PUBLIC
     WM_LABEL_SIZE=32
     NoRepository
     SPDLOG_FMT_EXTERNAL
+#    TRACY_ENABLE
 )
 
 if (ENABLE_TT)
