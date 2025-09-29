@@ -6,6 +6,25 @@
 #include <tracy/Tracy.hpp>
 #endif
 
+Foam::Ostream& operator<<(Foam::Ostream& os, const tt_ldu_meta& tt_meta) {
+    os  << "tt_ldu_meta: " << Foam::endl
+        << " cell_count: " << tt_meta.cell_count << Foam::endl
+        << " sparse_count: " << tt_meta.sparse_count << Foam::endl
+        << " addrs_on_device: " << tt_meta.addrs_on_device_ << Foam::endl
+        << " upper_addr_start: " << tt_meta.upper_addrs_start_ << Foam::endl
+        << " iface_map_start: " << tt_meta.iface_map_start_ << Foam::endl
+        << " contents_on_device: " << tt_meta.contents_on_device_ << Foam::endl
+        << " lower_contents_start: " << tt_meta.lower_contents_start_ << Foam::endl
+        << " upper_contents_start: " << tt_meta.upper_contents_start_ << Foam::endl
+        << " diag_zero: " << tt_meta.diag_zero << Foam::endl
+        << " triang_zero: " << tt_meta.triang_zero << Foam::endl
+        << " lower_contains_also_upper: " << tt_meta.lower_contains_also_upper << Foam::endl
+        << " d_data_: " << (tt_meta.d_data_ ? "allocated" : "null") << Foam::endl
+        << " d_addrs_: " << (tt_meta.d_addrs_ ? "allocated" : "null") << Foam::endl;
+        
+    return os;
+}
+
 std::unordered_map<const void*, tt_ldu_meta> ldu_tt_meta_map;
 
 tt_ldu_meta& ensure_lduMat_on_device(KernelLauncher& k, const Foam::lduMatrix* lduMat, bool reserve_all_parts) {

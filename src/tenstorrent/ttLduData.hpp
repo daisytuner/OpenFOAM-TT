@@ -3,6 +3,7 @@
 #include <Field.H>
 #include <scalarField.H>
 #include <FieldField.H>
+#include <Ostream.H>
 #include <lduInterfaceFieldPtrsList.H>
 #include <tt-metalium/buffer.hpp>
 #include <memory>
@@ -29,6 +30,8 @@ struct tt_ldu_meta {
     uint32_t upper_addrs_start_ = 0;
     uint32_t iface_map_start_ = 0;
 };
+
+Foam::Ostream& operator<<(Foam::Ostream& os, const tt_ldu_meta& tt_meta);
 
 extern std::unordered_map<const void*, tt_ldu_meta> ldu_tt_meta_map;
 

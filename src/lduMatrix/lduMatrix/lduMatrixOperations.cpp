@@ -624,10 +624,10 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
         if (fail) {
             Foam::Info << " A: diag " << !!A.diagPtr_ << " lower " << !!A.lowerPtr_ << " upper " << !!A.upperPtr_ << Foam::endl;
             Foam::Info << " tt_diag " << !!tt_result_diag << " tt_lower " << !!tt_result_lower << " tt_upper " << !!tt_result_upper << Foam::endl;
-            throw new std::runtime_error("+= TT results do not match!");
+            throw new std::runtime_error("+= TT results in call do not match!");
         }
     #else
-        if (&& tt_result_diag && !diagPtr_) {
+        if (tt_result_diag && !diagPtr_) {
             diagPtr_ = tt_result_diag;
         }
         if (tt_result_lower && !lowerPtr_) {
@@ -638,10 +638,6 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
         }
     #endif
     #endif
-
-    // #if ENABLE_TT
-    // clear_tt_meta(this, false, true);
-    // #endif
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);
@@ -671,7 +667,7 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
                 * tt_result_lower = nullptr,
                 * tt_result_upper = nullptr;
 
-    #ifdef BLUBBEL
+    #ifdef ENABLE_TT
 
         if (A.diagPtr_ || A.lowerPtr_ || A.upperPtr_) { // if A is 0, there is nothing to do
 
@@ -811,7 +807,7 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
 
     #endif
 
-    #ifdef BLUBBEL
+    #ifdef ENABLE_TT
     #ifdef VERIFY_TT
         bool fail = false;
         if (tt_result_diag) {
@@ -870,10 +866,6 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
             upperPtr_ = tt_result_upper;
         }
     #endif
-    #endif
-
-    #if ENABLE_TT
-    clear_tt_meta(this, false, true);
     #endif
 
 #ifdef __DAISY_INSTRUMENTATION

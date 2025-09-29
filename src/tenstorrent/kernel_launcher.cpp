@@ -451,6 +451,9 @@ void KernelLauncher::launch_matOpAssign(
     if (lduAMeta.triang_zero) {
         mode_mask |= 0x20;
     }
+    if (lduDestMeta.triang_zero) {
+        mode_mask |= 0x40;
+    }
     
     tt::tt_metal::SetRuntimeArgs(
         program.program,

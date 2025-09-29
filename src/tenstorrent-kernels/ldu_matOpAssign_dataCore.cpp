@@ -15,19 +15,19 @@
 
 void kernel_main() {
     // same arg indices as in reader_binary_diff_lenghts for compat
-    uint32_t lduDestContentsAddr = get_arg_val<uint32_t>(0);
-    uint32_t lduDestCellCount = get_arg_val<uint32_t>(1);
-    uint32_t lduDestLowerStart = get_arg_val<uint32_t>(2);
-    uint32_t lduDestSparseCount = get_arg_val<uint32_t>(3);
-    uint32_t lduDestUpperStart = get_arg_val<uint32_t>(4);
+    const uint32_t lduDestContentsAddr = get_arg_val<uint32_t>(0);
+    const uint32_t lduDestCellCount = get_arg_val<uint32_t>(1);
+    const uint32_t lduDestLowerStart = get_arg_val<uint32_t>(2);
+    const uint32_t lduDestSparseCount = get_arg_val<uint32_t>(3);
+    const uint32_t lduDestUpperStart = get_arg_val<uint32_t>(4);
 
-    uint32_t lduAContentsAddr = get_arg_val<uint32_t>(5);
-    uint32_t lduACellCount = get_arg_val<uint32_t>(6);
-    uint32_t lduALowerStart = get_arg_val<uint32_t>(7);
-    uint32_t lduASparseCount = get_arg_val<uint32_t>(8);
-    uint32_t lduAUpperStart = get_arg_val<uint32_t>(9);
+    const uint32_t lduAContentsAddr = get_arg_val<uint32_t>(5);
+    const uint32_t lduACellCount = get_arg_val<uint32_t>(6);
+    const uint32_t lduALowerStart = get_arg_val<uint32_t>(7);
+    const uint32_t lduASparseCount = get_arg_val<uint32_t>(8);
+    const uint32_t lduAUpperStart = get_arg_val<uint32_t>(9);
 
-    uint32_t mode_mask = get_arg_val<uint32_t>(10);
+    const uint32_t mode_mask = get_arg_val<uint32_t>(10);
 
     constexpr uint8_t matDest_cb = 1;
     constexpr uint8_t matA_cb = 2;
@@ -38,6 +38,7 @@ void kernel_main() {
     const bool a_diag_zero = mode_mask & 0x8;
     const bool dest_in_diag_zero = mode_mask & 0x10;
     const bool a_triang_zero = mode_mask & 0x20;
+    const bool dest_triang_zero = mode_mask & 0x40;
 
     const uint32_t page_size = 1024;
 
@@ -93,18 +94,30 @@ void kernel_main() {
 
     if (!a_triang_zero) {
         for (uint32_t i = 0; i < lduDestSparseCount; ++i) {
-            auto a_l_val = a_lower_ptr[i];
-            auto org_l_val = dest_lower_ptr[i];
-            auto dest_l_val = org_l_val KERNEL_OP a_l_val;
-            dest_lower_ptr[i] = dest_l_val;
             DPRINT << "spar " << i << ENDL();
-            DPRINT << " lower/symm " << org_l_val << " " << KERNEL_OP_STR << " " << a_l_val << " -> " << dest_l_val << ENDL();
+            auto a_l_val = a_lower_ptr[i];
+            float dest_l_val, org_l_val;
+            if (!dest_triang_zero) {
+                org_l_val = dest_lower_ptr[i];
+                dest_l_val = org_l_val KERNEL_OP a_l_val;
+                DPRINT << " lower/symm " << org_l_val << " " << KERNEL_OP_STR << " " << a_l_val << " -> " << dest_l_val << ENDL();
+            } else {
+                dest_l_val = a_l_val;
+                DPRINT << " lower/symm " << " -> " << dest_l_val << ENDL();
+            }
+            dest_lower_ptr[i] = dest_l_val;
             if (!dest_in_symmetric || dest_out_expand) {
-                auto org_u_val = dest_out_expand? org_l_val : dest_upper_ptr[i];
                 auto a_u_val = a_symmetric ? a_l_val : a_upper_ptr[i];
-                auto dest_u_val = org_u_val KERNEL_OP a_u_val;
+                float dest_u_val;
+                if (!dest_triang_zero) {
+                    auto org_u_val = dest_out_expand? org_l_val : dest_upper_ptr[i];
+                    dest_u_val = org_u_val KERNEL_OP a_u_val;
+                    DPRINT << " upper " << org_u_val << " " << KERNEL_OP_STR << " " << a_u_val << " -> " << dest_u_val << ENDL();
+                } else {
+                    dest_u_val = a_u_val;
+                    DPRINT << " upper " << " -> " << dest_u_val << ENDL();
+                }
                 dest_upper_ptr[i] = dest_u_val;
-                DPRINT << " upper " << org_u_val << " " << KERNEL_OP_STR << " " << a_u_val << " -> " << dest_u_val << ENDL();
             }
         }
     }
@@ -115,6 +128,7 @@ void kernel_main() {
     page_count = (lduDestUpperStart+lduDestSparseCount + page_size/4 -1) / (page_size / 4); // relies on dest being pre-allocated with the needed space (uppr and lower separate if expand is set)
     for (uint32_t i = 0; i < page_count; ++i) {
         noc_async_write_tile(i, lduDestDat_gen, get_write_ptr(matDest_cb) + page_size * i);
+        DPRINT << "X= wb p" << i << ENDL();
     }
 
     {
