@@ -1,7 +1,7 @@
 #include "kernel_launcher.hpp"
 #include "OSspecific.H"
 #include "ReusableTtBuffer.hpp"
-#include "tt-metalium/buffer.hpp"
+#include <tt-metalium/buffer.hpp>
 #include "ttLduData.hpp"
 #include <cassert>
 #include <cstdlib>
@@ -142,6 +142,16 @@ void KernelLauncher::launch_amul(
 
     
     tt::tt_metal::EnqueueProgram(device_->command_queue(0), program_amul_.program, false);
+
+}
+
+void KernelLauncher::launch_amul_with_interfaces(
+    const tt_ldu_meta& lduMeta,
+    tt::tt_metal::Buffer& d_psi,
+    tt::tt_metal::Buffer& d_Apsi,
+    tt::tt_metal::Buffer& d_iface_contents,
+    int iface_count
+) {
 
 }
 

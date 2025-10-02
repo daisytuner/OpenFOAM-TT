@@ -99,9 +99,15 @@ public:
         const tt_ldu_meta& lduMeta,
         tt::tt_metal::Buffer& d_psi,
         tt::tt_metal::Buffer& d_Apsi,
-        // tt::tt_metal::Buffer& d_iface_contents,
-        // int iface_count,
         const Foam::direction cmpt
+    );
+
+    void launch_amul_with_interfaces(
+        const tt_ldu_meta& lduMeta,
+        tt::tt_metal::Buffer& d_psi,
+        tt::tt_metal::Buffer& d_Apsi,
+        tt::tt_metal::Buffer& d_iface_contents,
+        int iface_count
     );
 
     void launch_suma(
