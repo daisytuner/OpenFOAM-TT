@@ -111,7 +111,7 @@ void Foam::lduMatrix::sumDiag()
             Foam::Info << "sumDiag u_addr: " << lduAddr().upperAddr() << Foam::endl;
             throw new std::runtime_error("sumDiag TT results do not match!");
         } else {
-            Foam::Info << "sumDiag TT success" << Foam::endl;
+            // Foam::Info << "sumDiag TT success" << Foam::endl;
             memcpy(Diag.data(), tt_result->begin(), sizeof(scalar)*Diag.size());
             delete tt_result;
         }
@@ -193,7 +193,7 @@ void Foam::lduMatrix::negSumDiag()
             Foam::Info << "negSumDiag u_addr: " << lduAddr().upperAddr() << Foam::endl;
             throw new std::runtime_error("negSumDiag TT results do not match!");
         } else {
-            Foam::Info << "negSumDiag TT success" << Foam::endl;
+            // Foam::Info << "negSumDiag TT success" << Foam::endl;
             memcpy(Diag.data(), tt_result->begin(), sizeof(scalar)*Diag.size());
             delete tt_result;
         }

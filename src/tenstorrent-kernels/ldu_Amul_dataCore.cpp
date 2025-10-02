@@ -1,10 +1,11 @@
 
 #include <cstdint>
-#include <stdint.h>
 #include "dataflow_api.h"
 
 #include "debug/dprint.h"
 #include "tt-metalium/math.hpp"
+#include "tenstorrent_rv_cycle.hpp"
+
 
 void kernel_main() {
     // same arg indices as in reader_binary_diff_lenghts for compat
@@ -61,6 +62,7 @@ void kernel_main() {
     uint32_t* iface_addr_ptr = lower_addr_ptr + iface_map_start;
     for (uint32_t i = 0; i < page_count; ++i) {
         noc_async_read_tile(i, lduAddr_gen, get_write_ptr(addr_cb) + page_size * i);
+        // ++pages;
     }
 
     page_count = (lduUpperStart+lduSparseCount + page_size/4 -1) / (page_size / 4);
@@ -70,6 +72,7 @@ void kernel_main() {
     float* upper_ptr = diag_ptr + lduUpperStart;
     for (uint32_t i = 0; i < page_count; ++i) {
         noc_async_read_tile(i, lduDat_gen, get_write_ptr(mat_cb) + page_size * i);
+        // ++pages;
     }
 
     page_count = (lduCellCount + page_size/4 -1)/ (page_size / 4);
@@ -77,6 +80,7 @@ void kernel_main() {
     float* inVec_ptr = (float*)get_write_ptr(inVec_cb);
     for (uint32_t i = 0; i < page_count; ++i) {
         noc_async_read_tile(i, inVec_gen, get_write_ptr(inVec_cb) + page_size * i);
+        // ++pages;
     }
 
     // page_count = (lduCellCount * iface_count + page_size/4 -1) / (page_size / 4);

@@ -167,7 +167,7 @@ void Foam::lduMatrix::Amul
                 Foam::Info << "Amul u_addr: " << lduAddr().upperAddr() << Foam::endl;
                 throw new std::runtime_error("Amul TT results do not match!");
             } else {
-                Foam::Info << "Amul TT success" << Foam::endl;
+                // Foam::Info << "Amul TT success" << Foam::endl;
                 memcpy(ApsiPtr, tt_result->begin(), sizeof(scalar)*Apsi.size());
                 delete tt_result;
             }
@@ -371,7 +371,7 @@ void Foam::lduMatrix::sumA
             Foam::Info << "sumA ifaceCoeffs: " << interfaceBouCoeffs << Foam::endl;
             throw new std::runtime_error("sumA TT results do not match!");
         } else {
-            Foam::Info << "sumA TT success" << Foam::endl;
+            // Foam::Info << "sumA TT success" << Foam::endl;
             memcpy(sumAPtr, tt_result->begin(), sizeof(scalar)*sumA.size());
             delete tt_result;
         }
@@ -532,7 +532,7 @@ void Foam::lduMatrix::residual
             // Foam::Info << "residual ifaceCoeffs: " << interfaceBouCoeffs << Foam::endl;
             throw new std::runtime_error("residual TT results do not match!");
         } else {
-            Foam::Info << "residual TT success" << Foam::endl;
+            // Foam::Info << "residual TT success" << Foam::endl;
             memcpy(rAPtr, tt_result->begin(), sizeof(scalar)*rA.size());
             delete tt_result;
         }
