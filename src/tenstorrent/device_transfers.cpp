@@ -1,9 +1,15 @@
 #include "device_transfers.hpp"
 #include "kernel_launcher.hpp"
+#include "lduAddressing.H"
 #include "messageStream.H"
 #include "lduMatrix.H"
+
+#include "scalarField.H"
+#include "tt-metalium/host_api.hpp"
 #include "tt-metalium/tt_metal_profiler.hpp"
+#include "ttLduData.hpp"
 #include <cstddef>
+#include <tuple>
 
 ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, const Foam::scalarField& field) {
     auto* device = kernelLauncher.device_;
@@ -122,6 +128,144 @@ std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
     } else {
         return {ReusableTtBuffer::unusedPlaceholder(), 0};
     }
+}
+
+uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght) {
+    auto tile_row = row / tt::constants::TILE_HEIGHT;
+    auto tile_col = col / tt::constants::TILE_WIDTH;
+    auto in_tile_row = row % tt::constants::TILE_HEIGHT;
+    auto in_tile_col = col % tt::constants::TILE_WIDTH;
+
+    auto tile_row_start = tile_row * tt::constants::TILE_HEIGHT * line_lenght;
+    auto tile_start = tile_row_start + tile_col * (tt::constants::TILE_HEIGHT * tt::constants::TILE_WIDTH);
+
+    return tile_start + in_tile_row * tt::constants::TILE_WIDTH + in_tile_col;
+}
+
+void copy_ldu_to_dense(KernelLauncher& k, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
+
+    auto cells = lduMat->lduAddr().size();
+    auto aligned_cells = round_up(cells, tt::constants::TILE_WIDTH);
+    auto page_size = tt::constants::TILE_HEIGHT * tt::constants::TILE_WIDTH*sizeof(float);
+
+    auto buf_size = aligned_cells*aligned_cells;
+
+    float* dense = new float[buf_size];
+
+    tt_meta.cell_count = cells;
+
+    if (!tt_meta.d_dense_) {
+        tt_meta.d_dense_ = tt::tt_metal::CreateBuffer({
+            .device = k.device_,
+            .size = buf_size*sizeof(float),
+            .page_size = page_size,
+            .buffer_type = tt::tt_metal::BufferType::DRAM
+        });
+    }
+
+    auto hasDiag = lduMat->hasDiag();
+    auto diag = hasDiag? lduMat->diag().cdata() : nullptr;
+
+    for (int i = 0; i < cells; ++i) {
+        dense[offset_into_tiled_mat(i, i, aligned_cells)] = hasDiag? diag[i] : 0.0f;
+    }
+    auto lowerAddr = lduMat->lduAddr().lowerAddr();
+    auto upperAddr = lduMat->lduAddr().upperAddr();
+    auto sparse_vals = lowerAddr.size();
+    auto hasLower = lduMat->hasLower();
+    auto lower = hasLower? lduMat->lower().cdata() : nullptr;
+    auto hasUpper = lduMat->hasUpper();
+    auto upper = hasUpper? lduMat->upper().cdata() : nullptr;
+
+    for (int i= 0; i < sparse_vals; ++i) {
+        auto lowAddr = lowerAddr[i];
+        auto upAddr = upperAddr[i];
+        float l_val = hasLower? lower[i] : 0.0f;
+        float u_val = hasUpper? upper[i] : 0.0f;
+
+        dense[offset_into_tiled_mat(upAddr, lowAddr, aligned_cells)] = l_val;
+        dense[offset_into_tiled_mat(lowAddr, upAddr, aligned_cells)] = u_val;
+    }
+
+    tt::tt_metal::EnqueueWriteBuffer(
+        k.device_->command_queue(0),
+        tt_meta.d_dense_,
+        dense,
+        true
+    );
+
+    delete[] dense;
+
+    tt_meta.dense_on_device_ = true;
+}
+
+std::tuple<bool, bool, bool> copy_ldu_from_dense(
+    KernelLauncher& k,
+    tt_ldu_meta& tt_meta,
+    Foam::scalarField* diagField,
+    Foam::scalarField* lowerField,
+    Foam::scalarField* upperField,
+    const Foam::lduAddressing& lduAddressing
+) {
+
+    if (!tt_meta.d_dense_ || !tt_meta.dense_on_device_) {
+        throw new std::runtime_error("copy_ldu_from_dense: dense not on device");
+    }
+
+    auto cells = tt_meta.cell_count;
+    auto aligned_cells = round_up(cells, tt::constants::TILE_WIDTH);
+
+    auto buf_size = aligned_cells*aligned_cells;
+
+    float* dense = new float[buf_size];
+
+    tt::tt_metal::EnqueueReadBuffer(
+        k.device_->command_queue(0),
+        tt_meta.d_dense_,
+        dense,
+        true
+    );
+
+    bool diagNonZero = false;
+    if (diagField) {
+        float* diag = diagField->data();
+        for (uint32_t i = 0; i < cells; ++i) {
+            auto val = dense[offset_into_tiled_mat(i, i, aligned_cells)];
+            diagNonZero |= val != 0.0f;
+            diag[i] = val;
+        }
+    }
+
+    auto lowerAddr = lduAddressing.lowerAddr();
+    auto upperAddr = lduAddressing.upperAddr();
+    auto sparse_vals = lowerAddr.size();
+    
+    auto lower = lowerField? lowerField->data() : nullptr;
+    auto upper = upperField? upperField->data() : nullptr;
+
+    bool lowerNonZero = false;
+    bool upperNonZero = false;
+
+    if (lowerField || upperField) {
+        for (int32_t i= 0; i < sparse_vals; ++i) {
+            auto lowAddr = lowerAddr[i];
+            auto upAddr = upperAddr[i];
+            if (lower) {
+                auto val = dense[offset_into_tiled_mat(upAddr, lowAddr, aligned_cells)];
+                lower[i] = val;
+                lowerNonZero |= (lower[i] != 0.0f);
+            }
+            if (upper) {
+                auto val = dense[offset_into_tiled_mat(lowAddr, upAddr, aligned_cells)];
+                upper[i] = val;
+                upperNonZero |= (upper[i] != 0.0f);
+            }
+        }
+    }
+
+    delete[] dense;
+
+    return {diagNonZero, lowerNonZero, upperNonZero};
 }
 
 /**

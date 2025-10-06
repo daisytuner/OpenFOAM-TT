@@ -82,6 +82,7 @@ void clear_tt_meta(const void* key, bool clear_addrs, bool clear_contents) {
             ZoneScopedN("TT Meta clear contents");
             #endif
             meta.contents_on_device_ = false;
+            meta.dense_on_device_ = false;
         }
     } // never uploaded to begin with
 }

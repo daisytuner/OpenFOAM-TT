@@ -148,6 +148,13 @@ public:
         tt_ldu_meta& lduDestMeta,
         const tt_ldu_meta& lduAMeta
     );
+
+    void launch_amul_decompressed(
+        const tt_ldu_meta& lduMeta,
+        tt::tt_metal::Buffer& d_psi,
+        tt::tt_metal::Buffer& d_Apsi,
+        const Foam::direction cmpt
+    );
 };
 
 KernelLauncher& require_kernel_launcher();

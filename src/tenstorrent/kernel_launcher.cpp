@@ -145,6 +145,53 @@ void KernelLauncher::launch_amul(
 
 }
 
+void KernelLauncher::launch_amul_decompressed(
+    const tt_ldu_meta& lduMeta,
+    tt::tt_metal::Buffer& d_psi,
+    tt::tt_metal::Buffer& d_Apsi,
+    const Foam::direction cmpt
+) {
+
+    // for (auto& core : device_->compute_with_storage_cores()) {
+
+    //     tt::tt_metal::SetRuntimeArgs(
+    //         program_amul_decompressed_,
+    //         program_amul_decompressed_.kernel_rd_0,
+    //         core,
+    //         {
+    //             lduMeta.d_dense_->address(),
+    //             d_psi.address(),
+    //             lduMeta.cell_count,
+    //             d_psi.address(),
+    //             d_Apsi.address(),
+    //         }
+    //     );
+
+    //     tt::tt_metal::SetRuntimeArgs(
+    //         program_amul_decompressed_,
+    //         program_amul_decompressed_.kernel_wr_0,
+    //         core,
+    //         {
+    //             lduMeta.d_dense_->address(),
+    //             lduMeta.cell_count,
+    //             d_psi.address(),
+    //             d_Apsi.address(),
+    //         }
+    //     );
+
+    //     tt::tt_metal::SetRuntimeArgs(
+    //         program_amul_decompressed_,
+    //         program_amul_decompressed_.kernel_comp_0,
+    //         core,
+    //         {
+    //             workload_size_
+    //         }
+    //     );
+    // }
+
+    // tt::tt_metal::EnqueueProgram(device_->command_queue(0), program_amul_decompressed_.program, false);
+}
+
 void KernelLauncher::launch_amul_with_interfaces(
     const tt_ldu_meta& lduMeta,
     tt::tt_metal::Buffer& d_psi,

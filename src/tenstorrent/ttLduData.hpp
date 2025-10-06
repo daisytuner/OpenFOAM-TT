@@ -29,6 +29,12 @@ struct tt_ldu_meta {
 
     uint32_t upper_addrs_start_ = 0;
     uint32_t iface_map_start_ = 0;
+
+    // -------------- dense meta
+    bool dense_on_device_ = false;
+
+    std::shared_ptr<tt::tt_metal::Buffer> d_dense_ = nullptr;
+
 };
 
 Foam::Ostream& operator<<(Foam::Ostream& os, const tt_ldu_meta& tt_meta);

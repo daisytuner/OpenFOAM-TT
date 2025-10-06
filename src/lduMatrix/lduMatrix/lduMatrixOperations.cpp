@@ -313,7 +313,9 @@ void Foam::lduMatrix::negate()
     __daisy_instrumentation_enter(region_id);
 #endif
 
-    scalarField* tt_result_diag, * tt_result_lower, * tt_result_upper;
+    scalarField * tt_result_diag = nullptr,
+        * tt_result_lower = nullptr,
+        * tt_result_upper = nullptr;
 
     #ifdef ENABLE_TT
         #ifdef VERIFY_TT
@@ -340,13 +342,13 @@ void Foam::lduMatrix::negate()
             tt_meta
         );
 
-        if (diagPtr_) {
+        if (tt_result_diag) {
             copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_diag);
         }
-        if (lowerPtr_) {
+        if (tt_result_lower) {
         copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_lower, tt_meta.lower_contents_start_*4);
         }
-        if (upperPtr_) {
+        if (tt_result_upper) {
             copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_upper, tt_meta.upper_contents_start_*4);
         }
     #endif
