@@ -35,7 +35,7 @@ Description
 
 #ifdef ENABLE_TT
 #include "kernel_launcher.hpp"
-#include "ttLduData.hpp"
+#include "ldu_meta_cache.hpp"
 #include "device_transfers.hpp"
 #endif
 

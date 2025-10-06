@@ -44,8 +44,7 @@ add_custom_command(
 
 set(TT_SOURCES
   src/tenstorrent/device_transfers.cpp
-  src/tenstorrent/kernel_launcher.cpp
-  src/tenstorrent/ttLduData.cpp
+  src/tenstorrent/ldu_meta_cache.cpp
 )
 
 
@@ -635,34 +634,27 @@ target_compile_definitions(OpenFOAM PUBLIC
 
 if (ENABLE_TT)
   message(STATUS "Building with Tenstorrent offloading")
-  target_compile_definitions(OpenFOAM PRIVATE
+
+  add_subdirectory(daisy-tt-rt)
+
+  target_compile_definitions(OpenFOAM PUBLIC
     ENABLE_TT
   )
   if (VERIFY_TT)
     message(STATUS "Building with Tenstorrent verification")
-    target_compile_definitions(OpenFOAM PRIVATE
+    target_compile_definitions(OpenFOAM PUBLIC
       VERIFY_TT
     )
   endif()
-  target_link_libraries(OpenFOAM PRIVATE
-    tt_metal fmt
+  target_link_libraries(OpenFOAM PUBLIC
+    OpenFOAM::daisy_tt_rt
   )
-  target_link_directories(OpenFOAM PUBLIC $ENV{TT_METAL_INSTALL_DIR}/lib)
+  
   target_sources(OpenFOAM PRIVATE
     ${TT_SOURCES}
   )
   target_include_directories(OpenFOAM PUBLIC
     src/tenstorrent
-    $ENV{TT_METAL_INSTALL_DIR}/include
-    $ENV{TT_METAL_INSTALL_DIR}/include/metalium-thirdparty
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/container/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/assert/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/config/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/intrusive/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/move/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/core/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/static_assert/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/throw_exception/include
   )
 endif()
 
@@ -1210,3 +1202,5 @@ target_compile_definitions(finiteVolume PUBLIC
 
 
 add_subdirectory(tests)
+
+add_subdirectory(tt-bench-harness)

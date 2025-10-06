@@ -1,5 +1,4 @@
 #include "kernel_launcher.hpp"
-#include "OSspecific.H"
 #include "ReusableTtBuffer.hpp"
 #include <tt-metalium/buffer.hpp>
 #include "ttLduData.hpp"
@@ -24,9 +23,9 @@ KernelLauncher::KernelLauncher():
     if (e) {
         kernel_dir_ = e;
     } else {
-        kernel_dir_ = Foam::cwd() / "tenstorrent-kernels";
+        kernel_dir_ = std::filesystem::current_path() / "daisy-tt-rt" / "src" / "tenstorrent-kernels";
     }
-    Foam::Info() << "expecting TT kernels in " << kernel_dir_ << Foam::endl;
+    std::cout << "expecting TT kernels in " << kernel_dir_ << std::endl;
 
     init_amul_program();
     init_suma_program();
@@ -98,7 +97,7 @@ void KernelLauncher::init_amul_program() {
 
     auto kernel_naive = tt::tt_metal::CreateKernel(
         program_amul_.program,
-        (kernel_dir_ / "ldu_Amul_dataCore.cpp").string(),
+        (kernel_dir_ / "ldu" / "ldu_Amul_dataCore.cpp").string(),
         one_core,
         tt::tt_metal::ReaderDataMovementConfig()
     );
@@ -112,7 +111,7 @@ void KernelLauncher::launch_amul(
     tt::tt_metal::Buffer& d_Apsi,
     // tt::tt_metal::Buffer& d_iface_contents,
     // int iface_count,
-    const Foam::direction cmpt
+    const char cmpt
 ) {
 
     assert(d_psi.size() <= static_cast<uint32_t>(program_amul_.psi_size_alloc));
@@ -149,7 +148,7 @@ void KernelLauncher::launch_amul_decompressed(
     const tt_ldu_meta& lduMeta,
     tt::tt_metal::Buffer& d_psi,
     tt::tt_metal::Buffer& d_Apsi,
-    const Foam::direction cmpt
+    const char cmpt
 ) {
 
     // for (auto& core : device_->compute_with_storage_cores()) {
@@ -222,7 +221,7 @@ void KernelLauncher::init_suma_program() {
 
     auto kernel_naive = tt::tt_metal::CreateKernel(
         program_suma_.program,
-        (kernel_dir_ / "ldu_sumA_dataCore.cpp").string(),
+        (kernel_dir_ / "ldu" / "ldu_sumA_dataCore.cpp").string(),
         one_core,
         tt::tt_metal::ReaderDataMovementConfig()
     );
@@ -289,7 +288,7 @@ void KernelLauncher::init_residual_program() {
 
     auto kernel_naive = tt::tt_metal::CreateKernel(
         program_residual_.program,
-        (kernel_dir_ / "ldu_residual_dataCore.cpp").string(),
+        (kernel_dir_ / "ldu" / "ldu_residual_dataCore.cpp").string(),
         one_core,
         tt::tt_metal::ReaderDataMovementConfig()
     );
@@ -303,7 +302,7 @@ void KernelLauncher::launch_residual(
     tt::tt_metal::Buffer& d_res,
     // tt::tt_metal::Buffer& d_iface_contents,
     // int iface_count,
-    const Foam::direction cmpt
+    const char cmpt
 ) {
 
     assert(d_res.size() <= static_cast<uint32_t>(program_residual_.res_size_alloc));
@@ -353,7 +352,7 @@ void KernelLauncher::init_sumDiag_program() {
 
         p.kernel_0 = tt::tt_metal::CreateKernel(
             p.program,
-            (kernel_dir_ / "ldu_sumDiag_dataCore.cpp").string(),
+            (kernel_dir_ / "ldu" / "ldu_sumDiag_dataCore.cpp").string(),
             one_core,
             tt::tt_metal::ReaderDataMovementConfig({neg_mode})
         );
@@ -419,7 +418,7 @@ void KernelLauncher::init_negate_program() {
 
     p.kernel_0 = tt::tt_metal::CreateKernel(
         p.program,
-        (kernel_dir_ / "ldu_negate_dataCore.cpp").string(),
+        (kernel_dir_ / "ldu" / "ldu_negate_dataCore.cpp").string(),
         one_core,
         tt::tt_metal::ReaderDataMovementConfig()
     );
@@ -451,6 +450,8 @@ void KernelLauncher::launch_negate(
 }
 
 
+
+
 void KernelLauncher::init_matOpAssign_program() {
     tt::tt_metal::CoreCoord all_cores = device_->compute_with_storage_grid_size();
     tt::tt_metal::CoreCoord one_core = {1, 2};
@@ -468,7 +469,7 @@ void KernelLauncher::init_matOpAssign_program() {
 
         p.kernel_0 = tt::tt_metal::CreateKernel(
             p.program,
-            (kernel_dir_ / "ldu_matOpAssign_dataCore.cpp").string(),
+            (kernel_dir_ / "ldu" / "ldu_matOpAssign_dataCore.cpp").string(),
             one_core,
             tt::tt_metal::ReaderDataMovementConfig({}, {{"KERNEL_OP", opDefine}})
         );

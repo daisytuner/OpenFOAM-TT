@@ -1,10 +1,9 @@
 #pragma once
 
-#include "ReusableTtBuffer.hpp"
 #include <tt-metalium/buffer.hpp>
 #include <tt-metalium/host_api.hpp>
+#include "ReusableTtBuffer.hpp"
 #include <vector>
-#include <direction.H>
 #include "ttLduData.hpp"
 
 
@@ -99,7 +98,7 @@ public:
         const tt_ldu_meta& lduMeta,
         tt::tt_metal::Buffer& d_psi,
         tt::tt_metal::Buffer& d_Apsi,
-        const Foam::direction cmpt
+        const char cmpt
     );
 
     void launch_amul_with_interfaces(
@@ -124,7 +123,7 @@ public:
         tt::tt_metal::Buffer& d_res,
         // tt::tt_metal::Buffer& d_iface_contents,
         // int iface_count,
-        const Foam::direction cmpt
+        const char cmpt
     );
 
     void launch_sumDiag(
@@ -153,7 +152,7 @@ public:
         const tt_ldu_meta& lduMeta,
         tt::tt_metal::Buffer& d_psi,
         tt::tt_metal::Buffer& d_Apsi,
-        const Foam::direction cmpt
+        const char cmpt
     );
 };
 

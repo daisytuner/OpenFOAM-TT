@@ -5,6 +5,7 @@
 #include "lduMatrix.H"
 
 #include "scalarField.H"
+#include "tt-metalium/device.hpp"
 #include "tt-metalium/host_api.hpp"
 #include "tt-metalium/tt_metal_profiler.hpp"
 #include "ttLduData.hpp"
@@ -22,7 +23,7 @@ ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, con
         device->command_queue(0),
         buffer.buffer,
         field.cdata(),
-        {0, round_up(bytes, tt_block_size)},
+        {0, tt::round_up(bytes, tt_block_size)},
         false
     );
 
@@ -38,7 +39,7 @@ void copy_scalarField_from_device(
     auto* device = kernelLauncher.device_;
 
     size_t bytes = sizeof(float)*field->size();
-    size_t padded_bytes = round_up(bytes, tt_block_size);
+    size_t padded_bytes = tt::round_up(bytes, tt_block_size);
 
     float* data = nullptr;
     if (bytes == padded_bytes) {
@@ -142,10 +143,10 @@ uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght)
     return tile_start + in_tile_row * tt::constants::TILE_WIDTH + in_tile_col;
 }
 
-void copy_ldu_to_dense(KernelLauncher& k, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
+void copy_ldu_to_dense(tt::tt_metal::IDevice* device, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
 
     auto cells = lduMat->lduAddr().size();
-    auto aligned_cells = round_up(cells, tt::constants::TILE_WIDTH);
+    auto aligned_cells = tt::round_up(cells, tt::constants::TILE_WIDTH);
     auto page_size = tt::constants::TILE_HEIGHT * tt::constants::TILE_WIDTH*sizeof(float);
 
     auto buf_size = aligned_cells*aligned_cells;
@@ -156,7 +157,7 @@ void copy_ldu_to_dense(KernelLauncher& k, tt_ldu_meta& tt_meta, const Foam::lduM
 
     if (!tt_meta.d_dense_) {
         tt_meta.d_dense_ = tt::tt_metal::CreateBuffer({
-            .device = k.device_,
+            .device = device,
             .size = buf_size*sizeof(float),
             .page_size = page_size,
             .buffer_type = tt::tt_metal::BufferType::DRAM
@@ -188,7 +189,7 @@ void copy_ldu_to_dense(KernelLauncher& k, tt_ldu_meta& tt_meta, const Foam::lduM
     }
 
     tt::tt_metal::EnqueueWriteBuffer(
-        k.device_->command_queue(0),
+        device->command_queue(0),
         tt_meta.d_dense_,
         dense,
         true
@@ -200,7 +201,7 @@ void copy_ldu_to_dense(KernelLauncher& k, tt_ldu_meta& tt_meta, const Foam::lduM
 }
 
 std::tuple<bool, bool, bool> copy_ldu_from_dense(
-    KernelLauncher& k,
+    tt::tt_metal::IDevice* device,
     tt_ldu_meta& tt_meta,
     Foam::scalarField* diagField,
     Foam::scalarField* lowerField,
@@ -213,14 +214,14 @@ std::tuple<bool, bool, bool> copy_ldu_from_dense(
     }
 
     auto cells = tt_meta.cell_count;
-    auto aligned_cells = round_up(cells, tt::constants::TILE_WIDTH);
+    auto aligned_cells = tt::round_up(cells, tt::constants::TILE_WIDTH);
 
     auto buf_size = aligned_cells*aligned_cells;
 
     float* dense = new float[buf_size];
 
     tt::tt_metal::EnqueueReadBuffer(
-        k.device_->command_queue(0),
+        device->command_queue(0),
         tt_meta.d_dense_,
         dense,
         true
@@ -282,7 +283,7 @@ std::tuple<bool, bool, bool> copy_ldu_from_dense(
  *
  * counts could be gotten from addr instead, as well but when message-passing them through NOC we may also have additional alignment issues
  */
-void copy_ldu_addrs_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
+void copy_ldu_addrs_to_device(KernelLauncher& k, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
 
     // Foam::Info << "Copying addresses to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
 

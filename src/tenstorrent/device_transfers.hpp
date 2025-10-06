@@ -44,13 +44,13 @@ void copy_ldu_contents_to_device(
 );
 
 void copy_ldu_to_dense(
-    KernelLauncher& k,
+    tt::tt_metal::IDevice* device,
     tt_ldu_meta& tt_meta,
     const Foam::lduMatrix* lduMat
 );
 
 std::tuple<bool, bool, bool> copy_ldu_from_dense(
-    KernelLauncher& k,
+    tt::tt_metal::IDevice* device,
     tt_ldu_meta& tt_meta,
     Foam::scalarField* diagField,
     Foam::scalarField* lowerField,
