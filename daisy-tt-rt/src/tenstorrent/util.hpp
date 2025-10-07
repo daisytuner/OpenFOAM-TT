@@ -1,5 +1,7 @@
 #pragma once
 
+namespace tt::daisy {
+
 /**
  * @brief Computes the ceiling of a / b.
  *
@@ -34,3 +36,5 @@ auto round_up(A a, B b) {
     using T = std::common_type_t<A, B>;
     return static_cast<T>(b) * div_up(static_cast<T>(a), static_cast<T>(b));
 }
+
+}  // namespace tt::daisy

@@ -12,6 +12,8 @@
 #include <cstddef>
 #include <tuple>
 
+namespace tt::daisy::foam {
+
 ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, const Foam::scalarField& field) {
     auto* device = kernelLauncher.device_;
 
@@ -61,7 +63,7 @@ void copy_scalarField_from_device(
         delete[] data;
     }
 
-    tt::tt_metal::detail::DumpDeviceProfileResults(device);
+    tt::tt_metal::detail::ReadDeviceProfilerResults(device);
 }
 
 void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuffer& buffer, Foam::scalarField* field, uint32_t buf_offset) {
@@ -453,3 +455,5 @@ void copy_ldu_contents_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const F
 
     tt_meta.contents_on_device_ = true;
 }
+
+}  // namespace tt::daisy::foam

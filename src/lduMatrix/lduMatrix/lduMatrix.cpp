@@ -168,7 +168,7 @@ Foam::lduMatrix::~lduMatrix()
     }
 
     #if ENABLE_TT
-    clear_tt_meta(this, ldu_tt_meta_map);
+    tt::daisy::clear_tt_meta(this, tt::daisy::foam::ldu_tt_meta_map);
     #endif
 }
 
@@ -186,7 +186,7 @@ Foam::scalarField& Foam::lduMatrix::lower()
             lowerPtr_ = new scalarField(lduAddr().lowerAddr().size(), 0.0);
         }
         #ifdef ENABLE_TT
-        clear_tt_meta(this, false, true);
+        tt::daisy::foam::clear_tt_meta(this, false, true);
         #endif
     }
 
@@ -200,7 +200,7 @@ Foam::scalarField& Foam::lduMatrix::diag()
     {
         diagPtr_ = new scalarField(lduAddr().size(), 0.0);
         #ifdef ENABLE_TT
-        clear_tt_meta(this, false, true);
+        tt::daisy::foam::clear_tt_meta(this, false, true);
         #endif
     }
 
@@ -221,7 +221,7 @@ Foam::scalarField& Foam::lduMatrix::upper()
             upperPtr_ = new scalarField(lduAddr().lowerAddr().size(), 0.0);
         }
         #ifdef ENABLE_TT
-        clear_tt_meta(this, false, true);
+        tt::daisy::foam::clear_tt_meta(this, false, true);
         #endif
     }
 
@@ -242,7 +242,7 @@ Foam::scalarField& Foam::lduMatrix::lower(const label nCoeffs)
             lowerPtr_ = new scalarField(nCoeffs, 0.0);
         }
         #ifdef ENABLE_TT
-        clear_tt_meta(this, false, true);
+        tt::daisy::foam::clear_tt_meta(this, false, true);
         #endif
     }
 
@@ -274,7 +274,7 @@ Foam::scalarField& Foam::lduMatrix::upper(const label nCoeffs)
             upperPtr_ = new scalarField(nCoeffs, 0.0);
         }
         #ifdef ENABLE_TT
-        clear_tt_meta(this, false, true);
+        tt::daisy::foam::clear_tt_meta(this, false, true);
         #endif
     }
 

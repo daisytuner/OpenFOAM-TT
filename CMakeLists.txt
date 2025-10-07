@@ -44,6 +44,7 @@ add_custom_command(
 
 set(TT_SOURCES
   src/tenstorrent/device_transfers.cpp
+  src/tenstorrent/kernel_launcher.cpp
   src/tenstorrent/ldu_meta_cache.cpp
 )
 

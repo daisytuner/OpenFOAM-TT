@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 project(daisy-tt-rt VERSION 0.0.1 DESCRIPTION "A library of predefined tenstorrent kernels and utilities for handling various OpenFOAM structures and operations")
 
 add_library(daisy_tt_rt STATIC
-    src/tenstorrent/kernel_launcher.cpp
+    src/tenstorrent/dense_matOpAssign.cpp
     src/tenstorrent/ttLduData.cpp
 )
 

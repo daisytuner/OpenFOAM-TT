@@ -3,6 +3,8 @@
 #include <tt-metalium/buffer.hpp>
 #include <memory>
 
+namespace tt::daisy {
+
 struct tt_ldu_meta {
     bool contents_on_device_ = false;
     bool addrs_on_device_ = false;
@@ -50,3 +52,4 @@ template<typename result> void clear_tt_meta(const void* key, std::unordered_map
 }
 
 
+}  // namespace tt::daisy

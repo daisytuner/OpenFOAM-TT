@@ -1,4 +1,5 @@
 
+#include <cstdlib>
 #include <iostream>
 #include <tt-metalium/host_api.hpp>
 
@@ -6,11 +7,17 @@
 #include "device_transfers.hpp"
 #include "lduMatrix.H"
 #include "lduPrimitiveMesh.H"
-#include "scalarList.H"
+#include "ldu_meta_cache.hpp"
+#include "ttLduData.hpp"
+
+using namespace tt::daisy;
+using namespace tt::daisy::foam;
 
 int main() {
 
-    Foam::label cells = 25;
+    auto kernel_dir = std::filesystem::path(std::getenv("TT_FOAM_KERNEL_DIR"));
+
+    Foam::label cells = 32;
 
 
     Foam::labelList addr_upper(190);
@@ -35,53 +42,72 @@ int main() {
             false
     );
 
+    Foam::lduMatrix lduA(mesh);
+    lduA.diag() = 1.0;
+    lduA.lower() = 2.0;
+    lduA.upper() = 3.0;
+    Foam::lduMatrix lduB(mesh);
+    lduB.diag() = 4.0;
+    lduB.lower() = 5.0;
+    lduB.upper() = 6.0;
+
+    Foam::lduMatrix lduRes(mesh);
+
+    auto tt_meta_a = get_tt_meta(&lduA, ldu_tt_meta_map);
+    auto tt_meta_b = get_tt_meta(&lduB, ldu_tt_meta_map);
+    auto tt_meta_res = get_tt_meta(&lduRes, ldu_tt_meta_map);
+
     tt::tt_metal::IDevice* device;
 
     auto all_cores = device->compute_with_storage_grid_size();
 
     TTDenseMatOpAssignKernelMeta p;
 
-    tt_setup_dense_matOpAssign_program(p, all_cores, "+", std::filesystem::path(std::getenv("TT_FOAM_KERNEL_DIR")));
+    // auto d_dense_A = tt::tt_metal::CreateBuffer({
+    //     .device = device,
+    //     .size = tt::round_up(cells*cells*sizeof(float), p.page_size),
+    //     .page_size = p.page_size,
+    //     .buffer_type = tt::tt_metal::BufferType::DRAM
+    // });
 
-    auto d_dense_A = tt::tt_metal::CreateBuffer({
+    // auto d_dense_B = tt::tt_metal::CreateBuffer({
+    //     .device = device,
+    //     .size = tt::round_up(cells*cells*sizeof(float), p.page_size),
+    //     .page_size = p.page_size,
+    //     .buffer_type = tt::tt_metal::BufferType::DRAM
+    // });
+
+    tt_meta_res.cell_count = cells;
+    
+    tt_meta_res.d_dense_ = tt::tt_metal::CreateBuffer({
         .device = device,
         .size = tt::round_up(cells*cells*sizeof(float), p.page_size),
         .page_size = p.page_size,
         .buffer_type = tt::tt_metal::BufferType::DRAM
     });
 
-    auto d_dense_B = tt::tt_metal::CreateBuffer({
-        .device = device,
-        .size = tt::round_up(cells*cells*sizeof(float), p.page_size),
-        .page_size = p.page_size,
-        .buffer_type = tt::tt_metal::BufferType::DRAM
-    });
 
-    auto d_dense_res = tt::tt_metal::CreateBuffer({
-        .device = device,
-        .size = tt::round_up(cells*cells*sizeof(float), p.page_size),
-        .page_size = p.page_size,
-        .buffer_type = tt::tt_metal::BufferType::DRAM
-    });
-
-
-    copy_ldu_to_dense(lduA, d_dense_A); // libOpenFOAM (tt)
+    tt::daisy::foam::copy_ldu_to_dense(device, tt_meta_a, &lduA);
 
     tt::tt_metal::Finish(device->command_queue(0));
     
-    tt_convert_ldu_to_dense(lduB, d_dense_B); // libOpenFOAM (tt)
+    tt::daisy::foam::copy_ldu_to_dense(device, tt_meta_b, &lduB);
 
     tt::tt_metal::Finish(device->command_queue(0));
 
     tt_launch_dense_matOpAssign(
-        p,
-        d_dense_A,
-        d_dense_B,
-        d_dense_res,
-        cells
+        device,
+        *tt_meta_a.d_dense_,
+        *tt_meta_b.d_dense_,
+        *tt_meta_res.d_dense_,
+        cells,
+        "+",
+        kernel_dir
     );
 
-    copy_
+    tt_meta_res.dense_on_device_ = true;
+
+    tt::daisy::foam::copy_ldu_from_dense(device, tt_meta_res, &lduRes.diag(), &lduRes.lower(), &lduRes.upper(), lduRes.lduAddr());
 
     return 0;
 }

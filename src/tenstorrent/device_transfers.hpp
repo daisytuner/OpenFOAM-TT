@@ -8,6 +8,8 @@
 #include <FieldField.H>
 #include <lduInterfaceFieldPtrsList.H>
 
+namespace tt::daisy::foam {
+
 ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, const Foam::scalarField& field);
 
 void copy_scalarField_from_device(
@@ -57,3 +59,5 @@ std::tuple<bool, bool, bool> copy_ldu_from_dense(
     Foam::scalarField* upperField,
     const Foam::lduAddressing& lduAddressing
 );
+
+}  // namespace tt::daisy::foam

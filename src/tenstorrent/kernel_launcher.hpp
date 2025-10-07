@@ -6,7 +6,7 @@
 #include <vector>
 #include "ttLduData.hpp"
 
-
+namespace tt::daisy::foam {
 
 struct AmulKernelMeta {
     tt::tt_metal::Program program;
@@ -157,3 +157,6 @@ public:
 };
 
 KernelLauncher& require_kernel_launcher();
+
+
+}   // namespace tt::daisy::foam

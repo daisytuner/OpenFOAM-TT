@@ -5,6 +5,8 @@
 #include <tracy/Tracy.hpp>
 #endif
 
+namespace tt::daisy::foam {
+
 Foam::Ostream& operator<<(Foam::Ostream& os, const tt_ldu_meta& tt_meta) {
     os  << "tt_ldu_meta: " << Foam::endl
         << " cell_count: " << tt_meta.cell_count << Foam::endl
@@ -85,3 +87,5 @@ void clear_tt_meta(const void* key, bool clear_addrs, bool clear_contents) {
         }
     } // never uploaded to begin with
 }
+
+}  // namespace tt::daisy::foam

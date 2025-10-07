@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <tt-metalium/host_api.hpp>
 
+namespace tt::daisy::foam {
+
 static KernelLauncher* kernelLauncher = nullptr;
 
 KernelLauncher& require_kernel_launcher() {
@@ -563,3 +565,4 @@ void KernelLauncher::launch_matSubAssign(
     launch_matOpAssign(lduDestMeta, lduAMeta, program_matSubAssign_);
 }
 
+}  // namespace tt::daisy::foam

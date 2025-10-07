@@ -6,4 +6,6 @@
 #endif
 
 
+namespace tt::daisy {
 
+}  // namespace tt::daisy

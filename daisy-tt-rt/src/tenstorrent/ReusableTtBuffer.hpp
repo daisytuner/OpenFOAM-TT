@@ -3,6 +3,8 @@
 #include <tt-metalium/buffer.hpp>
 #include <tt-metalium/host_api.hpp>
 
+namespace tt::daisy {
+
 constexpr size_t tt_block_size = 1024;
 
 struct ReusableTtBuffer {
@@ -28,3 +30,5 @@ public:
     }
 
 };
+
+}  // namespace tt::daisy
