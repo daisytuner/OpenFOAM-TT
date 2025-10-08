@@ -1,13 +1,13 @@
 #pragma once
 
-#include "ReusableTtBuffer.hpp"
 #include <tt-metalium/buffer.hpp>
 #include <tt-metalium/host_api.hpp>
+#include "ReusableTtBuffer.hpp"
 #include <vector>
-#include <direction.H>
+#include "buffer_pool.hpp"
 #include "ttLduData.hpp"
 
-
+namespace tt::daisy::foam {
 
 struct AmulKernelMeta {
     tt::tt_metal::Program program;
@@ -52,14 +52,12 @@ struct LduMatOpAssignkernelMeta {
     tt::tt_metal::KernelHandle kernel_0;
 };
 
-class KernelLauncher {
+class KernelLauncher : public BufferPool {
 public:
-    tt::tt_metal::IDevice* device_;
 
     std::filesystem::path kernel_dir_;
 
 private:
-    std::vector<ReusableTtBuffer*> buffers_;
 
     AmulKernelMeta program_amul_;
     SumAKernelMeta program_suma_;
@@ -92,14 +90,11 @@ public:
     KernelLauncher();
     ~KernelLauncher();
 
-    ReusableTtBuffer& allocateBuffer(size_t size);
-    void freeBuffer(ReusableTtBuffer& buffer);
-
     void launch_amul(
         const tt_ldu_meta& lduMeta,
         tt::tt_metal::Buffer& d_psi,
         tt::tt_metal::Buffer& d_Apsi,
-        const Foam::direction cmpt
+        const char cmpt
     );
 
     void launch_amul_with_interfaces(
@@ -124,7 +119,7 @@ public:
         tt::tt_metal::Buffer& d_res,
         // tt::tt_metal::Buffer& d_iface_contents,
         // int iface_count,
-        const Foam::direction cmpt
+        const char cmpt
     );
 
     void launch_sumDiag(
@@ -153,8 +148,11 @@ public:
         const tt_ldu_meta& lduMeta,
         tt::tt_metal::Buffer& d_psi,
         tt::tt_metal::Buffer& d_Apsi,
-        const Foam::direction cmpt
+        const char cmpt
     );
 };
 
 KernelLauncher& require_kernel_launcher();
+
+
+}   // namespace tt::daisy::foam
