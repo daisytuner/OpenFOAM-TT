@@ -35,14 +35,17 @@ steps:
 
   run:
     lduMatrixATmul_SumA:
-      command: . ./3rdParty/OpenFOAM-dev/etc/custom_bashrc && env LD_LIBRARY_PATH=/workspace/build:$LD_LIBRARY_PATH ./build/tests/lduMatrixATmul_SumA
+      command: ./build/tests/lduMatrixATmul_SumA
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
     lduMatrixOperations_AddAssign_symm:
-      command: . ./3rdParty/OpenFOAM-dev/etc/custom_bashrc && env LD_LIBRARY_PATH=/workspace/build:$LD_LIBRARY_PATH ./build/tests/lduMatrixOperations_AddAssign_symm
+      command: ./build/tests/lduMatrixOperations_AddAssign_symm
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
     lduMatrixOperations_AddAssign_asymm:
-      command: . ./3rdParty/OpenFOAM-dev/etc/custom_bashrc && env LD_LIBRARY_PATH=/workspace/build:$LD_LIBRARY_PATH ./build/tests/lduMatrixOperations_AddAssign_asymm
+      command: ./build/tests/lduMatrixOperations_AddAssign_asymm
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
