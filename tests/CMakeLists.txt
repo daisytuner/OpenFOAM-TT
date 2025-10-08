@@ -1,27 +1,48 @@
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/5376968f6948923e2411081fd9372e71a59d8e77.zip
+# Test Case: lduMatrixATmul_SumA
+add_executable(lduMatrixATmul_SumA
+    lduMatrixATmul_SumA.cpp
 )
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-
-set(TEST_FILES
-    helloWorldTest.C
-    test.C
+target_link_libraries(lduMatrixATmul_SumA PUBLIC OpenFOAM::OpenFOAM z)
+target_compile_features(lduMatrixATmul_SumA PUBLIC cxx_std_20)
+target_include_directories(lduMatrixATmul_SumA PRIVATE
+    ${OPENFOAM_HEADERS}
+)
+target_compile_definitions(lduMatrixATmul_SumA PRIVATE
+    ${OPENFOAM_COMPILE_DEFINITIONS}
+)
+target_compile_options(lduMatrixATmul_SumA PRIVATE
+    ${OPENFOAM_COMPILE_OPTIONS}
 )
 
-option(ENABLE_TT "Enable Tenstorrent kernel tests" OFF)
-if(ENABLE_TT)
-  list(APPEND TEST_FILES tenstorrent_kernel_tests.cpp)
-endif()
+# Test Case: lduMatrixOperations_AddAssign_asymm
+add_executable(lduMatrixOperations_AddAssign_asymm
+    lduMatrixOperations_AddAssign_asymm.cpp
+)
+target_link_libraries(lduMatrixOperations_AddAssign_asymm PUBLIC OpenFOAM::OpenFOAM z)
+target_compile_features(lduMatrixOperations_AddAssign_asymm PUBLIC cxx_std_20)
+target_include_directories(lduMatrixOperations_AddAssign_asymm PRIVATE
+    ${OPENFOAM_HEADERS}
+)
+target_compile_definitions(lduMatrixOperations_AddAssign_asymm PRIVATE
+    ${OPENFOAM_COMPILE_DEFINITIONS}
+)
+target_compile_options(lduMatrixOperations_AddAssign_asymm PRIVATE
+    ${OPENFOAM_COMPILE_OPTIONS}
+)
 
-# Now simply link against gtest or gtest_main as needed. Eg
-add_executable(OpenFOAM_test ${TEST_FILES})
-target_include_directories(OpenFOAM_test PRIVATE ./)
-target_link_libraries(OpenFOAM_test gtest_main OpenFOAM::OpenFOAM)
+# Test Case: lduMatrixOperations_AddAssign_symm
+add_executable(lduMatrixOperations_AddAssign_symm
+    lduMatrixOperations_AddAssign_symm.cpp
+)
+target_link_libraries(lduMatrixOperations_AddAssign_symm PUBLIC OpenFOAM::OpenFOAM z)
+target_compile_features(lduMatrixOperations_AddAssign_symm PUBLIC cxx_std_20)
+target_include_directories(lduMatrixOperations_AddAssign_symm PRIVATE
+    ${OPENFOAM_HEADERS}
+)
+target_compile_definitions(lduMatrixOperations_AddAssign_symm PRIVATE
+    ${OPENFOAM_COMPILE_DEFINITIONS}
+)
+target_compile_options(lduMatrixOperations_AddAssign_symm PRIVATE
+    ${OPENFOAM_COMPILE_OPTIONS}
+)
 
-add_test(NAME OpenFOAM_test_test COMMAND OpenFOAM_test)
-
-include(GoogleTest)
-gtest_discover_tests(OpenFOAM_test)
