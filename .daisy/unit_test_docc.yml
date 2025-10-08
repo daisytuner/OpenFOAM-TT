@@ -35,131 +35,14 @@ steps:
 
   run:
     lduMatrixATmul_SumA:
-      command: ./build/tests/lduMatrixATmul_SumA
+      command: . ./3rdParty/OpenFOAM-dev/etc/custom_bashrc && env LD_LIBRARY_PATH=/workspace/build:$LD_LIBRARY_PATH ./build/tests/lduMatrixATmul_SumA
       env:
-        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
-        FOAM_APP: /workspace/3rdParty/OpenFOAM-dev/applications
-        FOAM_APPBIN: /workspace/3rdParty/OpenFOAM-dev/platforms/linux64GccSPInt32Opt/bin
-        FOAM_EXT_LIBBIN: /workspace/3rdParty/OpenFOAM-dev/ThirdParty-dev/platforms/linux64GccSPInt32/lib
-        FOAM_INST_DIR: "/"
-        FOAM_LIBBIN: /workspace/3rdParty/OpenFOAM-dev/platforms/linux64GccSPInt32Opt/lib
-        FOAM_MODULES: /workspace/3rdParty/OpenFOAM-dev/applications/modules
-        FOAM_MPI: "openmpi-system"
-        FOAM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
-        FOAM_SOLVERS: /workspace/3rdParty/OpenFOAM-dev/applications/solvers
-        FOAM_SRC: /workspace/3rdParty/OpenFOAM-dev/src
-        FOAM_TUTORIALS: /workspace/3rdParty/OpenFOAM-dev/tutorials
-        FOAM_USER_APPBIN: "/platforms/linux64GccSPInt32Opt/bin"
-        FOAM_USER_LIBBIN: "/platforms/linux64GccSPInt32Opt/lib"
-        FOAM_UTILITIES: /workspace/3rdParty/OpenFOAM-dev/applications/utilities
-        WM_ARCH: "linux64"
-        WM_ARCH_OPTION: "64"
-        WM_CC: "gcc"
-        WM_CFLAGS: "-m64 -fPIC -g"
-        WM_COMPILER: "Gcc"
-        WM_COMPILER_LIB_ARCH: "64"
-        WM_COMPILE_OPTION: "Opt"
-        WM_CXX: "g++"
-        WM_CXXFLAGS: "-m64 -fPIC -std: c++0x -g"
-        WM_DIR: /workspace/3rdParty/OpenFOAM-dev/wmake
-        WM_LABEL_OPTION: "Int32"
-        WM_LABEL_SIZE: "32"
-        WM_LDFLAGS: "-m64"
-        WM_LINK_LANGUAGE: "c++"
-        WM_MPLIB: NONE
-        WM_OPTIONS: "linux64GccSPInt32Opt"
-        WM_OSTYPE: "POSIX"
-        WM_PRECISION_OPTION: "SP"
-        WM_PROJECT: "OpenFOAM"
-        WM_PROJECT_INST_DIR: "/"
-        WM_THIRD_PARTY_DIR: /workspace/3rdParty/OpenFOAM-dev/ThirdParty-dev
-        SCOTCH_TYPE: none
-        METIS_TYPE: none
-        PARMETIS_TYPE: none
-        ZOLTAN_TYPE: none
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
     lduMatrixOperations_AddAssign_symm:
-      command: ./build/tests/lduMatrixOperations_AddAssign_symm
+      command: . ./3rdParty/OpenFOAM-dev/etc/custom_bashrc && env LD_LIBRARY_PATH=/workspace/build:$LD_LIBRARY_PATH ./build/tests/lduMatrixOperations_AddAssign_symm
       env:
-        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
-        FOAM_APP: /workspace/3rdParty/OpenFOAM-dev/applications
-        FOAM_APPBIN: /workspace/3rdParty/OpenFOAM-dev/platforms/linux64GccSPInt32Opt/bin
-        FOAM_EXT_LIBBIN: /workspace/3rdParty/OpenFOAM-dev/ThirdParty-dev/platforms/linux64GccSPInt32/lib
-        FOAM_INST_DIR: "/"
-        FOAM_LIBBIN: /workspace/3rdParty/OpenFOAM-dev/platforms/linux64GccSPInt32Opt/lib
-        FOAM_MODULES: /workspace/3rdParty/OpenFOAM-dev/applications/modules
-        FOAM_MPI: "openmpi-system"
-        FOAM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
-        FOAM_SOLVERS: /workspace/3rdParty/OpenFOAM-dev/applications/solvers
-        FOAM_SRC: /workspace/3rdParty/OpenFOAM-dev/src"
-        FOAM_TUTORIALS: /workspace/3rdParty/OpenFOAM-dev/tutorials
-        FOAM_USER_APPBIN: "/platforms/linux64GccSPInt32Opt/bin"
-        FOAM_USER_LIBBIN: "/platforms/linux64GccSPInt32Opt/lib"
-        FOAM_UTILITIES: /workspace/3rdParty/OpenFOAM-dev/applications/utilities
-        WM_ARCH: "linux64"
-        WM_ARCH_OPTION: "64"
-        WM_CC: "gcc"
-        WM_CFLAGS: "-m64 -fPIC -g"
-        WM_COMPILER: "Gcc"
-        WM_COMPILER_LIB_ARCH: "64"
-        WM_COMPILE_OPTION: "Opt"
-        WM_CXX: "g++"
-        WM_CXXFLAGS: "-m64 -fPIC -std: c++0x -g"
-        WM_DIR: /workspace/3rdParty/OpenFOAM-dev/wmake
-        WM_LABEL_OPTION: "Int32"
-        WM_LABEL_SIZE: "32"
-        WM_LDFLAGS: "-m64"
-        WM_LINK_LANGUAGE: "c++"
-        WM_MPLIB: NONE
-        WM_OPTIONS: "linux64GccSPInt32Opt"
-        WM_OSTYPE: "POSIX"
-        WM_PRECISION_OPTION: "SP"
-        WM_PROJECT: "OpenFOAM"
-        WM_PROJECT_INST_DIR: "/"
-        WM_THIRD_PARTY_DIR: /workspace/3rdParty/OpenFOAM-dev/ThirdParty-dev
-        SCOTCH_TYPE: none
-        METIS_TYPE: none
-        PARMETIS_TYPE: none
-        ZOLTAN_TYPE: none
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
     lduMatrixOperations_AddAssign_asymm:
-      command: ./build/tests/lduMatrixOperations_AddAssign_asymm
+      command: . ./3rdParty/OpenFOAM-dev/etc/custom_bashrc && env LD_LIBRARY_PATH=/workspace/build:$LD_LIBRARY_PATH ./build/tests/lduMatrixOperations_AddAssign_asymm
       env:
-        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
-        FOAM_APP: /workspace/3rdParty/OpenFOAM-dev/applications
-        FOAM_APPBIN: /workspace/3rdParty/OpenFOAM-dev/platforms/linux64GccSPInt32Opt/bin
-        FOAM_EXT_LIBBIN: /workspace/3rdParty/OpenFOAM-dev/ThirdParty-dev/platforms/linux64GccSPInt32/lib
-        FOAM_INST_DIR: "/"
-        FOAM_LIBBIN: /workspace/3rdParty/OpenFOAM-dev/platforms/linux64GccSPInt32Opt/lib
-        FOAM_MODULES: /workspace/3rdParty/OpenFOAM-dev/applications/modules
-        FOAM_MPI: "openmpi-system"
-        FOAM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev"
-        FOAM_SOLVERS: /workspace/3rdParty/OpenFOAM-dev/applications/solvers
-        FOAM_SRC: /workspace/3rdParty/OpenFOAM-dev/src"
-        FOAM_TUTORIALS: /workspace/3rdParty/OpenFOAM-dev/tutorials"
-        FOAM_USER_APPBIN: "/platforms/linux64GccSPInt32Opt/bin"
-        FOAM_USER_LIBBIN: "/platforms/linux64GccSPInt32Opt/lib"
-        FOAM_UTILITIES: /workspace/3rdParty/OpenFOAM-dev/applications/utilities
-        WM_ARCH: "linux64"
-        WM_ARCH_OPTION: "64"
-        WM_CC: "gcc"
-        WM_CFLAGS: "-m64 -fPIC -g"
-        WM_COMPILER: "Gcc"
-        WM_COMPILER_LIB_ARCH: "64"
-        WM_COMPILE_OPTION: "Opt"
-        WM_CXX: "g++"
-        WM_CXXFLAGS: "-m64 -fPIC -std: c++0x -g"
-        WM_DIR: /workspace/3rdParty/OpenFOAM-dev/wmake
-        WM_LABEL_OPTION: "Int32"
-        WM_LABEL_SIZE: "32"
-        WM_LDFLAGS: "-m64"
-        WM_LINK_LANGUAGE: "c++"
-        WM_MPLIB: NONE
-        WM_OPTIONS: "linux64GccSPInt32Opt"
-        WM_OSTYPE: "POSIX"
-        WM_PRECISION_OPTION: "SP"
-        WM_PROJECT: "OpenFOAM"
-        WM_PROJECT_INST_DIR: "/"
-        WM_THIRD_PARTY_DIR: /workspace/3rdParty/OpenFOAM-dev/ThirdParty-dev
-        SCOTCH_TYPE: none
-        METIS_TYPE: none
-        PARMETIS_TYPE: none
-        ZOLTAN_TYPE: none
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
