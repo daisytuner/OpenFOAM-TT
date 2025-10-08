@@ -10,11 +10,6 @@ option(DAISY_INSTRUMENTATION "Enable Daisy instrumentation" OFF)
 option(ENABLE_TT "Enable Manual Tenstorrent offloading" OFF)
 option(VERIFY_TT "Enable verification of Tenstorrent offloading results" ON)
 
-set(OPTFLAGS "${OPTFLAGS} -O3 -g")
-set(CMAKE_C_FLAGS_RELWITHDEBINFO  "${OPTFLAGS}" CACHE STRING "")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO  "${OPTFLAGS}" CACHE STRING "")
-set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "")
-
 set(OPENFOAM_OS_SPECIFIC_SOURCES
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/signals/sigFpe.C
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/signals/sigSegv.C
