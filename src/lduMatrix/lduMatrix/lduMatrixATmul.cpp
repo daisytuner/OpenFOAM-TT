@@ -38,7 +38,7 @@ Description
 
 #ifdef ENABLE_TT
 #include "kernel_launcher.hpp"
-#include "ttLduData.hpp"
+#include "ldu_meta_cache.hpp"
 #include "device_transfers.hpp"
 #endif
 
@@ -81,14 +81,14 @@ void Foam::lduMatrix::Amul
                 tt_result = &Apsi;
             #endif
 
-            auto& k = require_kernel_launcher();
+            auto& k = tt::daisy::foam::require_kernel_launcher();
 
-            auto& tt_meta = ensure_lduMat_on_device(k, this);
+            auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this);
 
-            verify_interfaces_noop(interfaces);
+            tt::daisy::foam::verify_interfaces_noop(interfaces);
 
-            auto& tt_psi = copy_scalarField_to_device(k, psi);
-            auto& tt_Apsi = k.allocateBuffer(sizeof(float)*Apsi.size());
+            auto& tt_psi = tt::daisy::foam::copy_scalarField_to_device(k, psi);
+            auto& tt_Apsi = k.allocateBuffer(sizeof(float)*Apsi.size(), tt::daisy::foam::tt_block_size);
             // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
             k.launch_amul(
@@ -100,7 +100,7 @@ void Foam::lduMatrix::Amul
                 cmpt
             );
 
-            copy_scalarField_from_device(k, tt_Apsi, tt_result);
+            tt::daisy::foam::copy_scalarField_from_device(k, tt_Apsi, tt_result);
 
             k.freeBuffer(tt_Apsi);
             k.freeBuffer(tt_psi);
@@ -157,7 +157,7 @@ void Foam::lduMatrix::Amul
         #endif
 
         #if defined(ENABLE_TT) && defined(VERIFY_TT)
-            if (!matches(*tt_result, Apsi)) {
+            if (!daisy::matches(*tt_result, Apsi)) {
                 Foam::SeriousError << "Amul TT results do not match!" << Foam::endl;
                 Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
                 Foam::Info << "CPU Result: " << Apsi << Foam::endl;
@@ -296,12 +296,12 @@ void Foam::lduMatrix::sumA
             tt_result = &sumA;
         #endif
 
-        auto& k = require_kernel_launcher();
+        auto& k = tt::daisy::foam::require_kernel_launcher();
 
-        auto& tt_meta = ensure_lduMat_on_device(k, this);
+        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this);
 
-        auto& tt_res = k.allocateBuffer(sizeof(float)*sumA.size());
-        auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
+        auto& tt_res = k.allocateBuffer(sizeof(float)*sumA.size(), tt::daisy::foam::tt_block_size);
+        auto [tt_iface_contents, iface_count] = tt::daisy::foam::copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
         k.launch_suma(
             tt_meta,
@@ -310,7 +310,7 @@ void Foam::lduMatrix::sumA
             iface_count
         );
 
-        copy_scalarField_from_device(k, tt_res, tt_result);
+        tt::daisy::foam::copy_scalarField_from_device(k, tt_res, tt_result);
 
         k.freeBuffer(tt_res);
         k.freeBuffer(tt_iface_contents);
@@ -361,7 +361,7 @@ void Foam::lduMatrix::sumA
     #endif
 
     #if defined(ENABLE_TT) && defined(VERIFY_TT)
-    if (!matches(*tt_result, sumA)) {
+    if (!daisy::matches(*tt_result, sumA)) {
             Foam::SeriousError << "sumA TT results do not match!" << Foam::endl;
             Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
             Foam::Info << "CPU Result: " << sumA << Foam::endl;
@@ -418,15 +418,15 @@ void Foam::lduMatrix::residual
             tt_result = &rA;
         #endif
 
-        auto& k = require_kernel_launcher();
+        auto& k = tt::daisy::foam::require_kernel_launcher();
 
-        auto& tt_meta = ensure_lduMat_on_device(k, this);
+        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this);
 
-        verify_interfaces_noop(interfaces);
+        tt::daisy::foam::verify_interfaces_noop(interfaces);
 
-        auto& tt_psi = copy_scalarField_to_device(k, psi);
-        auto& tt_source = copy_scalarField_to_device(k, source);
-        auto& tt_res = k.allocateBuffer(sizeof(float)*rA.size());
+        auto& tt_psi = tt::daisy::foam::copy_scalarField_to_device(k, psi);
+        auto& tt_source = tt::daisy::foam::copy_scalarField_to_device(k, source);
+        auto& tt_res = k.allocateBuffer(sizeof(float)*rA.size(), tt::daisy::foam::tt_block_size);
         // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
         k.launch_residual( // if we ever enable interface support, remember to also integrate the negation of interface coefficients. But since we need to inline the code for that, we can do it there directly
@@ -439,7 +439,7 @@ void Foam::lduMatrix::residual
             cmpt
         );
 
-        copy_scalarField_from_device(k, tt_res, tt_result);
+        tt::daisy::foam::copy_scalarField_from_device(k, tt_res, tt_result);
 
         k.freeBuffer(tt_psi);
         k.freeBuffer(tt_source);
@@ -520,7 +520,7 @@ void Foam::lduMatrix::residual
     #endif
 
     #if defined(ENABLE_TT) && defined(VERIFY_TT)
-        if (!matches(*tt_result, rA)) {
+        if (!daisy::matches(*tt_result, rA)) {
             Foam::SeriousError << "residual TT results do not match!" << Foam::endl;
             Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
             Foam::Info << "CPU Result: " << rA << Foam::endl;

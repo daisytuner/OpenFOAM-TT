@@ -1,44 +1,71 @@
 #include "device_transfers.hpp"
+#include "ReusableTtBuffer.hpp"
+#include "buffer_pool.hpp"
 #include "kernel_launcher.hpp"
 #include "lduAddressing.H"
 #include "messageStream.H"
 #include "lduMatrix.H"
 
 #include "scalarField.H"
+#include "tt-metalium/constants.hpp"
+#include "tt-metalium/device.hpp"
 #include "tt-metalium/host_api.hpp"
 #include "tt-metalium/tt_metal_profiler.hpp"
 #include "ttLduData.hpp"
 #include <cstddef>
 #include <tuple>
 
-ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, const Foam::scalarField& field) {
-    auto* device = kernelLauncher.device_;
+namespace tt::daisy::foam {
+
+ReusableTtBuffer& copy_scalarField_to_device(BufferPool& bufferPool, const Foam::scalarField& field) {
+    auto* device = bufferPool.device_;
 
     size_t bytes = sizeof(float)*field.size();
 
-    auto& buffer = kernelLauncher.allocateBuffer(bytes);
+    auto& buffer = bufferPool.allocateBuffer(bytes, tt_block_size);
 
     tt::tt_metal::EnqueueWriteSubBuffer(
         device->command_queue(0),
         buffer.buffer,
         field.cdata(),
-        {0, round_up(bytes, tt_block_size)},
+        {0, tt::round_up(bytes, tt_block_size)},
         false
     );
 
     return buffer;
 }
 
+ReusableTtBuffer& copy_scalarField_to_device_as_dense_mat(BufferPool& bufferPool, const Foam::scalarField& field) {
+    auto* device = bufferPool.device_;
+
+    size_t bytes = sizeof(float)*field.size();
+
+    auto tile_size = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
+
+    auto& buffer = bufferPool.allocateBuffer(bytes, tile_size);
+    throw std::runtime_error("Not yet implemented");
+
+    // tt::tt_metal::EnqueueWriteSubBuffer(
+    //     device->command_queue(0),
+    //     buffer.buffer,
+    //     field.cdata(),
+    //     {0, tt::round_up(bytes, tile_size)},
+    //     false
+    // );
+
+    return buffer;
+}
+
 void copy_scalarField_from_device(
-    KernelLauncher& kernelLauncher,
+    BufferPool& bufferPool,
     std::variant<std::reference_wrapper<tt::tt_metal::Buffer>, std::shared_ptr<tt::tt_metal::Buffer>> buffer,
     Foam::scalarField* field,
     uint32_t buf_offset
 ) {
-    auto* device = kernelLauncher.device_;
+    auto* device = bufferPool.device_;
 
     size_t bytes = sizeof(float)*field->size();
-    size_t padded_bytes = round_up(bytes, tt_block_size);
+    size_t padded_bytes = tt::round_up(bytes, tt_block_size);
 
     float* data = nullptr;
     if (bytes == padded_bytes) {
@@ -60,11 +87,11 @@ void copy_scalarField_from_device(
         delete[] data;
     }
 
-    tt::tt_metal::detail::DumpDeviceProfileResults(device);
+    tt::tt_metal::detail::ReadDeviceProfilerResults(device);
 }
 
-void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuffer& buffer, Foam::scalarField* field, uint32_t buf_offset) {
-    copy_scalarField_from_device(kernelLauncher, buffer.buffer, field, buf_offset);
+void copy_scalarField_from_device(BufferPool& bufferPool, ReusableTtBuffer& buffer, Foam::scalarField* field, uint32_t buf_offset) {
+    copy_scalarField_from_device(bufferPool, buffer.buffer, field, buf_offset);
 }
 
 /**
@@ -77,12 +104,12 @@ void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuff
  * This allows skipping interfaces that are not set
  */
 std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
-    KernelLauncher& kernelLauncher,
+    BufferPool& bufferPool,
     const Foam::FieldField<Foam::Field, Foam::scalar>& interfaceCoeffs,
     const Foam::lduInterfaceFieldPtrsList& interfaces
 ) {
 
-    auto* device = kernelLauncher.device_;
+    auto* device = bufferPool.device_;
 
     size_t total_size = 0;
     auto iface_count = interfaces.size();
@@ -99,7 +126,7 @@ std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
 
     if (used_iface_count) {
 
-        auto& buffer = kernelLauncher.allocateBuffer(total_size);
+        auto& buffer = bufferPool.allocateBuffer(total_size, tt_block_size);
 
         std::vector<uint32_t> interface_data(total_size / sizeof(uint32_t));
         size_t idx = 0;
@@ -139,24 +166,33 @@ uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght)
     auto tile_row_start = tile_row * tt::constants::TILE_HEIGHT * line_lenght;
     auto tile_start = tile_row_start + tile_col * (tt::constants::TILE_HEIGHT * tt::constants::TILE_WIDTH);
 
-    return tile_start + in_tile_row * tt::constants::TILE_WIDTH + in_tile_col;
+    auto face_row = in_tile_row / tt::constants::FACE_HEIGHT;
+    auto face_col = in_tile_col / tt::constants::FACE_WIDTH;
+    auto in_face_row = in_tile_row % tt::constants::FACE_HEIGHT;
+    auto in_face_col = in_tile_col % tt::constants::FACE_WIDTH;
+    auto face_idx = face_row * 2 + face_col;
+    auto face_start = tile_start + face_idx * (tt::constants::FACE_HEIGHT * tt::constants::FACE_HEIGHT);
+
+    return face_start + in_face_row * tt::constants::FACE_WIDTH + in_face_col;
 }
 
-void copy_ldu_to_dense(KernelLauncher& k, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
+void copy_ldu_to_dense(tt::tt_metal::IDevice* device, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
 
     auto cells = lduMat->lduAddr().size();
-    auto aligned_cells = round_up(cells, tt::constants::TILE_WIDTH);
+    auto aligned_cells = tt::round_up(cells, tt::constants::TILE_WIDTH);
     auto page_size = tt::constants::TILE_HEIGHT * tt::constants::TILE_WIDTH*sizeof(float);
 
     auto buf_size = aligned_cells*aligned_cells;
 
     float* dense = new float[buf_size];
 
+    memset(dense, 0, buf_size*sizeof(float));
+
     tt_meta.cell_count = cells;
 
     if (!tt_meta.d_dense_) {
         tt_meta.d_dense_ = tt::tt_metal::CreateBuffer({
-            .device = k.device_,
+            .device = device,
             .size = buf_size*sizeof(float),
             .page_size = page_size,
             .buffer_type = tt::tt_metal::BufferType::DRAM
@@ -187,8 +223,50 @@ void copy_ldu_to_dense(KernelLauncher& k, tt_ldu_meta& tt_meta, const Foam::lduM
         dense[offset_into_tiled_mat(lowAddr, upAddr, aligned_cells)] = u_val;
     }
 
+    // printf("mat %ux%u:\n", aligned_cells, aligned_cells);
+    // for (int i = 0; i < 32; ++i) {
+    //     for (int j = 0; j < 32; ++j) {
+    //         if (j == 16) {
+    //             printf("| ");
+    //         }
+    //         int face_begin = (i >= 16 ? (16*16*2) : 0) + (j >= 16 ? (16*16) : 0);
+    //         int in_face_x = j < 16 ? j : j-16;
+    //         int in_face_y = i < 16 ? i : i-16;
+    //         int idx = face_begin + in_face_y * 16 + in_face_x;
+    //         printf("%6.3f ", dense[idx]);
+    //     }
+    //     printf("\n");
+    //     if (i == 15) {
+    //         for (int j = 0; j < 32; ++j) {
+    //             printf("------ ");
+    //         }
+    //         printf("\n");
+    //     }
+    // }
+    
+    // for (uint32_t i = 0; i < aligned_cells; ++i) {
+    //     for (uint32_t j = 0; j < aligned_cells; ++j) {
+    //         printf("%6.3f ", dense[i*aligned_cells + j]);
+    //         if (j > 0 && j % 16 == 0) {
+    //             if (j % 32 == 0) {
+    //                 printf("|| ");
+    //             } else {
+    //                 printf("| ");
+    //             }
+    //         }
+    //     }
+    //     printf("\n");
+    //     if (i > 0 && i % 16 == 0) {
+    //         if (i % 32 == 0) {
+    //             printf("========================================\n");
+    //         } else {
+    //             printf("----------------------------------------\n");
+    //         }
+    //     }
+    // }
+
     tt::tt_metal::EnqueueWriteBuffer(
-        k.device_->command_queue(0),
+        device->command_queue(0),
         tt_meta.d_dense_,
         dense,
         true
@@ -200,7 +278,7 @@ void copy_ldu_to_dense(KernelLauncher& k, tt_ldu_meta& tt_meta, const Foam::lduM
 }
 
 std::tuple<bool, bool, bool> copy_ldu_from_dense(
-    KernelLauncher& k,
+    tt::tt_metal::IDevice* device,
     tt_ldu_meta& tt_meta,
     Foam::scalarField* diagField,
     Foam::scalarField* lowerField,
@@ -213,14 +291,14 @@ std::tuple<bool, bool, bool> copy_ldu_from_dense(
     }
 
     auto cells = tt_meta.cell_count;
-    auto aligned_cells = round_up(cells, tt::constants::TILE_WIDTH);
+    auto aligned_cells = tt::round_up(cells, tt::constants::TILE_WIDTH);
 
     auto buf_size = aligned_cells*aligned_cells;
 
     float* dense = new float[buf_size];
 
     tt::tt_metal::EnqueueReadBuffer(
-        k.device_->command_queue(0),
+        device->command_queue(0),
         tt_meta.d_dense_,
         dense,
         true
@@ -282,7 +360,7 @@ std::tuple<bool, bool, bool> copy_ldu_from_dense(
  *
  * counts could be gotten from addr instead, as well but when message-passing them through NOC we may also have additional alignment issues
  */
-void copy_ldu_addrs_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
+void copy_ldu_addrs_to_device(BufferPool& k, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
 
     // Foam::Info << "Copying addresses to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
 
@@ -371,7 +449,7 @@ void copy_ldu_addrs_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam
 }
 
 
-void copy_ldu_contents_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat, bool reserve_all) {
+void copy_ldu_contents_to_device(BufferPool& k,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat, bool reserve_all) {
     // Foam::Info << "Copying contents to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
 
     auto* device = k.device_;
@@ -452,3 +530,5 @@ void copy_ldu_contents_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const F
 
     tt_meta.contents_on_device_ = true;
 }
+
+}  // namespace tt::daisy::foam
