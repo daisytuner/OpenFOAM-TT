@@ -4,7 +4,6 @@
 
 #include "debug/dprint.h"
 #include "tt-metalium/math.hpp"
-#include "../tenstorrent_rv_cycle.hpp"
 
 
 void kernel_main() {

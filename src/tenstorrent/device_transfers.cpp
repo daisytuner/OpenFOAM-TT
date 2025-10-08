@@ -5,6 +5,7 @@
 #include "lduMatrix.H"
 
 #include "scalarField.H"
+#include "tt-metalium/constants.hpp"
 #include "tt-metalium/device.hpp"
 #include "tt-metalium/host_api.hpp"
 #include "tt-metalium/tt_metal_profiler.hpp"
@@ -142,7 +143,14 @@ uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght)
     auto tile_row_start = tile_row * tt::constants::TILE_HEIGHT * line_lenght;
     auto tile_start = tile_row_start + tile_col * (tt::constants::TILE_HEIGHT * tt::constants::TILE_WIDTH);
 
-    return tile_start + in_tile_row * tt::constants::TILE_WIDTH + in_tile_col;
+    auto face_row = in_tile_row / tt::constants::FACE_HEIGHT;
+    auto face_col = in_tile_col / tt::constants::FACE_WIDTH;
+    auto in_face_row = in_tile_row % tt::constants::FACE_HEIGHT;
+    auto in_face_col = in_tile_col % tt::constants::FACE_WIDTH;
+    auto face_idx = face_row * 2 + face_col;
+    auto face_start = tile_start + face_idx * (tt::constants::FACE_HEIGHT * tt::constants::FACE_HEIGHT);
+
+    return face_start + in_face_row * tt::constants::FACE_WIDTH + in_face_col;
 }
 
 void copy_ldu_to_dense(tt::tt_metal::IDevice* device, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
@@ -154,6 +162,8 @@ void copy_ldu_to_dense(tt::tt_metal::IDevice* device, tt_ldu_meta& tt_meta, cons
     auto buf_size = aligned_cells*aligned_cells;
 
     float* dense = new float[buf_size];
+
+    memset(dense, 0, buf_size*sizeof(float));
 
     tt_meta.cell_count = cells;
 
@@ -189,6 +199,48 @@ void copy_ldu_to_dense(tt::tt_metal::IDevice* device, tt_ldu_meta& tt_meta, cons
         dense[offset_into_tiled_mat(upAddr, lowAddr, aligned_cells)] = l_val;
         dense[offset_into_tiled_mat(lowAddr, upAddr, aligned_cells)] = u_val;
     }
+
+    // printf("mat %ux%u:\n", aligned_cells, aligned_cells);
+    // for (int i = 0; i < 32; ++i) {
+    //     for (int j = 0; j < 32; ++j) {
+    //         if (j == 16) {
+    //             printf("| ");
+    //         }
+    //         int face_begin = (i >= 16 ? (16*16*2) : 0) + (j >= 16 ? (16*16) : 0);
+    //         int in_face_x = j < 16 ? j : j-16;
+    //         int in_face_y = i < 16 ? i : i-16;
+    //         int idx = face_begin + in_face_y * 16 + in_face_x;
+    //         printf("%6.3f ", dense[idx]);
+    //     }
+    //     printf("\n");
+    //     if (i == 15) {
+    //         for (int j = 0; j < 32; ++j) {
+    //             printf("------ ");
+    //         }
+    //         printf("\n");
+    //     }
+    // }
+    
+    // for (uint32_t i = 0; i < aligned_cells; ++i) {
+    //     for (uint32_t j = 0; j < aligned_cells; ++j) {
+    //         printf("%6.3f ", dense[i*aligned_cells + j]);
+    //         if (j > 0 && j % 16 == 0) {
+    //             if (j % 32 == 0) {
+    //                 printf("|| ");
+    //             } else {
+    //                 printf("| ");
+    //             }
+    //         }
+    //     }
+    //     printf("\n");
+    //     if (i > 0 && i % 16 == 0) {
+    //         if (i % 32 == 0) {
+    //             printf("========================================\n");
+    //         } else {
+    //             printf("----------------------------------------\n");
+    //         }
+    //     }
+    // }
 
     tt::tt_metal::EnqueueWriteBuffer(
         device->command_queue(0),
