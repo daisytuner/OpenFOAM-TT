@@ -1,0 +1,51 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+parameters:
+  timeout: 120
+  partitions:
+    - chamomile
+
+steps:
+  build: |
+    apt-get update
+    apt-get install -y build-essential libopenmpi-dev zlib1g-dev gnuplot gnuplot-x11 libxt-dev cmake flex
+    apt-get install -y libxml2-dev libhdf5-dev libavfilter-dev libtheora-dev libgl2ps-dev libx11-dev libqt5x11extras5-dev libglew-dev libutfcpp-dev 
+
+    # Set up OpenFOAM environment
+    cd 3rdParty/OpenFOAM-dev/
+    export WM_PROJECT_DIR=$(pwd)
+    . ./etc/custom_bashrc
+
+    # Generate include files
+    ./wmake/wmakeLnIncludeAll
+
+    # Build tests with CMake and Ninja
+    export DOCC_CI=
+
+    cd ../../
+    mkdir build && cd build
+    # cmake -G Ninja -DENABLE_TT=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+    cmake -G Ninja -DENABLE_TT=ON ..
+    ninja
+
+  run:
+    lduMatrixATmul_SumA:
+      command: ./build/tests/lduMatrixATmul_SumA
+      env:
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
+    lduMatrixOperations_AddAssign_symm:
+      command: ./build/tests/lduMatrixOperations_AddAssign_symm
+      env:
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
+    lduMatrixOperations_AddAssign_asymm:
+      command: ./build/tests/lduMatrixOperations_AddAssign_asymm
+      env:
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
