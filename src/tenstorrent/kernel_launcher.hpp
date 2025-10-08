@@ -4,6 +4,7 @@
 #include <tt-metalium/host_api.hpp>
 #include "ReusableTtBuffer.hpp"
 #include <vector>
+#include "buffer_pool.hpp"
 #include "ttLduData.hpp"
 
 namespace tt::daisy::foam {
@@ -51,14 +52,12 @@ struct LduMatOpAssignkernelMeta {
     tt::tt_metal::KernelHandle kernel_0;
 };
 
-class KernelLauncher {
+class KernelLauncher : public BufferPool {
 public:
-    tt::tt_metal::IDevice* device_;
 
     std::filesystem::path kernel_dir_;
 
 private:
-    std::vector<ReusableTtBuffer*> buffers_;
 
     AmulKernelMeta program_amul_;
     SumAKernelMeta program_suma_;
@@ -90,9 +89,6 @@ private:
 public:
     KernelLauncher();
     ~KernelLauncher();
-
-    ReusableTtBuffer& allocateBuffer(size_t size);
-    void freeBuffer(ReusableTtBuffer& buffer);
 
     void launch_amul(
         const tt_ldu_meta& lduMeta,

@@ -1204,4 +1204,6 @@ target_compile_definitions(finiteVolume PUBLIC
 
 add_subdirectory(tests)
 
-add_subdirectory(tt-bench-harness)
+if(ENABLE_TT)
+  add_subdirectory(tt-bench-harness)
+endif()

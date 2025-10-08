@@ -1,4 +1,6 @@
 #include "device_transfers.hpp"
+#include "ReusableTtBuffer.hpp"
+#include "buffer_pool.hpp"
 #include "kernel_launcher.hpp"
 #include "lduAddressing.H"
 #include "messageStream.H"
@@ -15,12 +17,12 @@
 
 namespace tt::daisy::foam {
 
-ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, const Foam::scalarField& field) {
-    auto* device = kernelLauncher.device_;
+ReusableTtBuffer& copy_scalarField_to_device(BufferPool& bufferPool, const Foam::scalarField& field) {
+    auto* device = bufferPool.device_;
 
     size_t bytes = sizeof(float)*field.size();
 
-    auto& buffer = kernelLauncher.allocateBuffer(bytes);
+    auto& buffer = bufferPool.allocateBuffer(bytes, tt_block_size);
 
     tt::tt_metal::EnqueueWriteSubBuffer(
         device->command_queue(0),
@@ -33,13 +35,34 @@ ReusableTtBuffer& copy_scalarField_to_device(KernelLauncher& kernelLauncher, con
     return buffer;
 }
 
+ReusableTtBuffer& copy_scalarField_to_device_as_dense_mat(BufferPool& bufferPool, const Foam::scalarField& field) {
+    auto* device = bufferPool.device_;
+
+    size_t bytes = sizeof(float)*field.size();
+
+    auto tile_size = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
+
+    auto& buffer = bufferPool.allocateBuffer(bytes, tile_size);
+    throw std::runtime_error("Not yet implemented");
+
+    // tt::tt_metal::EnqueueWriteSubBuffer(
+    //     device->command_queue(0),
+    //     buffer.buffer,
+    //     field.cdata(),
+    //     {0, tt::round_up(bytes, tile_size)},
+    //     false
+    // );
+
+    return buffer;
+}
+
 void copy_scalarField_from_device(
-    KernelLauncher& kernelLauncher,
+    BufferPool& bufferPool,
     std::variant<std::reference_wrapper<tt::tt_metal::Buffer>, std::shared_ptr<tt::tt_metal::Buffer>> buffer,
     Foam::scalarField* field,
     uint32_t buf_offset
 ) {
-    auto* device = kernelLauncher.device_;
+    auto* device = bufferPool.device_;
 
     size_t bytes = sizeof(float)*field->size();
     size_t padded_bytes = tt::round_up(bytes, tt_block_size);
@@ -67,8 +90,8 @@ void copy_scalarField_from_device(
     tt::tt_metal::detail::ReadDeviceProfilerResults(device);
 }
 
-void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuffer& buffer, Foam::scalarField* field, uint32_t buf_offset) {
-    copy_scalarField_from_device(kernelLauncher, buffer.buffer, field, buf_offset);
+void copy_scalarField_from_device(BufferPool& bufferPool, ReusableTtBuffer& buffer, Foam::scalarField* field, uint32_t buf_offset) {
+    copy_scalarField_from_device(bufferPool, buffer.buffer, field, buf_offset);
 }
 
 /**
@@ -81,12 +104,12 @@ void copy_scalarField_from_device(KernelLauncher& kernelLauncher, ReusableTtBuff
  * This allows skipping interfaces that are not set
  */
 std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
-    KernelLauncher& kernelLauncher,
+    BufferPool& bufferPool,
     const Foam::FieldField<Foam::Field, Foam::scalar>& interfaceCoeffs,
     const Foam::lduInterfaceFieldPtrsList& interfaces
 ) {
 
-    auto* device = kernelLauncher.device_;
+    auto* device = bufferPool.device_;
 
     size_t total_size = 0;
     auto iface_count = interfaces.size();
@@ -103,7 +126,7 @@ std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
 
     if (used_iface_count) {
 
-        auto& buffer = kernelLauncher.allocateBuffer(total_size);
+        auto& buffer = bufferPool.allocateBuffer(total_size, tt_block_size);
 
         std::vector<uint32_t> interface_data(total_size / sizeof(uint32_t));
         size_t idx = 0;
@@ -337,7 +360,7 @@ std::tuple<bool, bool, bool> copy_ldu_from_dense(
  *
  * counts could be gotten from addr instead, as well but when message-passing them through NOC we may also have additional alignment issues
  */
-void copy_ldu_addrs_to_device(KernelLauncher& k, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
+void copy_ldu_addrs_to_device(BufferPool& k, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
 
     // Foam::Info << "Copying addresses to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
 
@@ -426,7 +449,7 @@ void copy_ldu_addrs_to_device(KernelLauncher& k, tt_ldu_meta& tt_meta, const Foa
 }
 
 
-void copy_ldu_contents_to_device(KernelLauncher& k,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat, bool reserve_all) {
+void copy_ldu_contents_to_device(BufferPool& k,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat, bool reserve_all) {
     // Foam::Info << "Copying contents to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
 
     auto* device = k.device_;

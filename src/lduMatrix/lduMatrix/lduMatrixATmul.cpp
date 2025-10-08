@@ -88,7 +88,7 @@ void Foam::lduMatrix::Amul
             tt::daisy::foam::verify_interfaces_noop(interfaces);
 
             auto& tt_psi = tt::daisy::foam::copy_scalarField_to_device(k, psi);
-            auto& tt_Apsi = k.allocateBuffer(sizeof(float)*Apsi.size());
+            auto& tt_Apsi = k.allocateBuffer(sizeof(float)*Apsi.size(), tt::daisy::foam::tt_block_size);
             // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
             k.launch_amul(
@@ -300,7 +300,7 @@ void Foam::lduMatrix::sumA
 
         auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this);
 
-        auto& tt_res = k.allocateBuffer(sizeof(float)*sumA.size());
+        auto& tt_res = k.allocateBuffer(sizeof(float)*sumA.size(), tt::daisy::foam::tt_block_size);
         auto [tt_iface_contents, iface_count] = tt::daisy::foam::copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
         k.launch_suma(
@@ -426,7 +426,7 @@ void Foam::lduMatrix::residual
 
         auto& tt_psi = tt::daisy::foam::copy_scalarField_to_device(k, psi);
         auto& tt_source = tt::daisy::foam::copy_scalarField_to_device(k, source);
-        auto& tt_res = k.allocateBuffer(sizeof(float)*rA.size());
+        auto& tt_res = k.allocateBuffer(sizeof(float)*rA.size(), tt::daisy::foam::tt_block_size);
         // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
         k.launch_residual( // if we ever enable interface support, remember to also integrate the negation of interface coefficients. But since we need to inline the code for that, we can do it there directly

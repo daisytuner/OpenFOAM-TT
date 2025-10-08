@@ -1,6 +1,7 @@
 #include "kernel_launcher.hpp"
 #include "ReusableTtBuffer.hpp"
 #include <tt-metalium/buffer.hpp>
+#include "buffer_pool.hpp"
 #include "ttLduData.hpp"
 #include <cassert>
 #include <cstdlib>
@@ -19,7 +20,7 @@ KernelLauncher& require_kernel_launcher() {
 }
 
 KernelLauncher::KernelLauncher():
-        device_(tt::tt_metal::CreateDevice(0))
+        BufferPool(tt::tt_metal::CreateDevice(0))
 {
     auto e = std::getenv("TT_FOAM_KERNEL_DIR");
     if (e) {
@@ -38,41 +39,8 @@ KernelLauncher::KernelLauncher():
 }
 
 KernelLauncher::~KernelLauncher() {
-    for (auto buffer : buffers_) {
-        delete buffer;
-    }
     if (device_) {
         tt::tt_metal::CloseDevice(device_);
-    }
-}
-
-
-ReusableTtBuffer& KernelLauncher::allocateBuffer(size_t size) {
-    bool found = false;
-    auto it = buffers_.begin();
-    ReusableTtBuffer* cur = nullptr;
-    while (!found && it != buffers_.end()) {
-        cur = *it;
-        if (cur->free && cur->buffer->size() >= size) {
-            found = true;
-            cur->free = false;
-            break;
-        }
-        ++it;
-    }
-
-    if (!found) {
-        auto buf = new ReusableTtBuffer(tt::round_up(size, 1024), device_);
-        buffers_.push_back(buf);
-        return *buf;
-    } else {
-        return *cur;
-    }
-}
-
-void KernelLauncher::freeBuffer(ReusableTtBuffer& buffer) {
-    if (buffer.buffer) {
-        buffer.free = true;
     }
 }
 
