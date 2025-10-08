@@ -25,6 +25,8 @@ steps:
     ./wmake/wmakeLnIncludeAll
 
     # Build tests with CMake and Ninja
+    export DOCC_CI=
+
     cd ../../
     mkdir build && cd build
     cmake -G Ninja -DENABLE_TT=OFF -DCMAKE_C_COMPILER=docc -DCMAKE_CXX_COMPILER=docc-cpp ..
