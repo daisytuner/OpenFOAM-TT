@@ -17,4 +17,14 @@ struct ReusableTtBuffer {
             .buffer_type = tt::tt_metal::BufferType::DRAM
         });
     }
+
+private:
+    ReusableTtBuffer(): free(false), buffer(nullptr) {}
+
+public:
+    static ReusableTtBuffer& unusedPlaceholder() {
+        static ReusableTtBuffer null_buffer;
+        return null_buffer;
+    }
+
 };

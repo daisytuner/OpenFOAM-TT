@@ -41,7 +41,7 @@ set(OPENFOAM_PSTREAM_SOURCES
 
 add_custom_command(
   OUTPUT ${CMAKE_BINARY_DIR}/global.Cver.C
-  COMMAND sed -e 's!BUILD_STRING!-!' ${OPENFOAM_SRC_DIR}/OpenFOAM/global/global.Cver > ${CMAKE_BINARY_DIR}/global.Cver.C
+  COMMAND sed -e 's!BUILD_STRING!-!' -e 's!VERSION_STRING!unknown!' ${OPENFOAM_SRC_DIR}/OpenFOAM/global/global.Cver > ${CMAKE_BINARY_DIR}/global.Cver.C
   DEPENDS ${OPENFOAM_SRC_DIR}/OpenFOAM/global/global.Cver
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMENT "Generating global.Cver.C"
@@ -60,9 +60,12 @@ set(OPENFOAM_COMPILE_OPTIONS
   -Wnon-virtual-dtor
   -Wno-unused-parameter
   -Wno-invalid-offsetof
+  -Wno-undefined-var-template
+  -Wno-unqualified-std-cast-call
   -Wno-attributes
   -ftemplate-depth-100
   -fPIC
+  # -fsanitize=address
 )
 
 set(OPENFOAM_COMPILE_DEFINITIONS
@@ -1203,6 +1206,8 @@ endif()
 #   -Wnon-virtual-dtor
 #   -Wno-unused-parameter
 #   -Wno-invalid-offsetof
+#   -Wno-undefined-var-template
+#   -Wno-unqualified-std-cast-call
 #   -Wno-attributes
 #   -ftemplate-depth-100
 #   -fPIC

@@ -3,6 +3,7 @@
 #include <Field.H>
 #include <scalarField.H>
 #include <FieldField.H>
+#include <Ostream.H>
 #include <lduInterfaceFieldPtrsList.H>
 #include <tt-metalium/buffer.hpp>
 #include <memory>
@@ -14,21 +15,35 @@ struct tt_ldu_meta {
     // matrix contents. They may change at some point. But also will not be changed on-device
     std::shared_ptr<tt::tt_metal::Buffer> d_data_ = nullptr;
 
-    uint32_t cell_count = 0;
-    uint32_t lower_contents_start_ = 0;
+    uint32_t cell_count = 0; //TODO we use this for diag Count & size of the virtual matrix. But it can happen that the diag is not yet allocated and we could save work (but this is more special case that diag is virtual 0, but it still should exist)
+    uint32_t lower_contents_start_ = 0; // if lower_contents_start_ == upper_contents_start_ than it is mirrored. It does not hurt to read them twice
     uint32_t sparse_count = 0;
     uint32_t upper_contents_start_ = 0;
+    bool lower_contains_also_upper = false; // symmetric matrix. irrespective of which matrix was populated in ldu, lower is always the present half.
+    // upper may be reserved or not (upper_contents_start is either lower_contents_start or its own address)
+    bool diag_zero = false; // if true, diag data is unitialized in buffer, but should be treated as 0
+    bool triang_zero = false; // if true, lower and upper data is uninitialized in buffer, but should be treated as 0
 
     // addrs for the sparse data and interfaces. If those change after setup, I am giving up
     std::shared_ptr<tt::tt_metal::Buffer> d_addrs_ = nullptr;
 
     uint32_t upper_addrs_start_ = 0;
     uint32_t iface_map_start_ = 0;
+
+    // -------------- dense meta
+    bool dense_on_device_ = false;
+
+    std::shared_ptr<tt::tt_metal::Buffer> d_dense_ = nullptr;
+
 };
+
+Foam::Ostream& operator<<(Foam::Ostream& os, const tt_ldu_meta& tt_meta);
 
 extern std::unordered_map<const void*, tt_ldu_meta> ldu_tt_meta_map;
 
-tt_ldu_meta& ensure_lduMat_on_device(class KernelLauncher& k, const class Foam::lduMatrix* lduMat);
+void verify_interfaces_noop(const Foam::lduInterfaceFieldPtrsList& interfaces);
+
+tt_ldu_meta& ensure_lduMat_on_device(class KernelLauncher& k, const class Foam::lduMatrix* lduMat, bool reserve_all_parts = false);
 
 template<typename result> result& get_tt_meta(const void* key, std::unordered_map<const void*, result>& map) {
     auto it = map.find(key);
@@ -46,6 +61,8 @@ template<typename result> void clear_tt_meta(const void* key, std::unordered_map
         map.erase(it);
     }
 }
+
+void clear_tt_meta(const void* key, bool clear_addrs, bool clear_contents);
 
 /**
  * @brief Computes the ceiling of a / b.

@@ -2,6 +2,7 @@
 
 #include "ReusableTtBuffer.hpp"
 #include "kernel_launcher.hpp"
+#include "lduAddressing.H"
 #include <Field.H>
 #include <scalarField.H>
 #include <FieldField.H>
@@ -29,6 +30,30 @@ std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
     const Foam::lduInterfaceFieldPtrsList& interfaces
 );
 
-void copy_ldu_addrs_to_device(KernelLauncher& KernelLauncher,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat);
+void copy_ldu_addrs_to_device(
+    KernelLauncher& kernelLauncher,
+    tt_ldu_meta& tt_meta,
+    const Foam::lduMatrix* lduMat
+);
 
-void copy_ldu_contents_to_device(KernelLauncher& KernelLauncher,tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat);
+void copy_ldu_contents_to_device(
+    KernelLauncher& kernelLauncher,
+    tt_ldu_meta& tt_meta,
+    const Foam::lduMatrix* lduMat,
+    bool reserve_all = false
+);
+
+void copy_ldu_to_dense(
+    KernelLauncher& k,
+    tt_ldu_meta& tt_meta,
+    const Foam::lduMatrix* lduMat
+);
+
+std::tuple<bool, bool, bool> copy_ldu_from_dense(
+    KernelLauncher& k,
+    tt_ldu_meta& tt_meta,
+    Foam::scalarField* diagField,
+    Foam::scalarField* lowerField,
+    Foam::scalarField* upperField,
+    const Foam::lduAddressing& lduAddressing
+);

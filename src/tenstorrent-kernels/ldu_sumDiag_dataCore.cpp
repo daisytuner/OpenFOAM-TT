@@ -78,7 +78,7 @@ void kernel_main() {
         DeviceZoneScopedN("sumDiag compute done");
     }
 
-    page_count = (lduUpperStart) / (page_size / 4);
+    page_count = (lduLowerStart) / (page_size / 4); // only diag needs updating. its first, so just reduce the page count
     for (uint32_t i = 0; i < page_count; ++i) {
         noc_async_write_tile(i, lduDat_gen, get_write_ptr(mat_cb) + page_size * i);
     }

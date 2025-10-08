@@ -72,16 +72,6 @@ void Foam::lduMatrix::Amul
 
         const scalarField& psi = tpsi();
 
-        // Initialise the update of interfaced interfaces
-        initMatrixInterfaces
-        (
-            interfaceBouCoeffs,
-            interfaces,
-            psi,
-            Apsi,
-            cmpt
-        );
-
         scalarField* tt_result;
 
         #ifdef ENABLE_TT
@@ -95,9 +85,11 @@ void Foam::lduMatrix::Amul
 
             auto& tt_meta = ensure_lduMat_on_device(k, this);
 
+            verify_interfaces_noop(interfaces);
+
             auto& tt_psi = copy_scalarField_to_device(k, psi);
             auto& tt_Apsi = k.allocateBuffer(sizeof(float)*Apsi.size());
-            auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
+            // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
             k.launch_amul(
                 tt_meta,
@@ -112,10 +104,20 @@ void Foam::lduMatrix::Amul
 
             k.freeBuffer(tt_Apsi);
             k.freeBuffer(tt_psi);
-            k.freeBuffer(tt_iface_contents);
+            // k.freeBuffer(tt_iface_contents);
         #endif
 
         #if !defined(ENABLE_TT) || defined(VERIFY_TT)
+
+        // Initialise the update of interfaced interfaces
+        initMatrixInterfaces
+        (
+            interfaceBouCoeffs,
+            interfaces,
+            psi,
+            Apsi,
+            cmpt
+        );
 
         const scalar* const __restrict__ psiPtr = psi.begin();
 
@@ -142,6 +144,18 @@ void Foam::lduMatrix::Amul
             ApsiPtr[lPtr[face]] += upperPtr[face]*psiPtr[uPtr[face]];
         }
 
+        // Update interface interfaces
+        updateMatrixInterfaces
+        (
+            interfaceBouCoeffs,
+            interfaces,
+            psi,
+            Apsi,
+            cmpt
+        );
+
+        #endif
+
         #if defined(ENABLE_TT) && defined(VERIFY_TT)
             if (!matches(*tt_result, Apsi)) {
                 Foam::SeriousError << "Amul TT results do not match!" << Foam::endl;
@@ -153,21 +167,10 @@ void Foam::lduMatrix::Amul
                 Foam::Info << "Amul u_addr: " << lduAddr().upperAddr() << Foam::endl;
                 throw new std::runtime_error("Amul TT results do not match!");
             } else {
-                Foam::Info << "Amul TT success" << Foam::endl;
+                // Foam::Info << "Amul TT success" << Foam::endl;
                 memcpy(ApsiPtr, tt_result->begin(), sizeof(scalar)*Apsi.size());
+                delete tt_result;
             }
-        #endif
-
-        // Update interface interfaces
-        updateMatrixInterfaces
-        (
-            interfaceBouCoeffs,
-            interfaces,
-            psi,
-            Apsi,
-            cmpt
-        );
-
         #endif
 
         tpsi.clear();
@@ -303,7 +306,7 @@ void Foam::lduMatrix::sumA
         k.launch_suma(
             tt_meta,
             *tt_res.buffer,
-            *tt_iface_contents.buffer,
+            tt_iface_contents.buffer.get(),
             iface_count
         );
 
@@ -368,8 +371,9 @@ void Foam::lduMatrix::sumA
             Foam::Info << "sumA ifaceCoeffs: " << interfaceBouCoeffs << Foam::endl;
             throw new std::runtime_error("sumA TT results do not match!");
         } else {
-            Foam::Info << "sumA TT success" << Foam::endl;
+            // Foam::Info << "sumA TT success" << Foam::endl;
             memcpy(sumAPtr, tt_result->begin(), sizeof(scalar)*sumA.size());
+            delete tt_result;
         }
     #endif
 
@@ -404,6 +408,46 @@ void Foam::lduMatrix::residual
 
     __daisy_instrumentation_enter(region_id);
 #endif
+
+    scalarField* tt_result;
+
+    #ifdef ENABLE_TT
+        #ifdef VERIFY_TT
+            tt_result = new scalarField(rA.size());
+        #else
+            tt_result = &rA;
+        #endif
+
+        auto& k = require_kernel_launcher();
+
+        auto& tt_meta = ensure_lduMat_on_device(k, this);
+
+        verify_interfaces_noop(interfaces);
+
+        auto& tt_psi = copy_scalarField_to_device(k, psi);
+        auto& tt_source = copy_scalarField_to_device(k, source);
+        auto& tt_res = k.allocateBuffer(sizeof(float)*rA.size());
+        // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
+
+        k.launch_residual( // if we ever enable interface support, remember to also integrate the negation of interface coefficients. But since we need to inline the code for that, we can do it there directly
+            tt_meta,
+            *tt_psi.buffer,
+            *tt_source.buffer,
+            *tt_res.buffer,
+            // *tt_iface_contents.buffer,
+            // iface_count,
+            cmpt
+        );
+
+        copy_scalarField_from_device(k, tt_res, tt_result);
+
+        k.freeBuffer(tt_psi);
+        k.freeBuffer(tt_source);
+        k.freeBuffer(tt_res);
+        // k.freeBuffer(tt_iface_contents);
+    #endif
+
+    #if !defined(ENABLE_TT) || defined(VERIFY_TT)
 
     scalar* __restrict__ rAPtr = rA.begin();
 
@@ -448,44 +492,6 @@ void Foam::lduMatrix::residual
         cmpt
     );
 
-    scalarField* tt_result;
-
-    #ifdef ENABLE_TT
-        #ifdef VERIFY_TT
-            tt_result = new scalarField(rA.size());
-        #else
-            tt_result = &rA;
-        #endif
-
-        auto& k = require_kernel_launcher();
-
-        auto& tt_meta = ensure_lduMat_on_device(k, this);
-
-        auto& tt_psi = copy_scalarField_to_device(k, psi);
-        auto& tt_source = copy_scalarField_to_device(k, source);
-        auto& tt_res = k.allocateBuffer(sizeof(float)*rA.size());
-        // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
-
-        k.launch_residual(
-            tt_meta,
-            *tt_psi.buffer,
-            *tt_source.buffer,
-            *tt_res.buffer,
-            // *tt_iface_contents.buffer,
-            // iface_count,
-            cmpt
-        );
-
-        copy_scalarField_from_device(k, tt_res, tt_result);
-
-        k.freeBuffer(tt_psi);
-        k.freeBuffer(tt_source);
-        k.freeBuffer(tt_res);
-        // k.freeBuffer(tt_iface_contents);
-    #endif
-
-    #if !defined(ENABLE_TT) || defined(VERIFY_TT)
-
     const label nCells = diag().size();
     for (label cell=0; cell<nCells; cell++)
     {
@@ -501,10 +507,20 @@ void Foam::lduMatrix::residual
         rAPtr[lPtr[face]] -= upperPtr[face]*psiPtr[uPtr[face]];
     }
 
+    // Update interface interfaces
+    updateMatrixInterfaces
+    (
+        mBouCoeffs,
+        interfaces,
+        psi,
+        rA,
+        cmpt
+    );
+
     #endif
 
     #if defined(ENABLE_TT) && defined(VERIFY_TT)
-    if (!matches(*tt_result, rA)) {
+        if (!matches(*tt_result, rA)) {
             Foam::SeriousError << "residual TT results do not match!" << Foam::endl;
             Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
             Foam::Info << "CPU Result: " << rA << Foam::endl;
@@ -516,20 +532,11 @@ void Foam::lduMatrix::residual
             // Foam::Info << "residual ifaceCoeffs: " << interfaceBouCoeffs << Foam::endl;
             throw new std::runtime_error("residual TT results do not match!");
         } else {
-            Foam::Info << "residual TT success" << Foam::endl;
+            // Foam::Info << "residual TT success" << Foam::endl;
             memcpy(rAPtr, tt_result->begin(), sizeof(scalar)*rA.size());
+            delete tt_result;
         }
     #endif
-
-    // Update interface interfaces
-    updateMatrixInterfaces
-    (
-        mBouCoeffs,
-        interfaces,
-        psi,
-        rA,
-        cmpt
-    );
 
 #ifdef __DAISY_INSTRUMENTATION
     __daisy_instrumentation_exit(region_id);

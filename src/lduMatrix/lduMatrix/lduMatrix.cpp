@@ -185,6 +185,9 @@ Foam::scalarField& Foam::lduMatrix::lower()
         {
             lowerPtr_ = new scalarField(lduAddr().lowerAddr().size(), 0.0);
         }
+        #ifdef ENABLE_TT
+        clear_tt_meta(this, false, true);
+        #endif
     }
 
     return *lowerPtr_;
@@ -196,6 +199,9 @@ Foam::scalarField& Foam::lduMatrix::diag()
     if (!diagPtr_)
     {
         diagPtr_ = new scalarField(lduAddr().size(), 0.0);
+        #ifdef ENABLE_TT
+        clear_tt_meta(this, false, true);
+        #endif
     }
 
     return *diagPtr_;
@@ -214,6 +220,9 @@ Foam::scalarField& Foam::lduMatrix::upper()
         {
             upperPtr_ = new scalarField(lduAddr().lowerAddr().size(), 0.0);
         }
+        #ifdef ENABLE_TT
+        clear_tt_meta(this, false, true);
+        #endif
     }
 
     return *upperPtr_;
@@ -232,6 +241,9 @@ Foam::scalarField& Foam::lduMatrix::lower(const label nCoeffs)
         {
             lowerPtr_ = new scalarField(nCoeffs, 0.0);
         }
+        #ifdef ENABLE_TT
+        clear_tt_meta(this, false, true);
+        #endif
     }
 
     return *lowerPtr_;
@@ -261,6 +273,9 @@ Foam::scalarField& Foam::lduMatrix::upper(const label nCoeffs)
         {
             upperPtr_ = new scalarField(nCoeffs, 0.0);
         }
+        #ifdef ENABLE_TT
+        clear_tt_meta(this, false, true);
+        #endif
     }
 
     return *upperPtr_;
