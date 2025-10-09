@@ -26,6 +26,9 @@ steps:
 
     # Build tests with CMake and Ninja
     export DOCC_CI=
+    export TT_METAL_INSTALL_DIR=/opt/tenstorrent/metalium/v0.63.0
+
+    git clone https://github.com/tenstorrent/tt-metal.git --depth 1 --branch v0.63.0
 
     cd ../../
     mkdir build && cd build
@@ -39,13 +42,19 @@ steps:
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
+        TT_METAL_HOME: /workspace/tt-metal
+        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
     lduMatrixOperations_AddAssign_symm:
       command: ./build/tests/lduMatrixOperations_AddAssign_symm
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
+        TT_METAL_HOME: /workspace/tt-metal
+        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
     lduMatrixOperations_AddAssign_asymm:
       command: ./build/tests/lduMatrixOperations_AddAssign_asymm
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
+        TT_METAL_HOME: /workspace/tt-metal
+        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
