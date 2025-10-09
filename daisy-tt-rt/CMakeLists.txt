@@ -9,6 +9,10 @@ add_library(daisy_tt_rt STATIC
     src/tenstorrent/ttLduData.cpp
 )
 
+target_include_directories(daisy_tt_rt PUBLIC
+    src/tenstorrent
+)
+
 add_library(OpenFOAM::daisy_tt_rt ALIAS daisy_tt_rt)
 
 target_compile_features(daisy_tt_rt PUBLIC cxx_std_20)
@@ -21,39 +25,106 @@ target_compile_definitions(daisy_tt_rt PUBLIC
     SPDLOG_FMT_EXTERNAL
 )
 
-target_link_directories(daisy_tt_rt PUBLIC
-    $ENV{TT_METAL_INSTALL_DIR}/lib
-)
+if(NOT $ENV{TT_METAL_INSTALL_DIR} STREQUAL "")
+    message(STATUS "Building against Tenstorrent Metalium installation from TT_METAL_INSTALL_DIR: $ENV{TT_METAL_INSTALL_DIR}")
+    target_include_directories(daisy_tt_rt PUBLIC
+        $ENV{TT_METAL_INSTALL_DIR}/include
+        $ENV{TT_METAL_INSTALL_DIR}/include/metalium-thirdparty
+    )
+    target_link_directories(daisy_tt_rt PUBLIC
+        $ENV{TT_METAL_INSTALL_DIR}/lib
+    )
+elseif(NOT $ENV{TT_METAL_HOME} STREQUAL "")
+    message(STATUS "Building against Tenstorrent Metalium installation from TT_METAL_HOME: $ENV{TT_METAL_HOME}")
+    target_include_directories(daisy_tt_rt PUBLIC
+        $ENV{TT_METAL_HOME}/build/include
+    )
+    target_link_directories(daisy_tt_rt PUBLIC
+        $ENV{TT_METAL_HOME}/build/lib
+    )
+endif()
+
+find_package(Boost 1.83.0 REQUIRED container)
+############################################################################################################################
+# Boost
+############################################################################################################################
+
+# function(ensureboosttarget boostTarget)
+#     if(NOT TARGET Boost::${boostTarget})
+#         add_library(Boost::${boostTarget} INTERFACE IMPORTED GLOBAL)
+#         target_link_libraries(Boost::${boostTarget} INTERFACE Boost::headers)
+#         message(STATUS "Defined Boost::${boostTarget} as an INTERFACE target.")
+#     endif()
+# endfunction()
+
+# CPMAddPackage(
+#     NAME Boost
+#     VERSION 1.86.0
+#     URL
+#         https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-cmake.tar.xz
+#         URL_HASH
+#         SHA256=2c5ec5edcdff47ff55e27ed9560b0a0b94b07bd07ed9928b476150e16b0efc57
+#     OPTIONS
+#         "BOOST_ENABLE_CMAKE ON"
+#         "BOOST_SKIP_INSTALL_RULES ON"
+#         "BUILD_SHARED_LIBS OFF"
+#         "BOOST_INCLUDE_LIBRARIES core\\\;container\\\;smart_ptr\\\;interprocess\\\;asio\\\;lockfree"
+#     FIND_PACKAGE_ARGUMENTS "CONFIG REQUIRED"
+# )
+
+# ensureboosttarget(algorithm)
+# ensureboosttarget(asio)
+# ensureboosttarget(lockfree)
+# ensureboosttarget(core)
+# ensureboosttarget(container)
+# ensureboosttarget(smart_ptr)
+# ensureboosttarget(interprocess)
+
+############################################################################################################################
+# boost-ext reflect : https://github.com/boost-ext/reflect
+############################################################################################################################
+
+CPMAddPackage(NAME reflect GITHUB_REPOSITORY boost-ext/reflect GIT_TAG v1.2.6)
+if(reflect_ADDED)
+    add_library(reflect INTERFACE)
+    add_library(Reflect::Reflect ALIAS reflect)
+    target_include_directories(reflect SYSTEM INTERFACE "$<BUILD_INTERFACE:${reflect_SOURCE_DIR}>")
+
+    target_sources(
+        reflect
+        INTERFACE
+            FILE_SET api
+            TYPE HEADERS
+            BASE_DIRS ${reflect_SOURCE_DIR}
+            FILES ${reflect_SOURCE_DIR}/reflect
+    )
+endif()
+
+# #############################################################################################################################
 
 target_link_libraries(daisy_tt_rt PUBLIC
     tt_metal
     fmt
+    Boost::headers
+    # Boost::algorithm # what tt_metal builds against in addition to just Boost::headers
+    # Boost::asio
+    # Boost::lockfree
+    # Boost::core
+    Boost::container
+    # Boost::smart_ptr
+    # Boost::interprocess
+    Reflect::Reflect
 )
 
-target_include_directories(daisy_tt_rt PUBLIC
-    src/tenstorrent
-    $ENV{TT_METAL_INSTALL_DIR}/include
-    $ENV{TT_METAL_INSTALL_DIR}/include/metalium-thirdparty
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/container/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/assert/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/config/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/intrusive/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/move/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/core/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/static_assert/include
-    $ENV{TT_METAL_INSTALL_DIR}/boost-src/libs/throw_exception/include
-)
 
 set(KERNELS_BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/tenstorrent-kernels")
 set(KERNELS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/gen_kernels")
 file(GLOB tenstorrent_kernel_subdirs RELATIVE "${KERNELS_BASE_DIR}" "${KERNELS_BASE_DIR}/*")
 
-message("### Processing subdirs in ${KERNELS_BASE_DIR} ${tenstorrent_kernel_subdirs}")
-
 set(gen_cpp_files "")
 foreach(subdir ${tenstorrent_kernel_subdirs})
     if(IS_DIRECTORY "${KERNELS_BASE_DIR}/${subdir}")
-        message("Processing tenstorrent kernel subdir: ${subdir}")
+        message(VERBOSE "Processing tenstorrent kernel subdir: ${subdir}")
         file(GLOB cpp_files RELATIVE "${KERNELS_BASE_DIR}/${subdir}" "${KERNELS_BASE_DIR}/${subdir}/*.cpp")
         set(gen_cpp "${KERNELS_OUTPUT_DIR}/gen_kernels_${subdir}.hpp")
         file(WRITE "${gen_cpp}" "// Auto-generated kernel source file for ${subdir}\n")
