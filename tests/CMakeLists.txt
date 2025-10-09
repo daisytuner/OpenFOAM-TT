@@ -30,6 +30,54 @@ target_compile_options(lduMatrixOperations_AddAssign_asymm PRIVATE
     ${OPENFOAM_COMPILE_OPTIONS}
 )
 
+# Test Case: lduMatrixOperations_AddAssign_symm_expand
+add_executable(lduMatrixOperations_AddAssign_symm_expand
+    lduMatrixOperations_AddAssign_symm_expand.cpp
+)
+target_link_libraries(lduMatrixOperations_AddAssign_symm_expand PUBLIC OpenFOAM::OpenFOAM z)
+target_compile_features(lduMatrixOperations_AddAssign_symm_expand PUBLIC cxx_std_20)
+target_include_directories(lduMatrixOperations_AddAssign_symm_expand PRIVATE
+    ${OPENFOAM_HEADERS}
+)
+target_compile_definitions(lduMatrixOperations_AddAssign_symm_expand PRIVATE
+    ${OPENFOAM_COMPILE_DEFINITIONS}
+)
+target_compile_options(lduMatrixOperations_AddAssign_symm_expand PRIVATE
+    ${OPENFOAM_COMPILE_OPTIONS}
+)
+
+# Test Case: lduMatrixOperations_AddAssign_symm_initdiag
+add_executable(lduMatrixOperations_AddAssign_symm_initdiag
+    lduMatrixOperations_AddAssign_symm_initdiag.cpp
+)
+target_link_libraries(lduMatrixOperations_AddAssign_symm_initdiag PUBLIC OpenFOAM::OpenFOAM z)
+target_compile_features(lduMatrixOperations_AddAssign_symm_initdiag PUBLIC cxx_std_20)
+target_include_directories(lduMatrixOperations_AddAssign_symm_initdiag PRIVATE
+    ${OPENFOAM_HEADERS}
+)
+target_compile_definitions(lduMatrixOperations_AddAssign_symm_initdiag PRIVATE
+    ${OPENFOAM_COMPILE_DEFINITIONS}
+)
+target_compile_options(lduMatrixOperations_AddAssign_symm_initdiag PRIVATE
+    ${OPENFOAM_COMPILE_OPTIONS}
+)
+
+# Test Case: lduMatrixOperations_AddAssign_symm_noinput
+add_executable(lduMatrixOperations_AddAssign_symm_noinput
+    lduMatrixOperations_AddAssign_symm_noinput.cpp
+)
+target_link_libraries(lduMatrixOperations_AddAssign_symm_noinput PUBLIC OpenFOAM::OpenFOAM z)
+target_compile_features(lduMatrixOperations_AddAssign_symm_noinput PUBLIC cxx_std_20)
+target_include_directories(lduMatrixOperations_AddAssign_symm_noinput PRIVATE
+    ${OPENFOAM_HEADERS}
+)
+target_compile_definitions(lduMatrixOperations_AddAssign_symm_noinput PRIVATE
+    ${OPENFOAM_COMPILE_DEFINITIONS}
+)
+target_compile_options(lduMatrixOperations_AddAssign_symm_noinput PRIVATE
+    ${OPENFOAM_COMPILE_OPTIONS}
+)
+
 # Test Case: lduMatrixOperations_AddAssign_symm
 add_executable(lduMatrixOperations_AddAssign_symm
     lduMatrixOperations_AddAssign_symm.cpp
