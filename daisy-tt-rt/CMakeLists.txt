@@ -6,6 +6,7 @@ add_library(daisy_tt_rt STATIC
     src/tenstorrent/buffer_pool.cpp
     src/tenstorrent/dense_matBinOp.cpp
     src/tenstorrent/dense_matMul.cpp
+    src/tenstorrent/dense_matNeg.cpp
     src/tenstorrent/ttLduData.cpp
 )
 
