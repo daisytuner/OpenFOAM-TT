@@ -34,14 +34,14 @@ steps:
     # Step 1: Compiler instrumented binaries
     cd ../../
     mkdir build && cd build
-    cmake -G Ninja -DENABLE_TT=OFF -DENABLE_DAISY_RTL=ON ..
+    cmake -G Ninja -DENABLE_TT=ON -DENABLE_DAISY_RTL=ON ..
     ninja
 
     # Rename libOpenFOAM.so to libOpenFOAM.instrumented.so to avoid conflicts
     mv libOpenFOAM.so libOpenFOAM.instrumented.so
 
     # Step 2: Compiler non-instrumented binaries
-    cmake -G Ninja -DENABLE_TT=OFF -DENABLE_DAISY_RTL=OFF ..
+    cmake -G Ninja -DENABLE_TT=ON -DENABLE_DAISY_RTL=OFF ..
     ninja
 
     # CLI runners will automatically measure application performance with non-instrumented binaries
