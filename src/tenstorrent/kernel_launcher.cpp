@@ -229,7 +229,7 @@ void KernelLauncher::launch_suma(
         }
     );
 
-    
+
     tt::tt_metal::EnqueueProgram(device_->command_queue(0), program_suma_.program, false);
 
 }
@@ -302,7 +302,7 @@ void KernelLauncher::launch_residual(
         }
     );
 
-    
+
     tt::tt_metal::EnqueueProgram(device_->command_queue(0), program_residual_.program, false);
 
 }
@@ -356,7 +356,6 @@ void KernelLauncher::launch_sumDiag(
         }
     );
 
-    
     tt::tt_metal::EnqueueProgram(device_->command_queue(0), program.program, false);
 
 }
@@ -414,7 +413,6 @@ void KernelLauncher::launch_negate(
         }
     );
 
-    
     tt::tt_metal::EnqueueProgram(device_->command_queue(0), program_negate_.program, false);
 
 }
@@ -504,7 +502,6 @@ void KernelLauncher::launch_matOpAssign(
         }
     );
 
-    
     tt::tt_metal::EnqueueProgram(device_->command_queue(0), program.program, false);
 
 
