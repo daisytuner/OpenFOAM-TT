@@ -108,11 +108,13 @@ int main() {
     tt_launch_dense_matMul(
         device,
         *tt_meta_a.d_dense_,
-        d_inVec.buffer,
-        d_resVec.buffer,
+        *d_inVec.buffer,
+        *d_resVec.buffer,
         cells_aligned,
         32,
         cells_aligned,
+        1,
+        false,
         kernel_dir
     );
 

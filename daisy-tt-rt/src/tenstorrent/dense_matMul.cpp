@@ -7,7 +7,7 @@
 
 namespace tt::daisy {
 
-void tt_launch_dense_matMul_large(
+void tt_launch_dense_matMul(
     tt_metal::IDevice* device,
     tt_metal::Buffer& d_a,
     tt_metal::Buffer& d_b,
@@ -159,7 +159,7 @@ void tt_launch_dense_matMul_large(
     // Create reader and writer kernels per core
     auto reader_id = tt_metal::CreateKernel(
         program,
-        kernel_dir / "dense" / "reader_bmm_tile_layout.cpp",
+        kernel_dir / "dense" / "matmul_reuse" / "reader_bmm_tile_layout.cpp",
         all_cores,
         tt_metal::ReaderDataMovementConfig{
             reader_compile_time_args
@@ -167,7 +167,7 @@ void tt_launch_dense_matMul_large(
 
     auto writer_id = tt_metal::CreateKernel(
         program,
-        kernel_dir / "dense" / "writer_bmm_tile_layout.cpp",
+        kernel_dir / "dense" / "matmul_reuse" / "writer_bmm_tile_layout.cpp",
         all_cores,
         tt_metal::WriterDataMovementConfig{
             writer_compile_time_args
@@ -176,7 +176,7 @@ void tt_launch_dense_matMul_large(
     // Create compute kernel
     tt_metal::CreateKernel(
         program,
-        kernel_dir / "dense" / "compute_bmm_large_block_zm.cpp",
+        kernel_dir / "dense" / "matmul_reuse" / "bmm_large_block_zm.cpp",
         all_cores,
         tt_metal::ComputeConfig {
             .math_fidelity = math_fidelity,

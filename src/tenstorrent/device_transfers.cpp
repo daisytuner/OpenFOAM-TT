@@ -17,6 +17,25 @@
 
 namespace tt::daisy::foam {
 
+uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght) {
+    auto tile_row = row / tt::constants::TILE_HEIGHT;
+    auto tile_col = col / tt::constants::TILE_WIDTH;
+    auto in_tile_row = row % tt::constants::TILE_HEIGHT;
+    auto in_tile_col = col % tt::constants::TILE_WIDTH;
+
+    auto tile_row_start = tile_row * tt::constants::TILE_HEIGHT * line_lenght;
+    auto tile_start = tile_row_start + tile_col * (tt::constants::TILE_HEIGHT * tt::constants::TILE_WIDTH);
+
+    auto face_row = in_tile_row / tt::constants::FACE_HEIGHT;
+    auto face_col = in_tile_col / tt::constants::FACE_WIDTH;
+    auto in_face_row = in_tile_row % tt::constants::FACE_HEIGHT;
+    auto in_face_col = in_tile_col % tt::constants::FACE_WIDTH;
+    auto face_idx = face_row * 2 + face_col;
+    auto face_start = tile_start + face_idx * (tt::constants::FACE_HEIGHT * tt::constants::FACE_HEIGHT);
+
+    return face_start + in_face_row * tt::constants::FACE_WIDTH + in_face_col;
+}
+
 ReusableTtBuffer& copy_scalarField_to_device(BufferPool& bufferPool, const Foam::scalarField& field) {
     auto* device = bufferPool.device_;
 
@@ -45,18 +64,25 @@ ReusableTtBuffer& copy_scalarField_to_device_as_dense_mat(BufferPool& bufferPool
 
     auto& buffer = bufferPool.allocateBuffer(bytes, tile_size);
 
-    auto temp = new float[32 * 32];
-
     for (uint32_t i = 0; i < tiles; i++) {
-        size_t field_offset = i * 32;
+
+        int field_offset = i * 32;
+
+        float* tilized_vector = new float[tile_size/sizeof(float)];
+        std::memset(tilized_vector, 0, tile_size);
+
         size_t buf_offset = i * tile_size;
-    
+
+        for (int element = field_offset; element < field_offset + 32 && element < field.size(); ++element) {
+            tilized_vector[offset_into_tiled_mat(element, 0, 32) - buf_offset] = field.cdata()[element];
+        }
+
         tt::tt_metal::EnqueueWriteSubBuffer(
             device->command_queue(0),
             buffer.buffer,
-            field.cdata() + field_offset,
+            tilized_vector,
             {buf_offset, tile_size},
-            false
+            true
         );
     }
 
@@ -64,12 +90,47 @@ ReusableTtBuffer& copy_scalarField_to_device_as_dense_mat(BufferPool& bufferPool
 }
 
 void copy_scalarField_from_device_dense_mat(
-    tt_metal::IDevice* device,
+    BufferPool& bufferPool,
     std::variant<std::reference_wrapper<tt::tt_metal::Buffer>, std::shared_ptr<tt::tt_metal::Buffer>> buffer,
     Foam::scalarField* field,
     uint32_t buf_offset
 ) {
 
+    auto* device = bufferPool.device_;
+
+    size_t tile_size = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
+
+    size_t tiles = (field->size() + 31) / 32;
+
+    for (uint32_t i = 0; i < tiles; i++) {
+
+        int field_offset = i * 32;
+        size_t buf_offset = i * tile_size;
+
+        float* tilized_vector = new float[tile_size/sizeof(float)];
+
+        tt::tt_metal::EnqueueReadSubBuffer(
+            device->command_queue(0),
+            buffer,
+            tilized_vector,
+            {buf_offset, tile_size},
+            true
+        );
+
+        float* data = nullptr;
+        data = field->data();
+
+        for (int element = field_offset; element < field_offset + 32 && element < field->size(); ++element) {
+            data[element] = tilized_vector[offset_into_tiled_mat(element, 0, 32) - buf_offset];
+        }
+    }
+
+    tt::tt_metal::detail::ReadDeviceProfilerResults(device);
+
+}
+
+void copy_scalarField_from_device_dense_mat(BufferPool& bufferPool, ReusableTtBuffer& buffer, Foam::scalarField* field, uint32_t buf_offset) {
+    copy_scalarField_from_device_dense_mat(bufferPool, buffer.buffer, field, buf_offset);
 }
 
 void copy_scalarField_from_device(
@@ -171,25 +232,6 @@ std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
     } else {
         return {ReusableTtBuffer::unusedPlaceholder(), 0};
     }
-}
-
-uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght) {
-    auto tile_row = row / tt::constants::TILE_HEIGHT;
-    auto tile_col = col / tt::constants::TILE_WIDTH;
-    auto in_tile_row = row % tt::constants::TILE_HEIGHT;
-    auto in_tile_col = col % tt::constants::TILE_WIDTH;
-
-    auto tile_row_start = tile_row * tt::constants::TILE_HEIGHT * line_lenght;
-    auto tile_start = tile_row_start + tile_col * (tt::constants::TILE_HEIGHT * tt::constants::TILE_WIDTH);
-
-    auto face_row = in_tile_row / tt::constants::FACE_HEIGHT;
-    auto face_col = in_tile_col / tt::constants::FACE_WIDTH;
-    auto in_face_row = in_tile_row % tt::constants::FACE_HEIGHT;
-    auto in_face_col = in_tile_col % tt::constants::FACE_WIDTH;
-    auto face_idx = face_row * 2 + face_col;
-    auto face_start = tile_start + face_idx * (tt::constants::FACE_HEIGHT * tt::constants::FACE_HEIGHT);
-
-    return face_start + in_face_row * tt::constants::FACE_WIDTH + in_face_col;
 }
 
 void copy_ldu_to_dense(tt::tt_metal::IDevice* device, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
