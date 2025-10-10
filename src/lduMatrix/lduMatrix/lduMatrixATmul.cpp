@@ -29,7 +29,7 @@ Description
 
 #include "lduMatrix.H"
 
-#ifdef __DAISY_INSTRUMENTATION
+#ifdef ENABLE_DAISY_RTL
 #include <daisy_rtl/daisy_rtl.h>
 #endif
 #include "messageStream.H"
@@ -53,18 +53,27 @@ void Foam::lduMatrix::Amul
     const direction cmpt
 ) const
 {
-#ifdef __DAISY_INSTRUMENTATION
+#ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata = {
         .file_name = "lduMatrixATmul.cpp",
         .function_name = "Foam::lduMatrix::Amul",
-        .line_begin = 38,
-        .line_end = 119,
+        .line_begin = 47,
+        .line_end = 193,
         .column_begin = 0,
         .column_end = 0,
-        .region_name = "foam_lduMatrix_Amul",
+#ifdef ENABLE_TT
+        .target_type = "TENSTORRENT",
+#else
+        .target_type = "SEQUENTIAL",
+#endif
+        .region_uuid = "foam_lduMatrix_Amul"
     };
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
 
+#ifdef ENABLE_TT
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
+#else
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+#endif
     __daisy_instrumentation_enter(region_id);
 #endif
     
@@ -105,6 +114,14 @@ void Foam::lduMatrix::Amul
             k.freeBuffer(tt_Apsi);
             k.freeBuffer(tt_psi);
             // k.freeBuffer(tt_iface_contents);
+
+#ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id);
+        __daisy_instrumentation_increment(region_id, "flop", 1000);
+        __daisy_instrumentation_increment(region_id, "dram_bytes", 3 * 1000 * sizeof(float));
+
+        __daisy_instrumentation_finalize(region_id);
+#endif
         #endif
 
         #if !defined(ENABLE_TT) || defined(VERIFY_TT)
@@ -156,6 +173,16 @@ void Foam::lduMatrix::Amul
 
         #endif
 
+#ifndef ENABLE_TT
+#ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id);
+        __daisy_instrumentation_increment(region_id, "flop", 1000);
+        __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
+
+        __daisy_instrumentation_finalize(region_id);
+#endif
+#endif
+
         #if defined(ENABLE_TT) && defined(VERIFY_TT)
             if (!daisy::matches(*tt_result, Apsi)) {
                 Foam::SeriousError << "Amul TT results do not match!" << Foam::endl;
@@ -174,11 +201,7 @@ void Foam::lduMatrix::Amul
         #endif
 
         tpsi.clear();
-    
-        #ifdef __DAISY_INSTRUMENTATION
-        __daisy_instrumentation_exit(region_id);
-        __daisy_instrumentation_finalize(region_id);
-        #endif
+
 }
 
 
@@ -191,24 +214,6 @@ void Foam::lduMatrix::Tmul
     const direction cmpt
 ) const
 {
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_metadata_t metadata = {
-        .file_name = "lduMatrixATmul.cpp",
-        .function_name = "Foam::lduMatrix::Tmul",
-        .line_begin = 121,
-        .line_end = 200,
-        .column_begin = 0,
-        .column_end = 0,
-        .region_name = "foam_lduMatrix_Tmul",
-                .loopnest_index = 0
-
-    };
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
-
-    __daisy_instrumentation_enter(region_id);
-#endif
-
-
     scalar* __restrict__ TpsiPtr = Tpsi.begin();
 
     const scalarField& psi = tpsi();
@@ -256,11 +261,6 @@ void Foam::lduMatrix::Tmul
     );
 
     tpsi.clear();
-
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_instrumentation_exit(region_id);
-    __daisy_instrumentation_finalize(region_id);
-#endif
 }
 
 
@@ -271,21 +271,30 @@ void Foam::lduMatrix::sumA
     const lduInterfaceFieldPtrsList& interfaces
 ) const
 {
-#ifdef __DAISY_INSTRUMENTATION
+#ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata = {
         .file_name = "lduMatrixATmul.cpp",
         .function_name = "Foam::lduMatrix::sumA",
-        .line_begin = 203,
-        .line_end = 271,
+        .line_begin = 252,
+        .line_end = 368,
         .column_begin = 0,
         .column_end = 0,
-        .region_name = "foam_lduMatrix_sumA",
-        .loopnest_index = 0
+#ifdef ENABLE_TT
+        .target_type = "TENSTORRENT",
+#else
+        .target_type = "SEQUENTIAL",
+#endif
+        .region_uuid = "foam_lduMatrix_sumA"
     };
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
 
+#ifdef ENABLE_TT
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
+#else
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+#endif
     __daisy_instrumentation_enter(region_id);
 #endif
+
 
     scalarField* tt_result;
 
@@ -314,6 +323,14 @@ void Foam::lduMatrix::sumA
 
         k.freeBuffer(tt_res);
         k.freeBuffer(tt_iface_contents);
+
+#ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id);
+        __daisy_instrumentation_increment(region_id, "flop", 1000);
+        __daisy_instrumentation_increment(region_id, "dram_bytes", 3 * 1000 * sizeof(float));
+
+        __daisy_instrumentation_finalize(region_id);
+#endif
     #endif
 
     #if !defined(ENABLE_TT) || defined(VERIFY_TT)
@@ -360,6 +377,16 @@ void Foam::lduMatrix::sumA
 
     #endif
 
+#ifndef ENABLE_TT
+#ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id);
+        __daisy_instrumentation_increment(region_id, "flop", 1000);
+        __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
+
+        __daisy_instrumentation_finalize(region_id);
+#endif
+#endif
+
     #if defined(ENABLE_TT) && defined(VERIFY_TT)
     if (!daisy::matches(*tt_result, sumA)) {
             Foam::SeriousError << "sumA TT results do not match!" << Foam::endl;
@@ -376,11 +403,6 @@ void Foam::lduMatrix::sumA
             delete tt_result;
         }
     #endif
-
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_instrumentation_exit(region_id);
-    __daisy_instrumentation_finalize(region_id);
-#endif
 }
 
 
@@ -394,21 +416,6 @@ void Foam::lduMatrix::residual
     const direction cmpt
 ) const
 {
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_metadata_t metadata = {
-        .file_name = "lduMatrixATmul.cpp",
-        .function_name = "Foam::lduMatrix::residual",
-        .line_begin = 274,
-        .line_end = 371,
-        .column_begin = 0,
-        .column_end = 0,
-        .region_name = "foam_lduMatrix_residual",
-    };
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
-
-    __daisy_instrumentation_enter(region_id);
-#endif
-
     scalarField* tt_result;
 
     #ifdef ENABLE_TT
@@ -537,11 +544,6 @@ void Foam::lduMatrix::residual
             delete tt_result;
         }
     #endif
-
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_instrumentation_exit(region_id);
-    __daisy_instrumentation_finalize(region_id);
-#endif
 }
 
 

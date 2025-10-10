@@ -17,6 +17,11 @@ ReusableTtBuffer& copy_scalarField_to_device(
     const Foam::scalarField& field
 );
 
+ReusableTtBuffer& copy_scalarField_to_device_as_dense_mat(
+    BufferPool& bufferPool,
+    const Foam::scalarField& field
+);
+
 void copy_scalarField_from_device(
     BufferPool& bufferPool,
     std::variant<std::reference_wrapper<tt::tt_metal::Buffer>, std::shared_ptr<tt::tt_metal::Buffer>> buffer,
@@ -30,6 +35,15 @@ void copy_scalarField_from_device(
     Foam::scalarField* field,
     uint32_t buf_offset = 0
 );
+
+void copy_scalarField_from_device_dense_mat(
+    BufferPool& bufferPool,
+    std::variant<std::reference_wrapper<tt::tt_metal::Buffer>, std::shared_ptr<tt::tt_metal::Buffer>> buffer,
+    Foam::scalarField* field,
+    uint32_t buf_offset = 0
+);
+
+void copy_scalarField_from_device_dense_mat(BufferPool& bufferPool, ReusableTtBuffer& buffer, Foam::scalarField* field, uint32_t buf_offset = 0);
 
 std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
     BufferPool& bufferPool,

@@ -19,3 +19,13 @@ target_link_libraries(tt_bench_harness_mat_neg OpenFOAM::OpenFOAM OpenFOAM::dais
 target_include_directories(tt_bench_harness_mat_neg PRIVATE
     ./include
 )
+
+add_executable(tt_bench_dense_Amul
+    bench_ldu_Amul.cpp
+)
+
+target_link_libraries(tt_bench_dense_Amul OpenFOAM::OpenFOAM OpenFOAM::daisy_tt_rt)
+
+target_include_directories(tt_bench_dense_Amul PRIVATE
+    ./include
+)
