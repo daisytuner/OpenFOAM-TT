@@ -20,7 +20,7 @@ int main() {
 
     auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
 
-    Foam::label cells = 32;
+    Foam::label cells = 4096;
 
 
     auto triang_size = cells*(cells-1)/2;
@@ -130,9 +130,25 @@ int main() {
 
     tt::tt_metal::Finish(device->command_queue(0));
 
-    tt::tt_metal::CloseDevice(device);
-
     Foam::Info << "Result: " << lduRes << Foam::endl;
+
+    Foam::scalarField expected_diag(cells, 5.0);
+    Foam::scalarField expected_lower(triang_size, 2.0);
+    Foam::scalarField expected_upper(triang_size, 250.0);
+
+    if (!Foam::daisy::matches(lduRes.diag(), expected_diag)) {
+        Foam::SeriousError << "FAIL Expected diag: " << expected_diag << Foam::endl;
+    }
+
+    if (!Foam::daisy::matches(lduRes.lower(), expected_lower)) {
+        Foam::SeriousError << "FAIL Expected lower: " << expected_lower << Foam::endl;
+    }
+
+    if (!Foam::daisy::matches(lduRes.upper(), expected_upper)) {
+        Foam::SeriousError << "FAIL Expected upper: " << expected_upper << Foam::endl;
+    }
+
+    tt::tt_metal::CloseDevice(device);
 
     return 0;
 }

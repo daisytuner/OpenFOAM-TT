@@ -7,6 +7,7 @@
 #include "dense_matBinOp.hpp"
 #include "dense_matMul.hpp"
 #include "device_transfers.hpp"
+#include "error.H"
 #include "lduMatrix.H"
 #include "lduPrimitiveMesh.H"
 #include "ldu_meta_cache.hpp"
@@ -15,6 +16,8 @@
 #include "scalarField.H"
 #include "tt-metalium/buffer.hpp"
 #include "ttLduData.hpp"
+#include "Field.H"
+#include "tmp.H"
 
 using namespace tt::daisy;
 using namespace tt::daisy::foam;
@@ -23,7 +26,7 @@ int main() {
 
     auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
 
-    Foam::label cells = 32;
+    Foam::label cells = 4096;
 
 
     auto triang_size = cells*(cells-1)/2;
@@ -51,9 +54,10 @@ int main() {
 
     Foam::lduMatrix lduA(mesh);
     lduA.diag() = 3.0;
-    lduA.lower() = 1.0;
-    lduA.upper() = 100.0;
+    lduA.lower() = 0.0;
+    lduA.upper() = 0.0;
 
+    Foam::scalarField inVec(cells, 2.0);
     Foam::scalarField result(cells);
 
     auto tt_meta_a = get_tt_meta(&lduA, ldu_tt_meta_map);
@@ -70,7 +74,7 @@ int main() {
 
     tt::tt_metal::Finish(device->command_queue(0));
 
-    auto& d_inVec = tt::daisy::foam::copy_scalarField_to_device_as_dense_mat(buffer_pool, lduA.diag());
+    auto& d_inVec = tt::daisy::foam::copy_scalarField_to_device_as_dense_mat(buffer_pool, inVec);
 
     tt::tt_metal::Finish(device->command_queue(0));
 
@@ -124,9 +128,15 @@ int main() {
 
     tt::tt_metal::Finish(device->command_queue(0));
 
-    tt::tt_metal::CloseDevice(device);
-
     Foam::Info << "Result: " << result << Foam::endl;
+
+    Foam::scalarField expected(cells, 6.0);
+
+    if (!Foam::daisy::matches(result, expected)) {
+        Foam::SeriousError << "FAIL Expected: " << expected << Foam::endl;
+    }
+
+    tt::tt_metal::CloseDevice(device);
 
     return 0;
 }

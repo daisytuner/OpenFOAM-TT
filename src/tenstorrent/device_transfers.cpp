@@ -58,33 +58,41 @@ ReusableTtBuffer& copy_scalarField_to_device_as_dense_mat(BufferPool& bufferPool
     auto* device = bufferPool.device_;
 
     auto tile_size = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
+    auto tile_entries = 32*32;
 
     size_t tiles = (field.size() + 31) / 32;
     size_t bytes = tiles * tile_size;
 
     auto& buffer = bufferPool.allocateBuffer(bytes, tile_size);
 
+    float* tilized_vector = new float[tile_entries];
+
+    const float* field_ptr = field.cdata();
+
     for (uint32_t i = 0; i < tiles; i++) {
 
         int field_offset = i * 32;
 
-        float* tilized_vector = new float[tile_size/sizeof(float)];
-        std::memset(tilized_vector, 0, tile_size);
+        // std::memset(tilized_vector, 0, tile_size);
 
-        size_t buf_offset = i * tile_size;
+        size_t tmp_tile_in_total_buffer_offset = i * tile_entries;
+        auto field_size = field.size();
 
-        for (int element = field_offset; element < field_offset + 32 && element < field.size(); ++element) {
-            tilized_vector[offset_into_tiled_mat(element, 0, 32) - buf_offset] = field.cdata()[element];
+        for (int element = field_offset; element < field_offset + 32 && element < field_size; ++element) {
+            auto tilized_offset = offset_into_tiled_mat(element, 0, 32);
+            tilized_vector[tilized_offset - tmp_tile_in_total_buffer_offset] = field_ptr[element];
         }
 
         tt::tt_metal::EnqueueWriteSubBuffer(
             device->command_queue(0),
             buffer.buffer,
             tilized_vector,
-            {buf_offset, tile_size},
+            {i * tile_size, tile_size},
             true
         );
     }
+
+    delete[] tilized_vector;
 
     return buffer;
 }
@@ -99,31 +107,36 @@ void copy_scalarField_from_device_dense_mat(
     auto* device = bufferPool.device_;
 
     size_t tile_size = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
+    auto tile_entries = 32*32;
 
     size_t tiles = (field->size() + 31) / 32;
+
+    float* tilized_vector = new float[tile_entries];
 
     for (uint32_t i = 0; i < tiles; i++) {
 
         int field_offset = i * 32;
-        size_t buf_offset = i * tile_size;
-
-        float* tilized_vector = new float[tile_size/sizeof(float)];
 
         tt::tt_metal::EnqueueReadSubBuffer(
             device->command_queue(0),
             buffer,
             tilized_vector,
-            {buf_offset, tile_size},
+            {i * tile_size, tile_size},
             true
         );
 
         float* data = nullptr;
         data = field->data();
 
-        for (int element = field_offset; element < field_offset + 32 && element < field->size(); ++element) {
-            data[element] = tilized_vector[offset_into_tiled_mat(element, 0, 32) - buf_offset];
+        size_t tmp_tile_in_total_buffer_offset = i * tile_entries;
+        auto field_size = field->size();
+
+        for (int element = field_offset; element < field_offset + 32 && element < field_size; ++element) {
+            data[element] = tilized_vector[offset_into_tiled_mat(element, 0, 32) - tmp_tile_in_total_buffer_offset];
         }
     }
+
+    delete[] tilized_vector;
 
     tt::tt_metal::detail::ReadDeviceProfilerResults(device);
 

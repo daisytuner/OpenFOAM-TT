@@ -68,6 +68,7 @@ static inline std::vector<uint32_t> get_possible_products(std::vector<uint32_t> 
     return products;
 }
 
+// TODO 400 could maybe be some bfloat16 tile limit for wormhole. -> leads to too large CBs with float32, 200 works (but results are wrong for some)
 static inline uint32_t get_maximum_block_dim(int32_t block_dim, int32_t in0_block_w) {
     int32_t other_dim = (400 - 2 * in0_block_w * block_dim) / (2 * in0_block_w + block_dim);
     if (other_dim > 0) {
@@ -79,8 +80,14 @@ static inline uint32_t get_maximum_block_dim(int32_t block_dim, int32_t in0_bloc
 namespace bmm_op_utils {
 
 constexpr std::array<std::tuple<uint32_t, uint32_t>, 20> SUBBLOCK_HW_CHOICES = {{
-    {4, 2}, {2, 4}, {8, 1}, {1, 8}, {7, 1}, {1, 7}, {3, 2}, {2, 3}, {6, 1}, {1, 6},
-    {5, 1}, {1, 5}, {2, 2}, {4, 1}, {1, 4}, {3, 1}, {1, 3}, {2, 1}, {1, 2}, {1, 1},
+    {4, 2}, {2, 4}, {8, 1}, {1, 8},
+    {7, 1}, {1, 7},
+    {3, 2}, {2, 3}, {6, 1}, {1, 6},
+    {5, 1}, {1, 5},
+    {2, 2}, {4, 1}, {1, 4},
+    {3, 1}, {1, 3},
+    {2, 1}, {1, 2},
+    {1, 1},
 }};
 
 static inline std::tuple<uint32_t, uint32_t, uint32_t, uint32_t> get_large_matmul_params(
