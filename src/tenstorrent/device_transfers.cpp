@@ -38,22 +38,38 @@ ReusableTtBuffer& copy_scalarField_to_device(BufferPool& bufferPool, const Foam:
 ReusableTtBuffer& copy_scalarField_to_device_as_dense_mat(BufferPool& bufferPool, const Foam::scalarField& field) {
     auto* device = bufferPool.device_;
 
-    size_t bytes = sizeof(float)*field.size();
-
     auto tile_size = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
 
-    auto& buffer = bufferPool.allocateBuffer(bytes, tile_size);
-    throw std::runtime_error("Not yet implemented");
+    size_t tiles = (field.size() + 31) / 32;
+    size_t bytes = tiles * tile_size;
 
-    // tt::tt_metal::EnqueueWriteSubBuffer(
-    //     device->command_queue(0),
-    //     buffer.buffer,
-    //     field.cdata(),
-    //     {0, tt::round_up(bytes, tile_size)},
-    //     false
-    // );
+    auto& buffer = bufferPool.allocateBuffer(bytes, tile_size);
+
+    auto temp = new float[32 * 32];
+
+    for (uint32_t i = 0; i < tiles; i++) {
+        size_t field_offset = i * 32;
+        size_t buf_offset = i * tile_size;
+    
+        tt::tt_metal::EnqueueWriteSubBuffer(
+            device->command_queue(0),
+            buffer.buffer,
+            field.cdata() + field_offset,
+            {buf_offset, tile_size},
+            false
+        );
+    }
 
     return buffer;
+}
+
+void copy_scalarField_from_device_dense_mat(
+    tt_metal::IDevice* device,
+    std::variant<std::reference_wrapper<tt::tt_metal::Buffer>, std::shared_ptr<tt::tt_metal::Buffer>> buffer,
+    Foam::scalarField* field,
+    uint32_t buf_offset
+) {
+
 }
 
 void copy_scalarField_from_device(
