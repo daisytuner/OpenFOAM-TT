@@ -6,29 +6,11 @@
 #include <compute_kernel_api/eltwise_unary/eltwise_unary.h>
 #include <compute_kernel_api/eltwise_unary/negative.h>
 
-
-#include <debug/dprint.h>
-
-#ifndef KERNEL_OP
-#define KERNEL_OP sub
-#endif
-
-#if KERNEL_OP == add
-#define op_tiles add_tiles
-#define op_tiles_init add_tiles_init
-#elif KERNEL_OP == sub
-#define op_tiles sub_tiles
-#define op_tiles_init sub_tiles_init
-#endif
-
 namespace NAMESPACE {
 
 void MAIN {
     
     uint32_t num_tiles = get_arg_val<uint32_t>(0);
-    uint32_t start_tile_id = get_arg_val<uint32_t>(1);
-
-    const uint32_t end_tile_id = start_tile_id + num_tiles;
 
     constexpr uint8_t cb_res = 0;
     constexpr uint8_t cb_a = 1;
@@ -37,7 +19,7 @@ void MAIN {
 
     negative_tile_init();
 
-    for (uint32_t i = start_tile_id; i < end_tile_id; ++i) {
+    for (uint32_t i = 0; i < num_tiles; ++i) {
 
         tile_regs_acquire();
 
