@@ -68,7 +68,12 @@ void Foam::lduMatrix::Amul
 #endif
         .region_uuid = "foam_lduMatrix_Amul"
     };
+
+#ifdef ENABLE_TT
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
+#else
     unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+#endif
     __daisy_instrumentation_enter(region_id);
 #endif
     
@@ -164,7 +169,6 @@ void Foam::lduMatrix::Amul
         __daisy_instrumentation_exit(region_id);
         __daisy_instrumentation_increment(region_id, "flops", 1000);
         __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
-
 
         __daisy_instrumentation_finalize(region_id);
 #endif
@@ -272,7 +276,12 @@ void Foam::lduMatrix::sumA
 #endif
         .region_uuid = "foam_lduMatrix_sumA"
     };
+
+#ifdef ENABLE_TT
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
+#else
     unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+#endif
     __daisy_instrumentation_enter(region_id);
 #endif
 
@@ -355,7 +364,6 @@ void Foam::lduMatrix::sumA
         __daisy_instrumentation_exit(region_id);
         __daisy_instrumentation_increment(region_id, "flops", 1000);
         __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
-
 
         __daisy_instrumentation_finalize(region_id);
 #endif
