@@ -64,6 +64,12 @@ set(OPENFOAM_COMPILE_OPTIONS
   -fPIC
   # -fsanitize=address
 )
+if (ENABLE_DAISY_RTL)
+  list(APPEND OPENFOAM_COMPILE_OPTIONS
+    -ldaisy_rtl
+    -larg_capture_io 
+  )
+endif()
 
 set(OPENFOAM_COMPILE_DEFINITIONS
   linux64
