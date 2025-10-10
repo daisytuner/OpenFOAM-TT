@@ -53,35 +53,29 @@ void Foam::lduMatrix::Amul
     const direction cmpt
 ) const
 {
-#ifdef ENABLE_DAISY_RTL
-    __daisy_metadata_t metadata = {
-        .file_name = "lduMatrixATmul.cpp",
-        .function_name = "Foam::lduMatrix::Amul",
-        .line_begin = 47,
-        .line_end = 193,
-        .column_begin = 0,
-        .column_end = 0,
-#ifdef ENABLE_TT
-        .target_type = "TENSTORRENT",
-#else
-        .target_type = "SEQUENTIAL",
-#endif
-        .region_uuid = "foam_lduMatrix_Amul"
-    };
 
-#ifdef ENABLE_TT
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
-#else
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
-#endif
-    __daisy_instrumentation_enter(region_id);
-#endif
-    
         scalar* __restrict__ ApsiPtr = Apsi.begin();
 
         const scalarField& psi = tpsi();
 
         scalarField* tt_result;
+
+        #ifdef ENABLE_DAISY_RTL
+        __daisy_metadata_t metadata = {
+            .file_name = "lduMatrixATmul.cpp",
+            .function_name = "Foam::lduMatrix::Amul",
+            .line_begin = 47,
+            .line_end = 211,
+            .column_begin = 0,
+            .column_end = 0,
+            #ifdef ENABLE_TT
+            .target_type = "TENSTORRENT",
+            #else
+                    .target_type = "SEQUENTIAL",
+            #endif
+            .region_uuid = "foam_lduMatrix_Amul"
+        };
+        #endif
 
         #ifdef ENABLE_TT
             #ifdef VERIFY_TT
@@ -100,6 +94,11 @@ void Foam::lduMatrix::Amul
             auto& tt_Apsi = k.allocateBuffer(sizeof(float)*Apsi.size(), tt::daisy::foam::tt_block_size);
             // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
+            #ifdef ENABLE_DAISY_RTL
+                unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
+                __daisy_instrumentation_enter(region_id);
+            #endif
+
             k.launch_amul(
                 tt_meta,
                 *tt_psi.buffer,
@@ -109,19 +108,19 @@ void Foam::lduMatrix::Amul
                 cmpt
             );
 
+            #ifdef ENABLE_DAISY_RTL
+                __daisy_instrumentation_exit(region_id);
+                __daisy_instrumentation_increment(region_id, "flop", diag().size() + 2 * upper().size());
+                __daisy_instrumentation_increment(region_id, "dram_bytes", (3 * diag().size() + 6 * upper().size()) * sizeof(float) + 2 * sizeof(int) * upper().size());
+                __daisy_instrumentation_finalize(region_id);
+            #endif
+
             tt::daisy::foam::copy_scalarField_from_device(k, tt_Apsi, tt_result);
 
             k.freeBuffer(tt_Apsi);
             k.freeBuffer(tt_psi);
             // k.freeBuffer(tt_iface_contents);
 
-#ifdef ENABLE_DAISY_RTL
-        __daisy_instrumentation_exit(region_id);
-        __daisy_instrumentation_increment(region_id, "flop", 1000);
-        __daisy_instrumentation_increment(region_id, "dram_bytes", 3 * 1000 * sizeof(float));
-
-        __daisy_instrumentation_finalize(region_id);
-#endif
         #endif
 
         #if !defined(ENABLE_TT) || defined(VERIFY_TT)
@@ -135,6 +134,13 @@ void Foam::lduMatrix::Amul
             Apsi,
             cmpt
         );
+
+        #ifndef ENABLE_TT
+            #ifdef ENABLE_DAISY_RTL
+                unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+                __daisy_instrumentation_enter(region_id);
+            #endif
+        #endif
 
         const scalar* const __restrict__ psiPtr = psi.begin();
 
@@ -161,6 +167,16 @@ void Foam::lduMatrix::Amul
             ApsiPtr[lPtr[face]] += upperPtr[face]*psiPtr[uPtr[face]];
         }
 
+        #ifndef ENABLE_TT
+            #ifdef ENABLE_DAISY_RTL
+                    __daisy_instrumentation_exit(region_id);
+                    __daisy_instrumentation_increment(region_id, "flop", diag().size() + 2 * upper().size());
+                    __daisy_instrumentation_increment(region_id, "bytes", (3 * diag().size() + 6 * upper().size()) * sizeof(float) + 2 * sizeof(int) * upper().size());
+
+                    __daisy_instrumentation_finalize(region_id);
+            #endif
+        #endif
+
         // Update interface interfaces
         updateMatrixInterfaces
         (
@@ -172,16 +188,6 @@ void Foam::lduMatrix::Amul
         );
 
         #endif
-
-#ifndef ENABLE_TT
-#ifdef ENABLE_DAISY_RTL
-        __daisy_instrumentation_exit(region_id);
-        __daisy_instrumentation_increment(region_id, "flop", 1000);
-        __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
-
-        __daisy_instrumentation_finalize(region_id);
-#endif
-#endif
 
         #if defined(ENABLE_TT) && defined(VERIFY_TT)
             if (!daisy::matches(*tt_result, Apsi)) {
@@ -271,32 +277,25 @@ void Foam::lduMatrix::sumA
     const lduInterfaceFieldPtrsList& interfaces
 ) const
 {
-#ifdef ENABLE_DAISY_RTL
-    __daisy_metadata_t metadata = {
-        .file_name = "lduMatrixATmul.cpp",
-        .function_name = "Foam::lduMatrix::sumA",
-        .line_begin = 252,
-        .line_end = 368,
-        .column_begin = 0,
-        .column_end = 0,
-#ifdef ENABLE_TT
-        .target_type = "TENSTORRENT",
-#else
-        .target_type = "SEQUENTIAL",
-#endif
-        .region_uuid = "foam_lduMatrix_sumA"
-    };
-
-#ifdef ENABLE_TT
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
-#else
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
-#endif
-    __daisy_instrumentation_enter(region_id);
-#endif
-
 
     scalarField* tt_result;
+
+        #ifdef ENABLE_DAISY_RTL
+            __daisy_metadata_t metadata = {
+                .file_name = "lduMatrixATmul.cpp",
+                .function_name = "Foam::lduMatrix::sumA",
+                .line_begin = 273,
+                .line_end = 417,
+                .column_begin = 0,
+                .column_end = 0,
+                #ifdef ENABLE_TT
+                .target_type = "TENSTORRENT",
+                #else
+                .target_type = "SEQUENTIAL",
+                #endif
+                .region_uuid = "foam_lduMatrix_sumA"
+            };
+        #endif
 
     #ifdef ENABLE_TT
         #ifdef VERIFY_TT
@@ -312,6 +311,12 @@ void Foam::lduMatrix::sumA
         auto& tt_res = k.allocateBuffer(sizeof(float)*sumA.size(), tt::daisy::foam::tt_block_size);
         auto [tt_iface_contents, iface_count] = tt::daisy::foam::copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
+        #ifdef ENABLE_DAISY_RTL
+            unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
+            __daisy_instrumentation_enter(region_id);
+        #endif
+
+
         k.launch_suma(
             tt_meta,
             *tt_res.buffer,
@@ -324,16 +329,22 @@ void Foam::lduMatrix::sumA
         k.freeBuffer(tt_res);
         k.freeBuffer(tt_iface_contents);
 
-#ifdef ENABLE_DAISY_RTL
-        __daisy_instrumentation_exit(region_id);
-        __daisy_instrumentation_increment(region_id, "flop", 1000);
-        __daisy_instrumentation_increment(region_id, "dram_bytes", 3 * 1000 * sizeof(float));
-
-        __daisy_instrumentation_finalize(region_id);
-#endif
+        #ifdef ENABLE_DAISY_RTL
+                __daisy_instrumentation_exit(region_id);
+                __daisy_instrumentation_increment(region_id, "flop", diag().size() + 2 * upper().size());
+                __daisy_instrumentation_increment(region_id, "dram_bytes", (2 * diag().size() + 4 * upper().size()) * sizeof(float) + 2 * sizeof(int) * upper().size());
+                __daisy_instrumentation_finalize(region_id);
+        #endif
     #endif
 
     #if !defined(ENABLE_TT) || defined(VERIFY_TT)
+
+    #ifndef ENABLE_TT
+        #ifdef ENABLE_DAISY_RTL
+            unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+            __daisy_instrumentation_enter(region_id);
+        #endif
+    #endif
 
     scalar* __restrict__ sumAPtr = sumA.begin();
 
@@ -359,6 +370,16 @@ void Foam::lduMatrix::sumA
         sumAPtr[lPtr[face]] += upperPtr[face];
     }
 
+    #ifndef ENABLE_TT
+        #ifdef ENABLE_DAISY_RTL
+                __daisy_instrumentation_exit(region_id);
+                __daisy_instrumentation_increment(region_id, "flop", diag().size() + 2 * upper().size());
+                __daisy_instrumentation_increment(region_id, "bytes", (2 * diag().size() + 4 * upper().size()) * sizeof(float) + 2 * sizeof(int) * upper().size());
+
+                __daisy_instrumentation_finalize(region_id);
+        #endif
+    #endif
+
     // Add the interface internal coefficients to diagonal
     // and the interface boundary coefficients to the sum-off-diagonal
     forAll(interfaces, patchi)
@@ -376,16 +397,6 @@ void Foam::lduMatrix::sumA
     }
 
     #endif
-
-#ifndef ENABLE_TT
-#ifdef ENABLE_DAISY_RTL
-        __daisy_instrumentation_exit(region_id);
-        __daisy_instrumentation_increment(region_id, "flop", 1000);
-        __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
-
-        __daisy_instrumentation_finalize(region_id);
-#endif
-#endif
 
     #if defined(ENABLE_TT) && defined(VERIFY_TT)
     if (!daisy::matches(*tt_result, sumA)) {
@@ -418,6 +429,23 @@ void Foam::lduMatrix::residual
 {
     scalarField* tt_result;
 
+    #ifdef ENABLE_DAISY_RTL
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixATmul.cpp",
+        .function_name = "Foam::lduMatrix::residual",
+        .line_begin = 420,
+        .line_end = 604,
+        .column_begin = 0,
+        .column_end = 0,
+    #ifdef ENABLE_TT
+        .target_type = "TENSTORRENT",
+    #else
+        .target_type = "SEQUENTIAL",
+    #endif
+        .region_uuid = "foam_lduMatrix_residual"
+    };
+    #endif
+
     #ifdef ENABLE_TT
         #ifdef VERIFY_TT
             tt_result = new scalarField(rA.size());
@@ -436,6 +464,11 @@ void Foam::lduMatrix::residual
         auto& tt_res = k.allocateBuffer(sizeof(float)*rA.size(), tt::daisy::foam::tt_block_size);
         // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
+        #ifdef ENABLE_DAISY_RTL
+            unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
+            __daisy_instrumentation_enter(region_id);
+        #endif
+
         k.launch_residual( // if we ever enable interface support, remember to also integrate the negation of interface coefficients. But since we need to inline the code for that, we can do it there directly
             tt_meta,
             *tt_psi.buffer,
@@ -445,6 +478,14 @@ void Foam::lduMatrix::residual
             // iface_count,
             cmpt
         );
+
+        #ifdef ENABLE_DAISY_RTL
+            __daisy_instrumentation_exit(region_id);
+            __daisy_instrumentation_increment(region_id, "flop", diag().size() * 2 + 4 * upper().size());
+            __daisy_instrumentation_increment(region_id, "dram_bytes", (4 * diag().size() + 6 * upper().size()) * sizeof(float) + 2 * sizeof(int) * upper().size());
+
+            __daisy_instrumentation_finalize(region_id);
+        #endif
 
         tt::daisy::foam::copy_scalarField_from_device(k, tt_res, tt_result);
 
@@ -499,6 +540,13 @@ void Foam::lduMatrix::residual
         cmpt
     );
 
+    #ifndef ENABLE_TT
+        #ifdef ENABLE_DAISY_RTL
+            unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+            __daisy_instrumentation_enter(region_id);
+        #endif
+    #endif
+
     const label nCells = diag().size();
     for (label cell=0; cell<nCells; cell++)
     {
@@ -513,6 +561,16 @@ void Foam::lduMatrix::residual
         rAPtr[uPtr[face]] -= lowerPtr[face]*psiPtr[lPtr[face]];
         rAPtr[lPtr[face]] -= upperPtr[face]*psiPtr[uPtr[face]];
     }
+
+
+    #ifndef ENABLE_TT
+        #ifdef ENABLE_DAISY_RTL
+            __daisy_instrumentation_exit(region_id);
+            __daisy_instrumentation_increment(region_id, "flop", diag().size() * 2 + 4 * upper().size());
+            __daisy_instrumentation_increment(region_id, "bytes", (4 * diag().size() + 6 * upper().size()) * sizeof(float) + 2 * sizeof(int) * upper().size());
+            __daisy_instrumentation_finalize(region_id);
+        #endif
+    #endif
 
     // Update interface interfaces
     updateMatrixInterfaces
