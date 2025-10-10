@@ -114,6 +114,14 @@ void Foam::lduMatrix::Amul
             k.freeBuffer(tt_Apsi);
             k.freeBuffer(tt_psi);
             // k.freeBuffer(tt_iface_contents);
+
+#ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id);
+        __daisy_instrumentation_increment(region_id, "flop", 1000);
+        __daisy_instrumentation_increment(region_id, "dram_bytes", 3 * 1000 * sizeof(float));
+
+        __daisy_instrumentation_finalize(region_id);
+#endif
         #endif
 
         #if !defined(ENABLE_TT) || defined(VERIFY_TT)
@@ -165,12 +173,14 @@ void Foam::lduMatrix::Amul
 
         #endif
 
+#ifndef ENABLE_TT
 #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id);
-        __daisy_instrumentation_increment(region_id, "flops", 1000);
+        __daisy_instrumentation_increment(region_id, "flop", 1000);
         __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
 
         __daisy_instrumentation_finalize(region_id);
+#endif
 #endif
 
         #if defined(ENABLE_TT) && defined(VERIFY_TT)
@@ -313,6 +323,14 @@ void Foam::lduMatrix::sumA
 
         k.freeBuffer(tt_res);
         k.freeBuffer(tt_iface_contents);
+
+#ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id);
+        __daisy_instrumentation_increment(region_id, "flop", 1000);
+        __daisy_instrumentation_increment(region_id, "dram_bytes", 3 * 1000 * sizeof(float));
+
+        __daisy_instrumentation_finalize(region_id);
+#endif
     #endif
 
     #if !defined(ENABLE_TT) || defined(VERIFY_TT)
@@ -359,13 +377,14 @@ void Foam::lduMatrix::sumA
 
     #endif
 
-
+#ifndef ENABLE_TT
 #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id);
-        __daisy_instrumentation_increment(region_id, "flops", 1000);
+        __daisy_instrumentation_increment(region_id, "flop", 1000);
         __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
 
         __daisy_instrumentation_finalize(region_id);
+#endif
 #endif
 
     #if defined(ENABLE_TT) && defined(VERIFY_TT)
