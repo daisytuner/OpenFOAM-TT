@@ -29,23 +29,30 @@ int main()
     {  1.0,  1.0,  2.0}
     */
 
+    // Construct a vector to multiply
+    Foam::scalarField vec(nCells, 2.0); // {2.0, 2.0, 2.0}
+
+    Foam::direction cmpt = Foam::direction(0);
+
     // Kernel
 
     Foam::scalarField result(nCells, 0.0);
-    matrix.sumA(
+    matrix.Amul(
         result,
+        vec,
         Foam::FieldField<Foam::Field, Foam::scalar>(0),
-        Foam::lduInterfaceFieldPtrsList(0)
+        Foam::lduInterfaceFieldPtrsList(0),
+        cmpt
     );
 
     // Check result
-    Foam::Info << "sumA: " << result << Foam::endl;
+    Foam::Info << "Amul: " << result << Foam::endl;
 
     for (size_t i = 0; i < nCells; ++i)
     {
-        if (result[i] != 4.0) {
+        if (result[i] != 8.0) {
             Foam::Info << "Error: result[" << i << "] = " << result[i]
-                       << ", expected 4.0" << Foam::endl;
+                       << ", expected 8.0" << Foam::endl;
             return 1;
         }
     }
