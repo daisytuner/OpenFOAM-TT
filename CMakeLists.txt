@@ -10,6 +10,8 @@ option(ENABLE_DAISY_RTL "Enable Daisy instrumentation" OFF)
 option(ENABLE_TT "Enable Manual Tenstorrent offloading" OFF)
 option(VERIFY_TT "Enable verification of Tenstorrent offloading results" ON)
 
+include(cmake/CPM.cmake)
+
 set(OPENFOAM_OS_SPECIFIC_SOURCES
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/signals/sigFpe.C
   ${OPENFOAM_SRC_DIR}/OSspecific/POSIX/signals/sigSegv.C
