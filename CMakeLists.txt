@@ -5,7 +5,7 @@ project(OpenFOAM-TT VERSION "1.0.0" LANGUAGES CXX)
 set(OPENFOAM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/OpenFOAM-dev/src)
 set(OPENFOAM_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/OpenFOAM-dev/platforms/linux64GccSPInt32Opt/lib)
 
-option(DAISY_INSTRUMENTATION "Enable Daisy instrumentation" OFF)
+option(ENABLE_DAISY_RTL "Enable Daisy instrumentation" OFF)
 
 option(ENABLE_TT "Enable Manual Tenstorrent offloading" OFF)
 option(VERIFY_TT "Enable verification of Tenstorrent offloading results" ON)
@@ -673,10 +673,10 @@ if (ENABLE_TT)
   )
 endif()
 
-if (DAISY_INSTRUMENTATION)
+if (ENABLE_DAISY_RTL)
   message(STATUS "Building with DAISY instrumentation")
   target_compile_definitions(OpenFOAM PRIVATE
-    __DAISY_INSTRUMENTATION
+    ENABLE_DAISY_RTL
   )
   target_link_libraries(OpenFOAM PRIVATE
     daisy_rtl arg_capture_io

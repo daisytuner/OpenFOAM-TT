@@ -29,7 +29,7 @@ Description
 
 #include "lduMatrix.H"
 
-#ifdef __DAISY_INSTRUMENTATION
+#ifdef ENABLE_DAISY_RTL
 #include <daisy_rtl/daisy_rtl.h>
 #endif
 #include "messageStream.H"
@@ -53,18 +53,22 @@ void Foam::lduMatrix::Amul
     const direction cmpt
 ) const
 {
-#ifdef __DAISY_INSTRUMENTATION
+#ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata = {
         .file_name = "lduMatrixATmul.cpp",
         .function_name = "Foam::lduMatrix::Amul",
-        .line_begin = 38,
-        .line_end = 119,
+        .line_begin = 47,
+        .line_end = 193,
         .column_begin = 0,
         .column_end = 0,
-        .region_name = "foam_lduMatrix_Amul",
+#ifdef ENABLE_TT
+        .target_type = "TENSTORRENT",
+#elif
+        .target_type = "SEQUENTIAL",
+#endif
+        .region_uuid = "foam_lduMatrix_Amul"
     };
     unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
-
     __daisy_instrumentation_enter(region_id);
 #endif
     
@@ -175,10 +179,14 @@ void Foam::lduMatrix::Amul
 
         tpsi.clear();
     
-        #ifdef __DAISY_INSTRUMENTATION
+#ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id);
+        __daisy_instrumentation_increment(region_id, "flops", 1000);
+        __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
+
+
         __daisy_instrumentation_finalize(region_id);
-        #endif
+#endif
 }
 
 
@@ -191,24 +199,6 @@ void Foam::lduMatrix::Tmul
     const direction cmpt
 ) const
 {
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_metadata_t metadata = {
-        .file_name = "lduMatrixATmul.cpp",
-        .function_name = "Foam::lduMatrix::Tmul",
-        .line_begin = 121,
-        .line_end = 200,
-        .column_begin = 0,
-        .column_end = 0,
-        .region_name = "foam_lduMatrix_Tmul",
-                .loopnest_index = 0
-
-    };
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
-
-    __daisy_instrumentation_enter(region_id);
-#endif
-
-
     scalar* __restrict__ TpsiPtr = Tpsi.begin();
 
     const scalarField& psi = tpsi();
@@ -256,11 +246,6 @@ void Foam::lduMatrix::Tmul
     );
 
     tpsi.clear();
-
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_instrumentation_exit(region_id);
-    __daisy_instrumentation_finalize(region_id);
-#endif
 }
 
 
@@ -271,22 +256,6 @@ void Foam::lduMatrix::sumA
     const lduInterfaceFieldPtrsList& interfaces
 ) const
 {
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_metadata_t metadata = {
-        .file_name = "lduMatrixATmul.cpp",
-        .function_name = "Foam::lduMatrix::sumA",
-        .line_begin = 203,
-        .line_end = 271,
-        .column_begin = 0,
-        .column_end = 0,
-        .region_name = "foam_lduMatrix_sumA",
-        .loopnest_index = 0
-    };
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
-
-    __daisy_instrumentation_enter(region_id);
-#endif
-
     scalarField* tt_result;
 
     #ifdef ENABLE_TT
@@ -376,11 +345,6 @@ void Foam::lduMatrix::sumA
             delete tt_result;
         }
     #endif
-
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_instrumentation_exit(region_id);
-    __daisy_instrumentation_finalize(region_id);
-#endif
 }
 
 
@@ -394,21 +358,6 @@ void Foam::lduMatrix::residual
     const direction cmpt
 ) const
 {
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_metadata_t metadata = {
-        .file_name = "lduMatrixATmul.cpp",
-        .function_name = "Foam::lduMatrix::residual",
-        .line_begin = 274,
-        .line_end = 371,
-        .column_begin = 0,
-        .column_end = 0,
-        .region_name = "foam_lduMatrix_residual",
-    };
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
-
-    __daisy_instrumentation_enter(region_id);
-#endif
-
     scalarField* tt_result;
 
     #ifdef ENABLE_TT
@@ -537,11 +486,6 @@ void Foam::lduMatrix::residual
             delete tt_result;
         }
     #endif
-
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_instrumentation_exit(region_id);
-    __daisy_instrumentation_finalize(region_id);
-#endif
 }
 
 

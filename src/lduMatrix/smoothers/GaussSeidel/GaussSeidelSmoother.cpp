@@ -25,10 +25,6 @@ License
 
 #include "GaussSeidelSmoother.H"
 
-#ifdef __DAISY_INSTRUMENTATION
-#include <daisy_rtl/daisy_rtl.h>
-#endif
-
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
@@ -79,21 +75,6 @@ void Foam::GaussSeidelSmoother::smooth
     const label nSweeps
 )
 {
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_metadata_t metadata = {
-        .file_name = "GaussSeidelSmoother.cpp",
-        .function_name = "Foam::GaussSeidelSmoother::smooth",
-        .line_begin = 70,
-        .line_end = 210,
-        .column_begin = 0,
-        .column_end = 0,
-        .region_name = "foam_GaussSeidelSmoother_smooth",
-    };
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
-
-    __daisy_instrumentation_enter(region_id);
-#endif
-    
     scalar* __restrict__ psiPtr = psi.begin();
 
     const label nCells = psi.size();
@@ -203,11 +184,6 @@ void Foam::GaussSeidelSmoother::smooth
             mBouCoeffs[patchi].negate();
         }
     }
-
-#ifdef __DAISY_INSTRUMENTATION
-    __daisy_instrumentation_exit(region_id);
-    __daisy_instrumentation_finalize(region_id);
-#endif
 }
 
 
