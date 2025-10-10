@@ -63,7 +63,7 @@ void Foam::lduMatrix::Amul
         .column_end = 0,
 #ifdef ENABLE_TT
         .target_type = "TENSTORRENT",
-#elif
+#else
         .target_type = "SEQUENTIAL",
 #endif
         .region_uuid = "foam_lduMatrix_Amul"
@@ -160,6 +160,15 @@ void Foam::lduMatrix::Amul
 
         #endif
 
+#ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id);
+        __daisy_instrumentation_increment(region_id, "flops", 1000);
+        __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
+
+
+        __daisy_instrumentation_finalize(region_id);
+#endif
+
         #if defined(ENABLE_TT) && defined(VERIFY_TT)
             if (!daisy::matches(*tt_result, Apsi)) {
                 Foam::SeriousError << "Amul TT results do not match!" << Foam::endl;
@@ -178,15 +187,7 @@ void Foam::lduMatrix::Amul
         #endif
 
         tpsi.clear();
-    
-#ifdef ENABLE_DAISY_RTL
-        __daisy_instrumentation_exit(region_id);
-        __daisy_instrumentation_increment(region_id, "flops", 1000);
-        __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
 
-
-        __daisy_instrumentation_finalize(region_id);
-#endif
 }
 
 
@@ -256,6 +257,26 @@ void Foam::lduMatrix::sumA
     const lduInterfaceFieldPtrsList& interfaces
 ) const
 {
+#ifdef ENABLE_DAISY_RTL
+    __daisy_metadata_t metadata = {
+        .file_name = "lduMatrixATmul.cpp",
+        .function_name = "Foam::lduMatrix::sumA",
+        .line_begin = 252,
+        .line_end = 368,
+        .column_begin = 0,
+        .column_end = 0,
+#ifdef ENABLE_TT
+        .target_type = "TENSTORRENT",
+#else
+        .target_type = "SEQUENTIAL",
+#endif
+        .region_uuid = "foam_lduMatrix_sumA"
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
+    __daisy_instrumentation_enter(region_id);
+#endif
+
+
     scalarField* tt_result;
 
     #ifdef ENABLE_TT
@@ -328,6 +349,16 @@ void Foam::lduMatrix::sumA
     }
 
     #endif
+
+
+#ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id);
+        __daisy_instrumentation_increment(region_id, "flops", 1000);
+        __daisy_instrumentation_increment(region_id, "bytes", 3 * 1000 * sizeof(float));
+
+
+        __daisy_instrumentation_finalize(region_id);
+#endif
 
     #if defined(ENABLE_TT) && defined(VERIFY_TT)
     if (!daisy::matches(*tt_result, sumA)) {

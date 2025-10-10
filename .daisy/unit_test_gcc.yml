@@ -25,9 +25,8 @@ steps:
     ./wmake/wmakeLnIncludeAll
 
     # Build tests with CMake and Ninja
-    export DOCC_CI=
 
-    # Compiler instrumented binaries
+    # Step 1: Compiler instrumented binaries
     cd ../../
     mkdir build && cd build
     cmake -G Ninja -DENABLE_TT=OFF -DENABLE_DAISY_RTL=ON ..
@@ -36,9 +35,12 @@ steps:
     # Rename libOpenFOAM.so to libOpenFOAM.instrumented.so to avoid conflicts
     mv libOpenFOAM.so libOpenFOAM.instrumented.so
 
-    # Compiler non-instrumented binaries
+    # Step 2: Compiler non-instrumented binaries
     cmake -G Ninja -DENABLE_TT=OFF -DENABLE_DAISY_RTL=OFF ..
     ninja
+
+    # CLI runners will automatically measure application performance with non-instrumented binaries
+    # and then run with instrumented binaries for coverage data collection
 
   run:
     lduMatrixATmul_SumA:
