@@ -2,11 +2,18 @@ cmake_minimum_required(VERSION 3.16)
 
 project(daisy-tt-rt VERSION 0.0.1 DESCRIPTION "A library of predefined tenstorrent kernels and utilities for handling various OpenFOAM structures and operations")
 
+set(TT_IMPL -1 CACHE STRING "Implementation type for TT_IMPL (define or int)")
+
+if(TT_IMPL STREQUAL "-1")
+    message(FATAL_ERROR "TT_IMPL is not defined. Please set TT_IMPL to one of the supported implementation types (e.g., TT_IMPL_LDU, TT_IMPL_DENSE, TT_IMPL_ELLPACK) in the cache.")
+endif()
+
 add_library(daisy_tt_rt STATIC
     src/tenstorrent/buffer_pool.cpp
     src/tenstorrent/dense_matBinOp.cpp
     src/tenstorrent/dense_matMul.cpp
     src/tenstorrent/dense_matNeg.cpp
+    src/tenstorrent/ellpack_matVec.cpp
     src/tenstorrent/ttLduData.cpp
 )
 
@@ -24,6 +31,7 @@ target_compile_options(daisy_tt_rt PRIVATE
 
 target_compile_definitions(daisy_tt_rt PUBLIC
     SPDLOG_FMT_EXTERNAL
+    TT_IMPL=${TT_IMPL}
 )
 
 if(NOT $ENV{TT_METAL_INSTALL_DIR} STREQUAL "")

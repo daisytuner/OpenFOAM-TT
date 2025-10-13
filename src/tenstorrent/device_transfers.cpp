@@ -3,6 +3,7 @@
 #include "buffer_pool.hpp"
 #include "kernel_launcher.hpp"
 #include "lduAddressing.H"
+#include "ldu_meta_cache.hpp"
 #include "messageStream.H"
 #include "lduMatrix.H"
 
@@ -10,9 +11,14 @@
 #include "tt-metalium/constants.hpp"
 #include "tt-metalium/device.hpp"
 #include "tt-metalium/host_api.hpp"
+#include "tt-metalium/math.hpp"
+#include "tt-metalium/tt_backend_api_types.hpp"
 #include "tt-metalium/tt_metal_profiler.hpp"
+#include "tt-metalium/util.hpp"
 #include "ttLduData.hpp"
+#include "tt_impls.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <tuple>
 
 namespace tt::daisy::foam {
@@ -36,7 +42,7 @@ uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght)
     return face_start + in_face_row * tt::constants::FACE_WIDTH + in_face_col;
 }
 
-ReusableTtBuffer& copy_scalarField_to_device(BufferPool& bufferPool, const Foam::scalarField& field) {
+ReusableTtBuffer& copy_scalarField_to_device_bare(BufferPool& bufferPool, const Foam::scalarField& field) {
     auto* device = bufferPool.device_;
 
     size_t bytes = sizeof(float)*field.size();
@@ -97,6 +103,16 @@ ReusableTtBuffer& copy_scalarField_to_device_as_dense_mat(BufferPool& bufferPool
     return buffer;
 }
 
+ReusableTtBuffer& copy_scalarField_to_device(BufferPool& bufferPool, const Foam::scalarField& field) {
+    #if TT_IMPL == TT_IMPL_LDU
+        return copy_scalarField_to_device_bare(bufferPool, field);
+    #elif TT_IMPL == TT_IMPL_DENSE || TT_IMPL == TT_IMPL_ELLPACK
+        return copy_scalarField_to_device_as_dense_mat(bufferPool, field);
+    #else
+        #error unsupported TT IMPL TT_IMPL
+    #endif
+}
+
 void copy_scalarField_from_device_dense_mat(
     BufferPool& bufferPool,
     std::variant<std::reference_wrapper<tt::tt_metal::Buffer>, std::shared_ptr<tt::tt_metal::Buffer>> buffer,
@@ -146,7 +162,7 @@ void copy_scalarField_from_device_dense_mat(BufferPool& bufferPool, ReusableTtBu
     copy_scalarField_from_device_dense_mat(bufferPool, buffer.buffer, field, buf_offset);
 }
 
-void copy_scalarField_from_device(
+void copy_scalarField_from_device_bare(
     BufferPool& bufferPool,
     std::variant<std::reference_wrapper<tt::tt_metal::Buffer>, std::shared_ptr<tt::tt_metal::Buffer>> buffer,
     Foam::scalarField* field,
@@ -180,7 +196,31 @@ void copy_scalarField_from_device(
     tt::tt_metal::detail::ReadDeviceProfilerResults(device);
 }
 
-void copy_scalarField_from_device(BufferPool& bufferPool, ReusableTtBuffer& buffer, Foam::scalarField* field, uint32_t buf_offset) {
+void copy_scalarField_from_device_bare(BufferPool& bufferPool, ReusableTtBuffer& buffer, Foam::scalarField* field, uint32_t buf_offset) {
+    copy_scalarField_from_device_bare(bufferPool, buffer.buffer, field, buf_offset);
+}
+
+void copy_scalarField_from_device(
+    BufferPool& bufferPool,
+    std::variant<std::reference_wrapper<tt::tt_metal::Buffer>, std::shared_ptr<tt::tt_metal::Buffer>> buffer,
+    Foam::scalarField* field,
+    uint32_t buf_offset
+) {
+    #if TT_IMPL == TT_IMPL_LDU
+        copy_scalarField_from_device_bare(bufferPool, buffer, field, buf_offset);
+    #elif TT_IMPL == TT_IMPL_DENSE || TT_IMPL == TT_IMPL_ELLPACK
+        copy_scalarField_from_device_dense_mat(bufferPool, buffer, field, buf_offset);
+    #else
+        #error unsupported TT IMPL TT_IMPL
+    #endif
+}
+
+void copy_scalarField_from_device(
+    BufferPool& bufferPool,
+    ReusableTtBuffer& buffer,
+    Foam::scalarField* field,
+    uint32_t buf_offset
+) {
     copy_scalarField_from_device(bufferPool, buffer.buffer, field, buf_offset);
 }
 
@@ -600,6 +640,287 @@ void copy_ldu_contents_to_device(BufferPool& k,tt_ldu_meta& tt_meta, const Foam:
     
 
     tt_meta.contents_on_device_ = true;
+}
+
+tt_ldu_meta& ensure_lduMat_on_device_as_ldu(BufferPool& k, const Foam::lduMatrix* lduMat, bool reserve_all_parts) {
+
+    auto& tt_meta = get_tt_meta(lduMat, ldu_tt_meta_map);
+
+    if (!tt_meta.addrs_on_device_) {
+        #ifdef TRACY_ENABLE
+        ZoneScopedN("TT Meta ldu copy addrs");
+        #endif
+        copy_ldu_addrs_to_device(k, tt_meta, lduMat);
+    } else {
+        #ifdef TRACY_ENABLE
+        ZoneScopedN("TT Meta ldu reuse addrs");
+        #endif
+    }
+
+    if (!tt_meta.contents_on_device_ ||
+        (tt_meta.contents_on_device_ && (!reserve_all_parts ^ (tt_meta.lower_contents_start_ == tt_meta.upper_contents_start_)))
+    ) { // if not uploaded, or if uploaded in a different format than requested now (i.e. reserve_all_parts changed) [we should be good with unreserved, unless we are running an operation that makes it asymmetric, in which case it is implicitly all reserved]
+        #ifdef TRACY_ENABLE
+        ZoneScopedN("TT Meta ldu copy contents");
+        #endif
+        copy_ldu_contents_to_device(k, tt_meta, lduMat, reserve_all_parts);
+    } else {
+        #ifdef TRACY_ENABLE
+        ZoneScopedN("TT Meta ldu reuse contents");
+        #endif
+    }
+
+    return tt_meta;
+}
+
+#define TT_DEBUG 1
+
+void copy_ldu_to_ellpack(BufferPool& bufferPool, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
+
+    // Foam::Info << "Copying ellpack to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
+
+    auto* device = bufferPool.device_;
+
+    auto cells = lduMat->lduAddr().size();
+    tt_meta.cell_count = cells;
+
+    uint32_t aligned_cols = 32;
+
+    auto allocEntries = tt::round_up(cells, 32)*aligned_cols;
+
+    auto dat_buf = new float[allocEntries];
+    auto addr_buf = new uint32_t[allocEntries];
+    auto col_counts = new uint32_t[cells];
+    for (auto i = 0; i < cells; ++i) {
+        col_counts[i] = 0;
+    }
+
+    if (!tt_meta.d_ellpack_vals_) {
+        tt_meta.d_ellpack_vals_ = tt::tt_metal::CreateBuffer({
+            .device = device,
+            .size = sizeof(float)*allocEntries,
+            .page_size = tt_metal::detail::TileSize(DataFormat::Float32),
+            .buffer_type = tt::tt_metal::BufferType::DRAM
+        });
+    }
+
+    if (!tt_meta.d_ellpack_addrs_) {
+        tt_meta.d_ellpack_addrs_ = tt::tt_metal::CreateBuffer({
+            .device = device,
+            .size = sizeof(uint32_t)*allocEntries,
+            .page_size = tt_metal::detail::TileSize(DataFormat::UInt32),
+            .buffer_type = tt::tt_metal::BufferType::DRAM
+        });
+    }
+
+    uint32_t max_cols = 0;
+    uint32_t sum_cols = 0;
+
+    auto get_next_col = [&](int row) {
+        auto target = col_counts[row];
+
+        if (target >= aligned_cols) {
+            throw std::runtime_error("copy_ldu_to_ellpack: too many non-zeros in row " + std::to_string(row) + ", max is " + std::to_string(aligned_cols));
+        }
+
+        auto next = target + 1;
+
+        if (next > max_cols) {
+            max_cols = next;
+        }
+        sum_cols += 1;
+
+        col_counts[row] = next;
+        return target;
+    };
+
+    if (lduMat->hasLower()) { // need to do lower first, as any will be before diag in each row
+        auto lowerAddr = lduMat->lduAddr().lowerAddr();
+        auto upperAddr = lduMat->lduAddr().upperAddr();
+        auto lower = lduMat->lower().cdata();
+        auto sparse_vals = lowerAddr.size();
+
+        for (int32_t i= 0; i < sparse_vals; ++i) {
+            auto col_addr = lowerAddr[i];
+            auto row_addr = upperAddr[i];
+            auto next_col = get_next_col(row_addr);
+
+            addr_buf[row_addr*aligned_cols + next_col] = col_addr;
+            dat_buf[row_addr*aligned_cols + next_col] = lower[i];
+        }
+    }
+
+    if (lduMat->hasDiag()) {
+        auto diag = lduMat->diag().cdata();
+        for (auto i = 0; i < cells; ++i) {
+            auto next_col = col_counts[i]++;
+            addr_buf[i*aligned_cols + next_col] = i;
+            dat_buf[i*aligned_cols + next_col] = diag[i];
+        }
+    }
+
+    if (lduMat->hasUpper()) {
+        auto lowerAddr = lduMat->lduAddr().lowerAddr();
+        auto upperAddr = lduMat->lduAddr().upperAddr();
+        auto upper = lduMat->upper().cdata();
+        auto sparse_vals = lowerAddr.size();
+
+        for (int32_t i= 0; i < sparse_vals; ++i) {
+            auto row_addr = lowerAddr[i];
+            auto col_addr = upperAddr[i];
+            auto next_col = col_counts[row_addr]++;
+
+            addr_buf[row_addr*aligned_cols + next_col] = col_addr;
+            dat_buf[row_addr*aligned_cols + next_col] = upper[i];
+        }
+    }
+
+    tt_meta.ellpack_max_cols_ = max_cols;
+    tt_meta.ellpack_avg_cols_ = float(sum_cols) / float(cells);
+
+    #ifdef TT_DEBUG
+    printf("ellpack mat %u x %u (max cols %u, avg cols %.2f):\n", cells, aligned_cols, max_cols, tt_meta.ellpack_avg_cols_);
+    for (uint32_t i = 0; i < static_cast<uint32_t>(cells); ++i) {
+        printf("  %u: ", i);
+        for (uint32_t j = 0; j < col_counts[i]; ++j) {
+            printf("%3u:%6.3f ", addr_buf[i*aligned_cols + j], dat_buf[i*aligned_cols + j]);
+        }
+        printf("\n");
+    }
+    #endif
+
+    tt::tt_metal::EnqueueWriteBuffer(
+        device->command_queue(0),
+        tt_meta.d_ellpack_vals_,
+        dat_buf,
+        false
+    );
+    tt::tt_metal::EnqueueWriteBuffer(
+        device->command_queue(0),
+        tt_meta.d_ellpack_addrs_,
+        addr_buf,
+        true // we want to free the buffers
+    );
+
+    delete[] dat_buf;
+    delete[] addr_buf;
+    delete[] col_counts;
+
+    tt_meta.ellpack_on_device_ = true;
+
+}
+
+tt_ldu_meta& ensure_lduMat_on_device(
+    BufferPool& k,
+    const Foam::lduMatrix* lduMat,
+    bool is_expand
+) {
+
+    #if TT_IMPL == TT_IMPL_LDU
+
+        return ensure_lduMat_on_device_as_ldu(k, lduMat, is_expand);
+
+    #elif TT_IMPL == TT_IMPL_DENSE
+
+        auto& tt_meta = get_tt_meta(lduMat, ldu_tt_meta_map);
+
+        if (!tt_meta.dense_on_device_) {
+            copy_ldu_to_dense(k.device_, tt_meta, lduMat);
+        }
+
+        return tt_meta;
+
+    #elif TT_IMPL == TT_IMPL_ELLPACK
+
+        auto& tt_meta = get_tt_meta(lduMat, ldu_tt_meta_map);
+
+        if (!tt_meta.ellpack_on_device_) {
+            copy_ldu_to_ellpack(k, tt_meta, lduMat);
+        }
+
+        return tt_meta;
+
+    #else 
+
+    #error Unknown TT IMPL TT_IMPL
+
+    #endif
+}
+
+void copy_ldu_from_device(
+    BufferPool& bufferPool,
+    tt_ldu_meta& tt_meta,
+    Foam::scalarField* diagField,
+    Foam::scalarField* lowerField,
+    Foam::scalarField* upperField,
+    const Foam::lduAddressing& lduAddressing
+) {
+
+    #if TT_IMPL == TT_IMPL_LDU
+
+        if (diagField) {
+            tt::daisy::foam::copy_scalarField_from_device(bufferPool, tt_meta.d_data_, diagField);
+        }
+        if (lowerField) {
+            tt::daisy::foam::copy_scalarField_from_device(bufferPool, *tt_meta.d_data_, lowerField, tt_meta.lower_contents_start_*4);
+        }
+        if (upperField) {
+            tt::daisy::foam::copy_scalarField_from_device(bufferPool, *tt_meta.d_data_, upperField, tt_meta.upper_contents_start_*4);
+        }
+
+    #elif TT_IMPL == TT_IMPL_DENSE
+
+        copy_ldu_from_dense(bufferPool.device_, tt_meta, diagField, lowerField, upperField, lduAddressing);
+
+    #elif TT_IMPL == TT_IMPL_ELLPACK
+
+        // copy_ldu_from_ellpack()
+        throw new std::runtime_error("copy_ldu_from_device not implemented for ELLPACK");
+
+    #else
+
+    #error Unknown TT IMPL TT_IMPL
+
+    #endif
+
+
+}
+
+
+std::tuple<tt_ldu_meta&, ReusableTtBuffer&, ReusableTtBuffer&> prepare_Amul_inputs(
+    BufferPool& bufferPool,
+    const Foam::lduMatrix& lduMat,
+    const Foam::scalarField& psi,
+    const Foam::scalarField& Apsi
+) {
+
+    auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(bufferPool, &lduMat);
+
+    #if TT_IMPL == TT_IMPL_LDU
+
+    auto& tt_psi = tt::daisy::foam::copy_scalarField_to_device(bufferPool, psi);
+    auto& tt_Apsi = bufferPool.allocateBuffer(sizeof(float)*Apsi.size(), tt::daisy::foam::tt_block_size);
+    return {tt_meta, tt_psi, tt_Apsi};
+
+    #elif TT_IMPL == TT_IMPL_DENSE
+
+    auto& tt_psi = tt::daisy::foam::copy_scalarField_to_device_as_dense_mat(bufferPool, psi);
+    auto& tt_Apsi = bufferPool.allocateBuffer(tt_psi.buffer->size(), tt_psi.buffer->page_size());
+
+    return {tt_meta, tt_psi, tt_Apsi};
+
+    #elif TT_IMPL == TT_IMPL_ELLPACK
+    
+    auto & tt_psi = tt::daisy::foam::copy_scalarField_to_device(bufferPool, psi);
+    auto & tt_Apsi = bufferPool.allocateBuffer(tt_psi.buffer->size(), tt_psi.buffer->page_size());
+
+    return {tt_meta, tt_psi, tt_Apsi};
+
+    #else 
+
+    #error Unknown TT IMPL TT_IMPL
+
+    #endif
 }
 
 }  // namespace tt::daisy::foam

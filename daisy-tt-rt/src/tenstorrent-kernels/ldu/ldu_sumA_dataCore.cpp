@@ -17,8 +17,8 @@ void kernel_main() {
     uint32_t lduSparseCount = get_arg_val<uint32_t>(6);
     uint32_t lduUpperStart = get_arg_val<uint32_t>(7);
     uint32_t resVecAddr = get_arg_val<uint32_t>(8);
-    uint32_t ifaceCoeffsAddr = get_arg_val<uint32_t>(9);
-    uint32_t iface_count = get_arg_val<uint32_t>(10);
+    // uint32_t ifaceCoeffsAddr = get_arg_val<uint32_t>(9);
+    // uint32_t iface_count = get_arg_val<uint32_t>(10);
 
 
 
@@ -43,9 +43,9 @@ void kernel_main() {
         .bank_base_address = resVecAddr, .page_size = page_size, .data_format = data_format
     };
 
-    const InterleavedAddrGenFast<true> ifaceCoeffs_gen = {
-        .bank_base_address = ifaceCoeffsAddr, .page_size = page_size, .data_format = data_format
-    };
+    // const InterleavedAddrGenFast<true> ifaceCoeffs_gen = {
+    //     .bank_base_address = ifaceCoeffsAddr, .page_size = page_size, .data_format = data_format
+    // };
 
     DPRINT << "TT Up " << "d" << lduCellCount << ", s" << lduSparseCount << ENDL();
 
@@ -68,13 +68,13 @@ void kernel_main() {
         noc_async_read_tile(i, lduDat_gen, get_write_ptr(mat_cb) + page_size * i);
     }
 
-    page_count = (lduCellCount * iface_count + page_size/4 -1) / (page_size / 4);
-    cb_reserve_back(iface_cb, (page_count+3)/4);
-    float* ifaceCoeffs = (float*)get_write_ptr(iface_cb);
-    uint32_t* iface_meta_ptr = (uint32_t*)get_write_ptr(iface_cb);
-    for (uint32_t i = 0; i < page_count; ++i) {
-        noc_async_read_tile(i, ifaceCoeffs_gen, get_write_ptr(iface_cb) + page_size * i);
-    }
+    // page_count = (lduCellCount * iface_count + page_size/4 -1) / (page_size / 4);
+    // cb_reserve_back(iface_cb, (page_count+3)/4);
+    // float* ifaceCoeffs = (float*)get_write_ptr(iface_cb);
+    // uint32_t* iface_meta_ptr = (uint32_t*)get_write_ptr(iface_cb);
+    // for (uint32_t i = 0; i < page_count; ++i) {
+    //     noc_async_read_tile(i, ifaceCoeffs_gen, get_write_ptr(iface_cb) + page_size * i);
+    // }
 
     page_count = (lduCellCount + page_size/4 - 1) / (page_size / 4);
     cb_reserve_back(resVec_cb, (page_count+3)/4);
@@ -119,21 +119,21 @@ void kernel_main() {
         DeviceZoneScopedN("sumA sparse done");
     }
 
-    uint32_t incoming_idx = 0;
-    for (uint32_t i = 0; i < iface_count; ++i) {
-        auto iface_idx = iface_meta_ptr[incoming_idx++];
-        auto iface_meta_offset = iface_addr_ptr[iface_idx];
-        auto iface_elem_count = iface_addr_ptr[iface_meta_offset++];
+    // uint32_t incoming_idx = 0;
+    // for (uint32_t i = 0; i < iface_count; ++i) {
+    //     auto iface_idx = iface_meta_ptr[incoming_idx++];
+    //     auto iface_meta_offset = iface_addr_ptr[iface_idx];
+    //     auto iface_elem_count = iface_addr_ptr[iface_meta_offset++];
         
-        DPRINT << "iface " << i << " start " << iface_idx << ", " << iface_meta_offset << ", " << iface_elem_count << " elems" << ENDL();
-        for (uint32_t j = 0; j < iface_elem_count; ++j) {
-            incoming_idx++; // skip count also present here
-            auto coeff = ifaceCoeffs[incoming_idx++];
-            auto cell_idx = iface_addr_ptr[iface_meta_offset++];
-            res_ptr[cell_idx] -= coeff;
-            DPRINT << "iface " << cell_idx << " -= " << coeff << ENDL();
-        }
-    }
+    //     DPRINT << "iface " << i << " start " << iface_idx << ", " << iface_meta_offset << ", " << iface_elem_count << " elems" << ENDL();
+    //     for (uint32_t j = 0; j < iface_elem_count; ++j) {
+    //         incoming_idx++; // skip count also present here
+    //         auto coeff = ifaceCoeffs[incoming_idx++];
+    //         auto cell_idx = iface_addr_ptr[iface_meta_offset++];
+    //         res_ptr[cell_idx] -= coeff;
+    //         DPRINT << "iface " << cell_idx << " -= " << coeff << ENDL();
+    //     }
+    // }
 
     {
         DeviceZoneScopedN("sumA compute done");

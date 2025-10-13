@@ -10,6 +10,12 @@ option(ENABLE_DAISY_RTL "Enable Daisy instrumentation" OFF)
 option(ENABLE_TT "Enable Manual Tenstorrent offloading" OFF)
 option(VERIFY_TT "Enable verification of Tenstorrent offloading results" ON)
 
+set(TT_IMPL -1 CACHE STRING "Implementation type for TT_IMPL (define or int)")
+
+if(ENABLE_TT AND TT_IMPL STREQUAL "-1")
+    message(FATAL_ERROR "TT_IMPL is not defined. Please set TT_IMPL to one of the supported implementation types (e.g., TT_IMPL_LDU, TT_IMPL_DENSE, TT_IMPL_ELLPACK) in the cache.")
+endif()
+
 include(cmake/CPM.cmake)
 
 set(OPENFOAM_OS_SPECIFIC_SOURCES
@@ -78,6 +84,7 @@ set(OPENFOAM_COMPILE_DEFINITIONS
   WM_LABEL_SIZE=32
   NoRepository
   SPDLOG_FMT_EXTERNAL
+  TT_IMPL=${TT_IMPL}
 )
 
 set(OPENFOAM_HEADERS

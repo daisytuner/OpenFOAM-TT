@@ -107,19 +107,19 @@ public:
 
     void launch_suma(
         const tt_ldu_meta& lduMeta,
-        tt::tt_metal::Buffer& d_res,
-        tt::tt_metal::Buffer* d_iface_contents,
-        int iface_count
+        tt::tt_metal::Buffer& d_res
+        // tt::tt_metal::Buffer* d_iface_contents,
+        // int iface_count
     );
 
     void launch_residual(
         const tt_ldu_meta& lduMeta,
         tt::tt_metal::Buffer& d_psi,
         tt::tt_metal::Buffer& d_source,
-        tt::tt_metal::Buffer& d_res,
+        tt::tt_metal::Buffer& d_res
         // tt::tt_metal::Buffer& d_iface_contents,
         // int iface_count,
-        const char cmpt
+        // const char cmpt
     );
 
     void launch_sumDiag(
@@ -153,6 +153,35 @@ public:
 };
 
 KernelLauncher& require_kernel_launcher();
+
+void tt_compute_amul(KernelLauncher& k, tt_ldu_meta& tt_meta, ReusableTtBuffer& tt_psi, ReusableTtBuffer& tt_Apsi);
+
+void tt_compute_sumA(
+    KernelLauncher& k,
+    tt_ldu_meta& tt_meta,
+    ReusableTtBuffer& tt_res
+);
+
+void tt_compute_residual(
+    KernelLauncher& k,
+    tt_ldu_meta& tt_meta,
+    ReusableTtBuffer& tt_psi,
+    ReusableTtBuffer& tt_source,
+    ReusableTtBuffer& tt_res
+);
+
+void tt_compute_negate(
+    KernelLauncher& k,
+    tt_ldu_meta& tt_meta
+);
+
+void tt_compute_matBinOp(
+    KernelLauncher& k,
+    tt_ldu_meta& tt_meta,
+    const tt_ldu_meta& a_tt_meta,
+    const tt_ldu_meta& b_tt_meta,
+    std::string opSymbol
+);
 
 
 }   // namespace tt::daisy::foam

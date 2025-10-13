@@ -15,5 +15,10 @@ void tt_launch_dense_matBinOp(
     std::filesystem::path kernel_dir = std::filesystem::current_path()
 );
 
+namespace MatBinOp {
+    constexpr auto ADD = "add";
+    constexpr auto SUB = "sub";
+}
+
 }  // namespace tt::daisy
 
