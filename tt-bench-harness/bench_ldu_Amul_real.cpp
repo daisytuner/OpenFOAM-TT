@@ -207,7 +207,7 @@ for (Foam::label j = 0; j < Ny; ++j) {
         uint32_t reads = num_output_tiles * Kt  * (2 * page_size) * sizeof(float)
         uint32_t writes = num_tiles * page_size * sizeof(float)
 
-        uint32_t flops = num_output_tiles * 2 * page_size * page_size
+        uint32_t flops = num_output_tiles * 2 * 32 * 32 * 32;
         __daisy_instrumentation_increment(region_id, "dram_bytes", reads + writes);
         __daisy_instrumentation_finalize(region_id);
     #endif
