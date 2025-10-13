@@ -3,10 +3,34 @@
 #include "lduPrimitiveMesh.H"
 #include "IOstreams.H"
 
-int main()
+int main(int argc, char* argv[])
 {
-const int Nx = 400;
-const int Ny = 400;
+// Parse command line arguments
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <Nx> <Ny>" << std::endl;
+        std::cerr << "  Nx: Number of cells in x direction" << std::endl;
+        std::cerr << "  Ny: Number of cells in y direction" << std::endl;
+        return 1;
+    }
+
+    int Nx, Ny;
+    try {
+        Nx = std::stoi(argv[1]);
+        Ny = std::stoi(argv[2]);
+
+        if (Nx <= 0 || Ny <= 0) {
+            std::cerr << "Error: Nx and Ny must be positive integers" << std::endl;
+            return 1;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error parsing command line arguments: " << e.what() << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <Nx> <Ny>" << std::endl;
+        return 1;
+    }
+
+    std::cout << "Running with grid size: " << Nx << " x " << Ny << " = " << (Nx * Ny) << " cells" << std::endl;
+
+
 const Foam::label cells = Nx * Ny;
 
 // Maximum number of off-diagonal entries:
@@ -30,7 +54,7 @@ for (Foam::label j = 0; j < Ny; ++j) {
             addr_upper[idx] = cell;      // col (lower index)
             ++idx;
         }
-        
+
         // North neighbor (j+1) - upper triangle (cell < neighbor)
         if (j < Ny - 1) {
             Foam::label neighbor = i + (j + 1) * Nx;

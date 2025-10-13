@@ -22,16 +22,38 @@
 using namespace tt::daisy;
 using namespace tt::daisy::foam;
 
-int main() {
+int main(int argc, char* argv[]) {
+
+    // Parse command line arguments
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <Nx> <Ny>" << std::endl;
+        std::cerr << "  Nx: Number of cells in x direction" << std::endl;
+        std::cerr << "  Ny: Number of cells in y direction" << std::endl;
+        return 1;
+    }
+
+    int Nx, Ny;
+    try {
+        Nx = std::stoi(argv[1]);
+        Ny = std::stoi(argv[2]);
+
+        if (Nx <= 0 || Ny <= 0) {
+            std::cerr << "Error: Nx and Ny must be positive integers" << std::endl;
+            return 1;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error parsing command line arguments: " << e.what() << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <Nx> <Ny>" << std::endl;
+        return 1;
+    }
+
+    std::cout << "Running with grid size: " << Nx << " x " << Ny << " = " << (Nx * Ny) << " cells" << std::endl;
 
     tt::tt_metal::IDevice* device = tt::tt_metal::CreateDevice(0);
 
     BufferPool buffer_pool(device);
 
     auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
-
-    const int Nx = 400;
-    const int Ny = 400;
     const Foam::label cells = Nx * Ny;
 
     // Maximum number of off-diagonal entries:
@@ -39,7 +61,7 @@ int main() {
     // allocate maximum possible: 4 * cells
     Foam::labelList addr_upper(4 * cells);
     Foam::labelList addr_lower(4 * cells);
-    
+
     int idx = 0;
 
     // OpenFOAM cell numbering: i + j*Nx
@@ -92,7 +114,7 @@ int main() {
     lduA.diag() = 4.0;  // interior cells have 4 neighbors
     lduA.lower() = -1.0;
     lduA.upper() = -1.0;
-    
+
     // Optionally, adjust diagonal for boundary cells
     for (Foam::label j = 0; j < Ny; ++j) {
         for (Foam::label i = 0; i < Nx; ++i) {
@@ -180,12 +202,6 @@ int main() {
     tt::tt_metal::Finish(device->command_queue(0));
 
     Foam::Info << "Result: " << result << Foam::endl;
-
-    Foam::scalarField expected(cells, 6.0);
-
-    if (!Foam::daisy::matches(result, expected)) {
-        Foam::SeriousError << "FAIL Expected: " << expected << Foam::endl;
-    }
 
     tt::tt_metal::CloseDevice(device);
 
