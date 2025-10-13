@@ -45,6 +45,11 @@ steps:
     # and then run with instrumented binaries for coverage data collection
 
   run:
+    lduMatrixATmul_Amul:
+      command: ./build/tests/lduMatrixATmul_Amul
+      env:
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
     lduMatrixATmul_Amul_test:
       command: ./build/tests/lduMatrixATmul_Amul_test
       env:
@@ -80,4 +85,8 @@ steps:
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
-        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
+    denseMatrix_Amul:
+      command: ./build/tt_bench_harness/tt_bench_dense_Amul
+      env:
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
