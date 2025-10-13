@@ -30,89 +30,81 @@ int main() {
 
     auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
 
-    Foam::label cells = 4096;
+    const int Nx = 400;
+    const int Ny = 400;
+    const Foam::label cells = Nx * Ny;
 
+    // Maximum number of off-diagonal entries:
+    // interior cells have 4 neighbors, boundary cells have 2 or 3
+    // allocate maximum possible: 4 * cells
+    Foam::labelList addr_upper(4 * cells);
+    Foam::labelList addr_lower(4 * cells);
+    
+    int idx = 0;
 
-tt::tt_metal::IDevice* device = tt::tt_metal::CreateDevice(0);
-BufferPool buffer_pool(device);
+    // OpenFOAM cell numbering: i + j*Nx
+    for (Foam::label j = 0; j < Ny; ++j) {
+        for (Foam::label i = 0; i < Nx; ++i) {
+            Foam::label row = i + j * Nx;
 
-auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
-
-const int Nx = 400;
-const int Ny = 400;
-const Foam::label cells = Nx * Ny;
-
-// Maximum number of off-diagonal entries:
-// interior cells have 4 neighbors, boundary cells have 2 or 3
-// allocate maximum possible: 4 * cells
-Foam::labelList addr_upper(4 * cells);
-Foam::labelList addr_lower(4 * cells);
-
-int idx = 0;
-
-// OpenFOAM cell numbering: i + j*Nx
-for (Foam::label j = 0; j < Ny; ++j) {
-    for (Foam::label i = 0; i < Nx; ++i) {
-        Foam::label row = i + j * Nx;
-
-        // West neighbor (i-1)
-        if (i > 0) {
-            addr_lower[idx] = row;
-            addr_upper[idx] = row - 1;
-            ++idx;
-        }
-        // East neighbor (i+1)
-        if (i < Nx - 1) {
-            addr_lower[idx] = row;
-            addr_upper[idx] = row + 1;
-            ++idx;
-        }
-        // South neighbor (j-1)
-        if (j > 0) {
-            addr_lower[idx] = row;
-            addr_upper[idx] = row - Nx;
-            ++idx;
-        }
-        // North neighbor (j+1)
-        if (j < Ny - 1) {
-            addr_lower[idx] = row;
-            addr_upper[idx] = row + Nx;
-            ++idx;
+            // West neighbor (i-1)
+            if (i > 0) {
+                addr_lower[idx] = row;
+                addr_upper[idx] = row - 1;
+                ++idx;
+            }
+            // East neighbor (i+1)
+            if (i < Nx - 1) {
+                addr_lower[idx] = row;
+                addr_upper[idx] = row + 1;
+                ++idx;
+            }
+            // South neighbor (j-1)
+            if (j > 0) {
+                addr_lower[idx] = row;
+                addr_upper[idx] = row - Nx;
+                ++idx;
+            }
+            // North neighbor (j+1)
+            if (j < Ny - 1) {
+                addr_lower[idx] = row;
+                addr_upper[idx] = row + Nx;
+                ++idx;
+            }
         }
     }
-}
 
-// Resize arrays to actual number of off-diagonal entries
-addr_lower.setSize(idx);
-addr_upper.setSize(idx);
+    // Resize arrays to actual number of off-diagonal entries
+    addr_lower.setSize(idx);
+    addr_upper.setSize(idx);
+    
+    Foam::lduPrimitiveMesh mesh(
+            cells,
+            addr_lower,
+            addr_upper,
+            0, // comm
+            true
+    );
 
-Foam::lduPrimitiveMesh mesh(
-        cells,
-        addr_lower,
-        addr_upper,
-        0, // comm
-        true
-);
+    Foam::lduMatrix lduA(mesh);
 
-Foam::lduMatrix lduA(mesh);
-
-// Fill values
-lduA.diag() = 4.0;  // interior cells have 4 neighbors
-lduA.lower() = -1.0;
-lduA.upper() = -1.0;
-
-// Optionally, adjust diagonal for boundary cells
-for (Foam::label j = 0; j < Ny; ++j) {
-    for (Foam::label i = 0; i < Nx; ++i) {
-        Foam::label row = i + j * Nx;
-        Foam::scalar diag = 0.0;
-        if (i > 0) diag += 1.0;
-        if (i < Nx - 1) diag += 1.0;
-        if (j > 0) diag += 1.0;
-        if (j < Ny - 1) diag += 1.0;
-        lduA.diag()[row] = diag;
+    // Fill values
+    lduA.diag() = 4.0;  // interior cells have 4 neighbors
+    lduA.lower() = -1.0;
+    lduA.upper() = -1.0;
+    
+    // Optionally, adjust diagonal for boundary cells
+    for (Foam::label j = 0; j < Ny; ++j) {
+        for (Foam::label i = 0; i < Nx; ++i) {
+            Foam::label row = i + j * Nx;
+            Foam::scalar diag = 0.0;
+            if (i > 0) diag += 1.0;
+            if (i < Nx - 1) diag += 1.0;
+            if (j > 0) diag += 1.0;
+            if (j < Ny - 1) diag += 1.0;
+            lduA.diag()[row] = diag;
+        }
     }
-}
 
 
     Foam::scalarField inVec(cells, 2.0);
@@ -134,35 +126,6 @@ for (Foam::label j = 0; j < Ny; ++j) {
     tt::tt_metal::Finish(device->command_queue(0));
 
     auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), tile_size);
-
-    // tt::daisy::foam::copy_ldu_from_dense(device, tt_meta_a, &lduRes.diag(), &lduRes.lower(), &lduRes.upper(), lduRes.lduAddr());
-
-    // bool fail = false;
-    // if (!Foam::daisy::matches(lduA.diag(), lduRes.diag())) {
-    //     Foam::SeriousError << "TT diag do not match!" << Foam::endl;
-    //     Foam::Info << "org  Result: " << lduA.diag() << Foam::endl;
-    //     Foam::Info << "new Result: " << lduRes.diag() << Foam::endl;
-    //     fail = true;
-    // }
-
-    // if (!Foam::daisy::matches(lduA.lower(), lduRes.lower())) {
-    //     Foam::SeriousError << "TT lower do not match!" << Foam::endl;
-    //     Foam::Info << "org  Result: " << lduA.lower() << Foam::endl;
-    //     Foam::Info << "new Result: " << lduRes.lower() << Foam::endl;
-    //     fail = true;
-    // }
-
-    // if (!Foam::daisy::matches(lduA.upper(), lduRes.upper())) {
-    //     Foam::SeriousError << "TT upper do not match!" << Foam::endl;
-    //     Foam::Info << "org  Result: " << lduA.upper() << Foam::endl;
-    //     Foam::Info << "new Result: " << lduRes.upper() << Foam::endl;
-    //     fail = true;
-    // }
-
-    // if (fail) {
-    //     throw new std::runtime_error("TT copy_ldu_to_dense / copy_ldu_from_dense results do not match!");
-    // }
-
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata = {
