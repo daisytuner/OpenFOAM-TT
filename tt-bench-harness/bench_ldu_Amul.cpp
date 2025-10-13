@@ -1,4 +1,6 @@
-
+#ifdef ENABLE_DAISY_RTL
+#include <daisy_rtl/daisy_rtl.h>
+#endif
 #include <cstdlib>
 #include <iostream>
 #include <string>
