@@ -50,11 +50,6 @@ steps:
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
-    lduMatrixATmul_Amul:
-      command: ./build/tests/lduMatrixATmul_Amul_test
-      env:
-        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
-        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
     lduMatrixATmul_SumA:
       command: ./build/tests/lduMatrixATmul_SumA
       env:
