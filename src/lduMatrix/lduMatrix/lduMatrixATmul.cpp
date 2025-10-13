@@ -112,7 +112,7 @@ void Foam::lduMatrix::Amul
                 __daisy_instrumentation_exit(region_id);
                 __daisy_instrumentation_increment(region_id, "flop", 4 * tt_meta.sparse_count);
                 uint32_t page_size = 1024;
-                uint32_t page_count_faces = (tt_meta.iface_map_start + page_size/4 + page_size/4) / (page_size / 4);
+                uint32_t page_count_faces = (tt_meta.iface_map_start_ + page_size/4 + page_size/4) / (page_size / 4);
                 uint32_t page_count_offdiagonal = (tt_meta.upper_contents_start_+ tt_meta.sparse_count + page_size/4 -1) / (page_size / 4);
                 uint32_t page_count_diagonal = (tt_meta.cell_count + page_size/4 -1)/ (page_size / 4);
 

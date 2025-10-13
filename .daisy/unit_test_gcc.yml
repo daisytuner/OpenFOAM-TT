@@ -80,4 +80,3 @@ steps:
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
-        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels

@@ -166,14 +166,14 @@ for (Foam::label j = 0; j < Ny; ++j) {
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata = {
-        .file_name = "bench_ldu_Amul.cpp",
+        .file_name = "bench_ldu_Amul_real.cpp",
         .function_name = "main",
         .line_begin = 25,
-        .line_end = 182,
+        .line_end = 230,
         .column_begin = 0,
         .column_end = 0,
         .target_type = "TENSTORRENT",
-        .region_uuid = "foam_lduMatrix_Amul"
+        .region_uuid = "foam_lduMatrix_Amul_real"
     };
     #endif
 
