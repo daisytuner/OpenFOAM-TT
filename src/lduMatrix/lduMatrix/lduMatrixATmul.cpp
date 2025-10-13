@@ -170,9 +170,6 @@ void Foam::lduMatrix::Amul
         #ifndef ENABLE_TT
             #ifdef ENABLE_DAISY_RTL
                     __daisy_instrumentation_exit(region_id);
-                    __daisy_instrumentation_increment(region_id, "flop", diag().size() + 2 * upper().size());
-                    __daisy_instrumentation_increment(region_id, "bytes", (3 * diag().size() + 6 * upper().size()) * sizeof(float) + 2 * sizeof(int) * upper().size());
-
                     __daisy_instrumentation_finalize(region_id);
             #endif
         #endif
@@ -373,9 +370,6 @@ void Foam::lduMatrix::sumA
     #ifndef ENABLE_TT
         #ifdef ENABLE_DAISY_RTL
                 __daisy_instrumentation_exit(region_id);
-                __daisy_instrumentation_increment(region_id, "flop", diag().size() + 2 * upper().size());
-                __daisy_instrumentation_increment(region_id, "bytes", (2 * diag().size() + 4 * upper().size()) * sizeof(float) + 2 * sizeof(int) * upper().size());
-
                 __daisy_instrumentation_finalize(region_id);
         #endif
     #endif
@@ -566,8 +560,6 @@ void Foam::lduMatrix::residual
     #ifndef ENABLE_TT
         #ifdef ENABLE_DAISY_RTL
             __daisy_instrumentation_exit(region_id);
-            __daisy_instrumentation_increment(region_id, "flop", diag().size() * 2 + 4 * upper().size());
-            __daisy_instrumentation_increment(region_id, "bytes", (4 * diag().size() + 6 * upper().size()) * sizeof(float) + 2 * sizeof(int) * upper().size());
             __daisy_instrumentation_finalize(region_id);
         #endif
     #endif
