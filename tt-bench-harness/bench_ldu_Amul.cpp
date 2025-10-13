@@ -121,6 +121,8 @@ int main() {
         .target_type = "TENSTORRENT",
         .region_uuid = "foam_lduMatrix_Amul"
     };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
+    __daisy_instrumentation_enter(region_id);
     #endif
 
     tt_launch_dense_matMul(
