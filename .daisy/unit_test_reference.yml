@@ -41,7 +41,7 @@ steps:
     mv libOpenFOAM.so libOpenFOAM.instrumented.so
 
     # Step 2: Compiler non-instrumented binaries
-    cmake -G Ninja -DENABLE_TT=ON -DENABLE_DAISY_RTL=OFF ..
+    cmake -G Ninja -DENABLE_TT=ON -DENABLE_DAISY_RTL=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     ninja
 
     # CLI runners will automatically measure application performance with non-instrumented binaries
