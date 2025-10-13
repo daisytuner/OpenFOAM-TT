@@ -24,6 +24,10 @@ using namespace tt::daisy::foam;
 
 int main() {
 
+    tt::tt_metal::IDevice* device = tt::tt_metal::CreateDevice(0);
+
+    BufferPool buffer_pool(device);
+
     auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
 
     Foam::label cells = 4096;
@@ -64,9 +68,6 @@ int main() {
     auto tile_size = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
     auto cells_aligned = tt::round_up(cells, tt::constants::TILE_WIDTH);
 
-    tt::tt_metal::IDevice* device = tt::tt_metal::CreateDevice(0);
-
-    BufferPool buffer_pool(device);
 
     // copying starts
 
@@ -109,6 +110,19 @@ int main() {
     // }
 
 
+    #ifdef ENABLE_DAISY_RTL
+    __daisy_metadata_t metadata = {
+        .file_name = "bench_ldu_Amul.cpp",
+        .function_name = "main",
+        .line_begin = 25,
+        .line_end = 182,
+        .column_begin = 0,
+        .column_end = 0,
+        .target_type = "TENSTORRENT",
+        .region_uuid = "foam_lduMatrix_Amul"
+    };
+    #endif
+
     tt_launch_dense_matMul(
         device,
         *tt_meta_a.d_dense_,
@@ -123,6 +137,26 @@ int main() {
     );
 
     tt::tt_metal::Finish(device->command_queue(0));
+
+
+    #ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id);
+        __daisy_instrumentation_increment(region_id, "flop", 4 * tt_meta.sparse_count);
+        uint32_t page_size = tile_size
+        uint32_t M = aligned_cells
+        uint32_t N = 32
+        uint32_t K = aligned_cells
+        uint32_t Kt = K / TILE_WIDTH
+        uint32_t num_output_tiles = (M * N) / TILE_HW
+        uint32_t num_tiles = num_output_tiles;
+
+        uint32_t reads = num_output_tiles * Kt  * (2 * page_size) * sizeof(float)
+        uint32_t writes = num_tiles * page_size * sizeof(float)
+
+        uint32_t flops = num_output_tiles * 2 * page_size * page_size
+        __daisy_instrumentation_increment(region_id, "dram_bytes", reads + writes);
+        __daisy_instrumentation_finalize(region_id);
+    #endif
 
     tt::daisy::foam::copy_scalarField_from_device_dense_mat(buffer_pool, d_resVec, &result);
 

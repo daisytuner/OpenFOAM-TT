@@ -80,3 +80,8 @@ steps:
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
+    denseMatrix_Amul:
+      command: ./build/tt_bench_harness/tt_bench_dense_Amul
+      env:
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
