@@ -1,65 +1,65 @@
 
 
-add_executable(tt_bench_harness_mat_add
+add_executable(tt_bench_harness_mat_add.out
     bench_mat_add.cpp
 )
 target_link_libraries(tt_bench_harness_mat_add PUBLIC OpenFOAM::OpenFOAM OpenFOAM::daisy_tt_rt)
-target_include_directories(tt_bench_harness_mat_add PRIVATE
+target_include_directories(tt_bench_harness_mat_add.out PRIVATE
     ./include
 )
 if (ENABLE_DAISY_RTL)
-  target_compile_definitions(tt_bench_harness_mat_add PRIVATE
+  target_compile_definitions(tt_bench_harness_mat_add.out PRIVATE
     ENABLE_DAISY_RTL
   )
-  target_link_libraries(tt_bench_harness_mat_add PRIVATE
+  target_link_libraries(tt_bench_harness_mat_add.out PRIVATE
     daisy_rtl arg_capture_io
   )
 endif()
 
-add_executable(tt_bench_harness_mat_neg
+add_executable(tt_bench_harness_mat_neg.out
     bench_mat_neg.cpp
 )
-target_link_libraries(tt_bench_harness_mat_neg PUBLIC OpenFOAM::OpenFOAM OpenFOAM::daisy_tt_rt)
-target_include_directories(tt_bench_harness_mat_neg PRIVATE
+target_link_libraries(tt_bench_harness_mat_neg.out PUBLIC OpenFOAM::OpenFOAM OpenFOAM::daisy_tt_rt)
+target_include_directories(tt_bench_harness_mat_neg.out PRIVATE
     ./include
 )
 if (ENABLE_DAISY_RTL)
-  target_compile_definitions(tt_bench_harness_mat_neg PRIVATE
+  target_compile_definitions(tt_bench_harness_mat_neg.out PRIVATE
     ENABLE_DAISY_RTL
   )
-  target_link_libraries(tt_bench_harness_mat_neg PRIVATE
+  target_link_libraries(tt_bench_harness_mat_neg.out PRIVATE
     daisy_rtl arg_capture_io
   )
 endif()
 
-add_executable(tt_bench_dense_Amul
+add_executable(tt_bench_dense_Amul.out
     bench_ldu_Amul_real.cpp
 )
-target_link_libraries(tt_bench_dense_Amul PUBLIC OpenFOAM::OpenFOAM OpenFOAM::daisy_tt_rt)
-target_include_directories(tt_bench_dense_Amul PRIVATE
+target_link_libraries(tt_bench_dense_Amul.out PUBLIC OpenFOAM::OpenFOAM OpenFOAM::daisy_tt_rt)
+target_include_directories(tt_bench_dense_Amul.out PRIVATE
     ./include
 )
 if (ENABLE_DAISY_RTL)
-  target_compile_definitions(tt_bench_dense_Amul PRIVATE
+  target_compile_definitions(tt_bench_dense_Amul.out PRIVATE
     ENABLE_DAISY_RTL
   )
-  target_link_libraries(tt_bench_dense_Amul PRIVATE
+  target_link_libraries(tt_bench_dense_Amul.out PRIVATE
     daisy_rtl arg_capture_io
   )
 endif()
 
-add_executable(tt_bench_dense_Amul_test
+add_executable(tt_bench_dense_Amul_test.out
     bench_ldu_Amul.cpp
 )
-target_link_libraries(tt_bench_dense_Amul_test PUBLIC OpenFOAM::OpenFOAM OpenFOAM::daisy_tt_rt)
-target_include_directories(tt_bench_dense_Amul_test PRIVATE
+target_link_libraries(tt_bench_dense_Amul_test.out PUBLIC OpenFOAM::OpenFOAM OpenFOAM::daisy_tt_rt)
+target_include_directories(tt_bench_dense_Amul_test.out PRIVATE
     ./include
 )
 if (ENABLE_DAISY_RTL)
-  target_compile_definitions(tt_bench_dense_Amul_test PRIVATE
+  target_compile_definitions(tt_bench_dense_Amul_test.out PRIVATE
     ENABLE_DAISY_RTL
   )
-  target_link_libraries(tt_bench_dense_Amul_test PRIVATE
+  target_link_libraries(tt_bench_dense_Amul_test.out PRIVATE
     daisy_rtl arg_capture_io
   )
 endif()
