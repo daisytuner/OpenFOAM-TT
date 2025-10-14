@@ -3,7 +3,7 @@
 add_executable(tt_bench_harness_mat_add.out
     bench_mat_add.cpp
 )
-target_link_libraries(tt_bench_harness_mat_add PUBLIC OpenFOAM::OpenFOAM OpenFOAM::daisy_tt_rt)
+target_link_libraries(tt_bench_harness_mat_add.out PUBLIC OpenFOAM::OpenFOAM OpenFOAM::daisy_tt_rt)
 target_include_directories(tt_bench_harness_mat_add.out PRIVATE
     ./include
 )
