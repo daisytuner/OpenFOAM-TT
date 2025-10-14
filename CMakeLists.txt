@@ -6,6 +6,7 @@ set(OPENFOAM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/OpenFOAM-dev/src)
 set(OPENFOAM_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/OpenFOAM-dev/platforms/linux64GccSPInt32Opt/lib)
 
 option(ENABLE_DAISY_RTL "Enable Daisy instrumentation" OFF)
+option(ENABLE_DOCC_PLUGIN "Enables plugin with OpenFOAM kernels for docc" OFF)
 
 option(ENABLE_TT "Enable Manual Tenstorrent offloading" OFF)
 option(VERIFY_TT "Enable verification of Tenstorrent offloading results" ON)
@@ -68,6 +69,11 @@ if (ENABLE_DAISY_RTL)
   list(APPEND OPENFOAM_COMPILE_OPTIONS
     -ldaisy_rtl
     -larg_capture_io 
+  )
+endif()
+if (ENABLE_DOCC_PLUGIN)
+  list(APPEND OPENFOAM_COMPILE_OPTIONS
+    -mllvm -docc-plugins=libOpenFOAM_DOCCPlugin.so
   )
 endif()
 
@@ -1229,3 +1235,5 @@ add_subdirectory(tests)
 if(ENABLE_TT)
   add_subdirectory(tt-bench-harness)
 endif()
+
+add_subdirectory(plugin)

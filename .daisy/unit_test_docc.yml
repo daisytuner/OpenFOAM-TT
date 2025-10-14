@@ -27,9 +27,9 @@ steps:
     # Build tests with CMake and Ninja
     cd ../../
     mkdir build && cd build
-    # cmake -G Ninja -DENABLE_TT=OFF -DENABLE_DAISY_RTL=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_COMPILER=docc -DCMAKE_CXX_COMPILER=docc-cpp ..
-    cmake -G Ninja -DENABLE_TT=OFF -DENABLE_DAISY_RTL=OFF -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=docc -DCMAKE_CXX_COMPILER=docc-cpp ..
-    ninja
+    # cmake -G Ninja -DENABLE_TT=OFF -DENABLE_DAISY_RTL=OFF -DENABLE_DOCC_PLUGIN=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_COMPILER=docc -DCMAKE_CXX_COMPILER=docc-cpp ..
+    cmake -G Ninja -DENABLE_TT=OFF -DENABLE_DAISY_RTL=OFF -DENABLE_DOCC_PLUGIN=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=docc -DCMAKE_CXX_COMPILER=docc-cpp ..
+    LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./build/plugin ninja
 
   run:
     lduMatrixATmul_Amul:
