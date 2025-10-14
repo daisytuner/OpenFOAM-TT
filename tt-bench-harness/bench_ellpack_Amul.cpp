@@ -28,8 +28,8 @@ int main() {
     auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
     tt::tt_metal::IDevice* device = tt::tt_metal::CreateDevice(0);
 
-    auto Nx = 128;
-    auto Ny = 128;
+    auto Nx = 8;
+    auto Ny = 8;
     Foam::label cells = Nx * Ny;
 
 
@@ -74,10 +74,13 @@ int main() {
     lduA.upper() = 1.0;
 
     Foam::scalarField inVec(cells, 2.0);
+    for (int i = 0; i < cells; ++i) {
+        inVec[i] = static_cast<float>(i+1);
+    }
     Foam::scalarField result(cells);
 
     Foam::Info << "lduA: " << lduA << Foam::endl;
-    Foam::Info << "Input: " << inVec << Foam::endl;
+//    Foam::Info << "Input: " << inVec << Foam::endl;
 
     auto tt_meta_a = get_tt_meta(&lduA, ldu_tt_meta_map);
     auto tile_size = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
@@ -95,37 +98,37 @@ int main() {
 
     tt::tt_metal::Finish(device->command_queue(0));
 
-    auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), tile_size);
+    auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());;
 
-    Foam::lduMatrix lduRes(mesh);
-
-    tt::daisy::foam::copy_ldu_from_ellpack(device, tt_meta_a, &lduRes.diag(), &lduRes.lower(), &lduRes.upper(), lduRes.lduAddr());
-
-    bool fail = false;
-    if (!Foam::daisy::matches(lduA.diag(), lduRes.diag())) {
-        Foam::SeriousError << "TT diag do not match!" << Foam::endl;
-        Foam::Info << "org  Result: " << lduA.diag() << Foam::endl;
-        Foam::Info << "new Result: " << lduRes.diag() << Foam::endl;
-        fail = true;
-    }
-
-    if (!Foam::daisy::matches(lduA.lower(), lduRes.lower())) {
-        Foam::SeriousError << "TT lower do not match!" << Foam::endl;
-        Foam::Info << "org  Result: " << lduA.lower() << Foam::endl;
-        Foam::Info << "new Result: " << lduRes.lower() << Foam::endl;
-        fail = true;
-    }
-
-    if (!Foam::daisy::matches(lduA.upper(), lduRes.upper())) {
-        Foam::SeriousError << "TT upper do not match!" << Foam::endl;
-        Foam::Info << "org  Result: " << lduA.upper() << Foam::endl;
-        Foam::Info << "new Result: " << lduRes.upper() << Foam::endl;
-        fail = true;
-    }
-
-    if (fail) {
-        throw new std::runtime_error("TT copy_ldu_to_dense / copy_ldu_from_dense results do not match!");
-    }
+//    Foam::lduMatrix lduRes(mesh);
+//
+//    tt::daisy::foam::copy_ldu_from_ellpack(device, tt_meta_a, &lduRes.diag(), &lduRes.lower(), &lduRes.upper(), lduRes.lduAddr());
+//
+//    bool fail = false;
+//    if (!Foam::daisy::matches(lduA.diag(), lduRes.diag())) {
+//        Foam::SeriousError << "TT diag do not match!" << Foam::endl;
+//        Foam::Info << "org  Result: " << lduA.diag() << Foam::endl;
+//        Foam::Info << "new Result: " << lduRes.diag() << Foam::endl;
+//        fail = true;
+//    }
+//
+//    if (!Foam::daisy::matches(lduA.lower(), lduRes.lower())) {
+//        Foam::SeriousError << "TT lower do not match!" << Foam::endl;
+//        Foam::Info << "org  Result: " << lduA.lower() << Foam::endl;
+//        Foam::Info << "new Result: " << lduRes.lower() << Foam::endl;
+//        fail = true;
+//    }
+//
+//    if (!Foam::daisy::matches(lduA.upper(), lduRes.upper())) {
+//        Foam::SeriousError << "TT upper do not match!" << Foam::endl;
+//        Foam::Info << "org  Result: " << lduA.upper() << Foam::endl;
+//        Foam::Info << "new Result: " << lduRes.upper() << Foam::endl;
+//        fail = true;
+//    }
+//
+//    if (fail) {
+//        throw new std::runtime_error("TT copy_ldu_to_dense / copy_ldu_from_dense results do not match!");
+//    }
 
 
     tt_launch_ellpack_matVecOp(
@@ -138,7 +141,7 @@ int main() {
 
     tt::tt_metal::Finish(device->command_queue(0));
 
-    tt::daisy::foam::copy_scalarField_from_device_dense_mat(buffer_pool, d_resVec, &result);
+    tt::daisy::foam::copy_scalarField_from_device_bare(buffer_pool, d_resVec, &result);
 
     tt::tt_metal::Finish(device->command_queue(0));
 

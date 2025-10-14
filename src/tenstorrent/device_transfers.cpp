@@ -24,7 +24,7 @@
 
 namespace tt::daisy::foam {
 
-#define TT_DEBUG 1
+#define TT_DEBUG 2
 
 uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght) {
     auto tile_row = row / tt::constants::TILE_HEIGHT;
@@ -337,49 +337,51 @@ void copy_ldu_to_dense(tt::tt_metal::IDevice* device, tt_ldu_meta& tt_meta, cons
         dense[offset_into_tiled_mat(lowAddr, upAddr, aligned_cells)] = u_val;
     }
 
-    #ifdef TT_DEBUG
+    #if TT_DEBUG > 0
     printf("mat %ux%u:\n", aligned_cells, aligned_cells);
-    for (int i = 0; i < 32; ++i) {
-        for (int j = 0; j < 32; ++j) {
-            if (j == 16) {
-                printf("| ");
+//    for (int i = 0; i < 32; ++i) {
+//        for (int j = 0; j < 32; ++j) {
+//            if (j == 16) {
+//                printf("| ");
+//            }
+//            int face_begin = (i >= 16 ? (16*16*2) : 0) + (j >= 16 ? (16*16) : 0);
+//            int in_face_x = j < 16 ? j : j-16;
+//            int in_face_y = i < 16 ? i : i-16;
+//            int idx = face_begin + in_face_y * 16 + in_face_x;
+//            printf("%6.3f ", dense[idx]);
+//        }
+//        printf("\n");
+//        if (i == 15) {
+//            for (int j = 0; j < 32; ++j) {
+//                printf("------ ");
+//            }
+//            printf("\n");
+//        }
+//    }
+
+    #if TT_DEBUG > 1
+    for (uint32_t i = 0; i < aligned_cells; ++i) {
+        for (uint32_t j = 0; j < aligned_cells; ++j) {
+            printf("%6.3f ", dense[i*aligned_cells + j]);
+            if (j > 0 && j % 16 == 0) {
+                if (j % 32 == 0) {
+                    printf("|| ");
+                } else {
+                    printf("| ");
+                }
             }
-            int face_begin = (i >= 16 ? (16*16*2) : 0) + (j >= 16 ? (16*16) : 0);
-            int in_face_x = j < 16 ? j : j-16;
-            int in_face_y = i < 16 ? i : i-16;
-            int idx = face_begin + in_face_y * 16 + in_face_x;
-            printf("%6.3f ", dense[idx]);
         }
         printf("\n");
-        if (i == 15) {
-            for (int j = 0; j < 32; ++j) {
-                printf("------ ");
+        if (i > 0 && i % 16 == 0) {
+            if (i % 32 == 0) {
+                printf("========================================\n");
+            } else {
+                printf("----------------------------------------\n");
             }
-            printf("\n");
         }
     }
     #endif
-    
-     for (uint32_t i = 0; i < aligned_cells; ++i) {
-         for (uint32_t j = 0; j < aligned_cells; ++j) {
-             printf("%6.3f ", dense[i*aligned_cells + j]);
-             if (j > 0 && j % 16 == 0) {
-                 if (j % 32 == 0) {
-                     printf("|| ");
-                 } else {
-                     printf("| ");
-                 }
-             }
-         }
-         printf("\n");
-         if (i > 0 && i % 16 == 0) {
-             if (i % 32 == 0) {
-                 printf("========================================\n");
-             } else {
-                 printf("----------------------------------------\n");
-             }
-         }
-     }
+    #endif
 
     tt::tt_metal::EnqueueWriteBuffer(
         device->command_queue(0),
@@ -884,6 +886,7 @@ void copy_ldu_to_ellpack(
         for (auto i = 0; i < cells; ++i) {
             for (auto j = col_counts[i]; j < aligned_cols; ++j) {
                 addr_buf[i*aligned_cols + j] = UINT32_MAX;
+                dat_buf[i*aligned_cols + j] = 0.0f; // so we can run it through tile-wide mat-mul
             }
         }
     }
@@ -891,7 +894,7 @@ void copy_ldu_to_ellpack(
     tt_meta.ellpack_cols_ = max_cols;
     tt_meta.ellpack_avg_cols_ = float(sum_cols) / float(cells);
 
-    #ifdef TT_DEBUG
+    #if TT_DEBUG > 0
     printf("ellpack mat %u x %u (max cols %u, avg cols %.2f):\n", cells, cells, max_cols, tt_meta.ellpack_avg_cols_);
     #if TT_DEBUG > 1
     auto print_addrs = addr_buf ? addr_buf : tt_meta.ellpack_addr_;

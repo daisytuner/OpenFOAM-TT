@@ -88,8 +88,6 @@ void tt_launch_dense_matBinOp(
     auto b_addr = d_b.address();
     auto dest_addr = d_dest.address();
 
-    uint32_t start_tile = 0;
-
     rd_common_args.insert(
         rd_common_args.begin(),
         {
@@ -116,6 +114,8 @@ void tt_launch_dense_matBinOp(
         kernel_wr_0,
         wr_common_args
     );
+
+    uint32_t start_tile = 0;
 
     for (auto& range : used_cores.ranges()) {
 

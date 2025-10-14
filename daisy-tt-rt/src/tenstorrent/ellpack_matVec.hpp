@@ -11,7 +11,7 @@ void tt_launch_ellpack_matVecOp(
     tt::daisy::tt_ldu_meta& tt_meta,
     tt::tt_metal::Buffer& d_inVec,
     tt::tt_metal::Buffer& d_resVec,
-    std::filesystem::path kernel_dir
+    const std::filesystem::path& kernel_dir
 );
 
 }   // namespace tt::daisy::foam
