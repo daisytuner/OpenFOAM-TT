@@ -1235,7 +1235,3 @@ add_subdirectory(tests)
 if(ENABLE_TT)
   add_subdirectory(tt-bench-harness)
 endif()
-
-if (ENABLE_DOCC_PLUGIN)
-  add_subdirectory(plugin)
-endif()
