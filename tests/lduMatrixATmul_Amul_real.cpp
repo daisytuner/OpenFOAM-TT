@@ -28,9 +28,6 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    std::cout << "Running with grid size: " << Nx << " x " << Ny << " = " << (Nx * Ny) << " cells" << std::endl;
-    
-    
     const Foam::label cells = Nx * Ny;
     
     // Maximum number of off-diagonal entries:
@@ -46,7 +43,7 @@ int main(int argc, char* argv[])
     for (Foam::label j = 0; j < Ny; ++j) {
         for (Foam::label i = 0; i < Nx; ++i) {
             Foam::label cell = i + j * Nx;
-    
+
             // East neighbor (i+1) - upper triangle (cell < neighbor)
             if (i < Nx - 1) {
                 Foam::label neighbor = (i + 1) + j * Nx;
@@ -64,11 +61,38 @@ int main(int argc, char* argv[])
             }
         }
     }
-    
+
     // Resize arrays to actual number of off-diagonal entries
     addr_lower.setSize(idx);
     addr_upper.setSize(idx);
-    
+
+
+    /*
+    bool is_nnz = false;
+    for (int i = 0; i < cells; ++i) {
+        for (int j = 0; j < cells; ++j) {
+            is_nnz = false;
+            if (i == j) { std::cout << i << "," << j << " "; continue; }
+            for (int k = 0; k < idx; ++k) {
+                if ((i == addr_lower[k] && j == addr_upper[k])) {
+                    std::cout << addr_lower[k] << "," << addr_upper[k] << " ";
+                    is_nnz = true;
+                    break;
+                }
+                else if ((j == addr_lower[k] && i == addr_upper[k])) {
+                    std::cout << addr_upper[k] << "," << addr_lower[k] << " ";
+                    is_nnz = true;
+                    break;
+                }
+            }
+            if (!is_nnz) {
+                std::cout << 0 << " ";
+            }
+        }
+        std::cout << std::endl;
+    }
+        */
+
     Foam::lduPrimitiveMesh mesh(
             cells,
             addr_lower,
@@ -76,27 +100,17 @@ int main(int argc, char* argv[])
             0, // comm
             true
     );
-    
+
+    std::cout << "Created lduPrimitiveMesh" << std::endl;
+
     Foam::lduMatrix lduA(mesh);
     
     // Fill values
     lduA.diag() = 4.0;  // interior cells have 4 neighbors
     lduA.lower() = -1.0;
     lduA.upper() = -1.0;
-    
-    for (int i = 0; i < cells; ++i) {
-        for (int j = 0; j < cells; ++j) {
-            for (int k = 0; k < idx; ++k) {
-                if ((i == addr_lower[k] && j == addr_upper[k]) || (j == addr_lower[k] && i == addr_upper[k])) {
-                    std::cout << addr_lower[k] << " , " << addr_upper[k] << " ";
-                    break;
-                }
-                else 
-                    { std::cout << 0;}
-            }
-        }
-        std::cout << std::endl;
-    }
+
+    std::cout << "Created lduMatrix" << std::endl;
 
     // Optionally, adjust diagonal for boundary cells
     for (Foam::label j = 0; j < Ny; ++j) {
@@ -110,7 +124,11 @@ int main(int argc, char* argv[])
             lduA.diag()[row] = diag;
         }
     }
-    
+
+    std::cout << "Filled lduMatrix values" << std::endl;
+
+        // Construct a vector to multiply"
+
         // Construct a vector to multiply
     Foam::scalarField vec(cells, 2.0);
 
