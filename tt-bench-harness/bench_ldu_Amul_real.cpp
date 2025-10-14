@@ -185,7 +185,7 @@ int main(int argc, char* argv[]) {
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id);
-        __daisy_instrumentation_increment(region_id, "flop", 4 * tt_meta.sparse_count);
+        __daisy_instrumentation_increment(region_id, "flop", 4 * tt_meta_a.sparse_count);
         uint32_t page_size = tile_size
         uint32_t M = aligned_cells
         uint32_t N = 32
