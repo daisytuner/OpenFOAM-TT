@@ -31,7 +31,7 @@ steps:
     # Step 1: Compiler instrumented binaries
     cd ../../
     mkdir build && cd build
-    cmake -G Ninja -DENABLE_TT=OFF -DENABLE_DAISY_RTL=ON ..
+    cmake -G Ninja -DENABLE_TT=OFF -DENABLE_DAISY_RTL=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     ninja
 
     # Rename libOpenFOAM.so to libOpenFOAM.instrumented.so to avoid conflicts
