@@ -224,7 +224,7 @@ addr_upper.setSize(idx);
         uint32_t num_tiles = num_output_tiles;
 
         uint32_t reads = num_output_tiles * Kt  * (2 * tt::constants::TILE_HW) * sizeof(float);
-        uint32_t writes = num_tiles * page_size;
+        uint32_t writes = num_tiles * tt::constants::TILE_HW;
 
         uint32_t flops = num_output_tiles * Kt * 2 * tt::constants::TILE_HW * tt::constants::TILE_WIDTH;
         __daisy_instrumentation_increment(region_id, "flop", flops); // ~ 2 * M * N * K
