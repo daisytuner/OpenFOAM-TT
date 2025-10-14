@@ -152,6 +152,21 @@ int main(int argc, char* argv[]) {
 
     auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), tile_size);
 
+    tt_launch_dense_matMul(
+        device,
+        *tt_meta_a.d_dense_,
+        *d_inVec.buffer,
+        *d_resVec.buffer,
+        cells_aligned,
+        32,
+        cells_aligned,
+        1,
+        false,
+        kernel_dir
+    );
+
+    tt::tt_metal::Finish(device->command_queue(0));
+
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata = {
         .file_name = "bench_ldu_Amul_real.cpp",
