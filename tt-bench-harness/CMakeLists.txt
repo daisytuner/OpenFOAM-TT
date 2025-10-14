@@ -9,10 +9,12 @@ target_link_libraries(tt_bench_harness_mat_add PUBLIC OpenFOAM::OpenFOAM OpenFOA
 target_include_directories(tt_bench_harness_mat_add PRIVATE
     ./include
 )
-if (ENABLE_DAISY_RTL)
+
   target_compile_definitions(tt_bench_harness_mat_add PRIVATE
     ENABLE_DAISY_RTL
   )
+
+if (ENABLE_DAISY_RTL)
   target_link_libraries(tt_bench_harness_mat_add PRIVATE
     daisy_rtl arg_capture_io
   )
@@ -28,10 +30,11 @@ target_include_directories(tt_bench_harness_mat_neg PRIVATE
     ./include
 )
 
-if (ENABLE_DAISY_RTL)
   target_compile_definitions(tt_bench_harness_mat_neg PRIVATE
     ENABLE_DAISY_RTL
   )
+
+if (ENABLE_DAISY_RTL)
   target_link_libraries(tt_bench_harness_mat_neg PRIVATE
     daisy_rtl arg_capture_io
   )
@@ -47,10 +50,11 @@ target_include_directories(tt_bench_dense_Amul PRIVATE
     ./include
 )
 
+target_compile_definitions(tt_bench_dense_Amul PRIVATE
+  ENABLE_DAISY_RTL
+)
+
 if (ENABLE_DAISY_RTL)
-  target_compile_definitions(tt_bench_dense_Amul PRIVATE
-    ENABLE_DAISY_RTL
-  )
   target_link_libraries(tt_bench_dense_Amul PRIVATE
     daisy_rtl arg_capture_io
   )
@@ -66,10 +70,11 @@ target_include_directories(tt_bench_dense_Amul_test PRIVATE
     ./include
 )
 
+target_compile_definitions(tt_bench_dense_Amul_test PRIVATE
+  ENABLE_DAISY_RTL
+)
+
 if (ENABLE_DAISY_RTL)
-  target_compile_definitions(tt_bench_dense_Amul_test PRIVATE
-    ENABLE_DAISY_RTL
-  )
   target_link_libraries(tt_bench_dense_Amul_test PRIVATE
     daisy_rtl arg_capture_io
   )

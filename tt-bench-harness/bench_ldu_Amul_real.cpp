@@ -186,16 +186,16 @@ int main(int argc, char* argv[]) {
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id);
         __daisy_instrumentation_increment(region_id, "flop", 4 * tt_meta_a.sparse_count);
-        uint32_t page_size = tile_size
-        uint32_t M = aligned_cells
-        uint32_t N = 32
-        uint32_t K = aligned_cells
-        uint32_t Kt = K / TILE_WIDTH
-        uint32_t num_output_tiles = (M * N) / TILE_HW
+        uint32_t page_size = tile_size;
+        uint32_t M = cells_aligned;
+        uint32_t N = 32;
+        uint32_t K = cells_aligned;
+        uint32_t Kt = K / tt::constants::TILE_WIDTH;
+        uint32_t num_output_tiles = (M * N) / tt::constants::TILE_HW;
         uint32_t num_tiles = num_output_tiles;
 
-        uint32_t reads = num_output_tiles * Kt  * (2 * page_size) * sizeof(float)
-        uint32_t writes = num_tiles * page_size * sizeof(float)
+        uint32_t reads = num_output_tiles * Kt  * (2 * page_size) * sizeof(float);
+        uint32_t writes = num_tiles * page_size * sizeof(float);
 
         uint32_t flops = num_output_tiles * 2 * 32 * 32 * 32;
         __daisy_instrumentation_increment(region_id, "dram_bytes", reads + writes);
