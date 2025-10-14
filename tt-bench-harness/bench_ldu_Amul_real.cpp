@@ -91,6 +91,7 @@ for (Foam::label j = 0; j < Ny; ++j) {
     }
 }
 
+/*
 bool is_nnz = false;
     for (int i = 0; i < cells; ++i) {
         for (int j = 0; j < cells; ++j) {
@@ -114,6 +115,7 @@ bool is_nnz = false;
         }
         std::cout << std::endl;
     }
+        */
 
 // Resize arrays to actual number of off-diagonal entries
 addr_lower.setSize(idx);
