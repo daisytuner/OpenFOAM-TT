@@ -551,7 +551,7 @@ void tt_compute_amul(KernelLauncher& k, tt_ldu_meta& tt_meta, ReusableTtBuffer& 
             k.kernel_dir_
         );
     #elif TT_IMPL == TT_IMPL_ELLPACK
-        tt_launch_ellpack_matVecOp(k.device_, tt_meta, *tt_psi.buffer, *tt_Apsi.buffer, tt_meta.cell_count, tt_meta.ellpack_cols_, k.kernel_dir_);
+        tt_launch_ellpack_matVecOp(k.device_, tt_meta, *tt_psi.buffer, *tt_Apsi.buffer, k.kernel_dir_);
     #else
         #error unknown TT IMPL TT_IMPL
     #endif

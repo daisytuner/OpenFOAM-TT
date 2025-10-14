@@ -43,10 +43,10 @@ struct tt_ldu_meta {
 
     uint32_t ellpack_cols_ = 0;
 
+    uint32_t* ellpack_addr_ = nullptr;
     std::shared_ptr<tt::tt_metal::Buffer> d_ellpack_vals_ = nullptr;
     std::shared_ptr<tt::tt_metal::Buffer> d_ellpack_addrs_ = nullptr;
 
-    uint32_t ellpack_max_cols_ = 0;
     float ellpack_avg_cols_ = 0.0f;
     
 

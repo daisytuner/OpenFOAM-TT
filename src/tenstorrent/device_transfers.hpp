@@ -96,6 +96,12 @@ void copy_ldu_to_dense(
     const Foam::lduMatrix* lduMat
 );
 
+void copy_ldu_to_ellpack(
+    BufferPool& bufferPool,
+    tt_ldu_meta& tt_meta,
+    const Foam::lduMatrix* lduMat
+);
+
 tt_ldu_meta& ensure_lduMat_on_device(
     BufferPool& bufferPool,
     const class Foam::lduMatrix* lduMat,
@@ -103,6 +109,15 @@ tt_ldu_meta& ensure_lduMat_on_device(
 );
 
 std::tuple<bool, bool, bool> copy_ldu_from_dense(
+    tt::tt_metal::IDevice* device,
+    tt_ldu_meta& tt_meta,
+    Foam::scalarField* diagField,
+    Foam::scalarField* lowerField,
+    Foam::scalarField* upperField,
+    const Foam::lduAddressing& lduAddressing
+);
+
+std::tuple<bool, bool, bool> copy_ldu_from_ellpack(
     tt::tt_metal::IDevice* device,
     tt_ldu_meta& tt_meta,
     Foam::scalarField* diagField,

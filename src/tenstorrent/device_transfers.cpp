@@ -19,9 +19,12 @@
 #include "tt_impls.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <limits.h>
 #include <tuple>
 
 namespace tt::daisy::foam {
+
+#define TT_DEBUG 1
 
 uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght) {
     auto tile_row = row / tt::constants::TILE_HEIGHT;
@@ -334,47 +337,49 @@ void copy_ldu_to_dense(tt::tt_metal::IDevice* device, tt_ldu_meta& tt_meta, cons
         dense[offset_into_tiled_mat(lowAddr, upAddr, aligned_cells)] = u_val;
     }
 
-    // printf("mat %ux%u:\n", aligned_cells, aligned_cells);
-    // for (int i = 0; i < 32; ++i) {
-    //     for (int j = 0; j < 32; ++j) {
-    //         if (j == 16) {
-    //             printf("| ");
-    //         }
-    //         int face_begin = (i >= 16 ? (16*16*2) : 0) + (j >= 16 ? (16*16) : 0);
-    //         int in_face_x = j < 16 ? j : j-16;
-    //         int in_face_y = i < 16 ? i : i-16;
-    //         int idx = face_begin + in_face_y * 16 + in_face_x;
-    //         printf("%6.3f ", dense[idx]);
-    //     }
-    //     printf("\n");
-    //     if (i == 15) {
-    //         for (int j = 0; j < 32; ++j) {
-    //             printf("------ ");
-    //         }
-    //         printf("\n");
-    //     }
-    // }
+    #ifdef TT_DEBUG
+    printf("mat %ux%u:\n", aligned_cells, aligned_cells);
+    for (int i = 0; i < 32; ++i) {
+        for (int j = 0; j < 32; ++j) {
+            if (j == 16) {
+                printf("| ");
+            }
+            int face_begin = (i >= 16 ? (16*16*2) : 0) + (j >= 16 ? (16*16) : 0);
+            int in_face_x = j < 16 ? j : j-16;
+            int in_face_y = i < 16 ? i : i-16;
+            int idx = face_begin + in_face_y * 16 + in_face_x;
+            printf("%6.3f ", dense[idx]);
+        }
+        printf("\n");
+        if (i == 15) {
+            for (int j = 0; j < 32; ++j) {
+                printf("------ ");
+            }
+            printf("\n");
+        }
+    }
+    #endif
     
-    // for (uint32_t i = 0; i < aligned_cells; ++i) {
-    //     for (uint32_t j = 0; j < aligned_cells; ++j) {
-    //         printf("%6.3f ", dense[i*aligned_cells + j]);
-    //         if (j > 0 && j % 16 == 0) {
-    //             if (j % 32 == 0) {
-    //                 printf("|| ");
-    //             } else {
-    //                 printf("| ");
-    //             }
-    //         }
-    //     }
-    //     printf("\n");
-    //     if (i > 0 && i % 16 == 0) {
-    //         if (i % 32 == 0) {
-    //             printf("========================================\n");
-    //         } else {
-    //             printf("----------------------------------------\n");
-    //         }
-    //     }
-    // }
+     for (uint32_t i = 0; i < aligned_cells; ++i) {
+         for (uint32_t j = 0; j < aligned_cells; ++j) {
+             printf("%6.3f ", dense[i*aligned_cells + j]);
+             if (j > 0 && j % 16 == 0) {
+                 if (j % 32 == 0) {
+                     printf("|| ");
+                 } else {
+                     printf("| ");
+                 }
+             }
+         }
+         printf("\n");
+         if (i > 0 && i % 16 == 0) {
+             if (i % 32 == 0) {
+                 printf("========================================\n");
+             } else {
+                 printf("----------------------------------------\n");
+             }
+         }
+     }
 
     tt::tt_metal::EnqueueWriteBuffer(
         device->command_queue(0),
@@ -398,7 +403,7 @@ std::tuple<bool, bool, bool> copy_ldu_from_dense(
 ) {
 
     if (!tt_meta.d_dense_ || !tt_meta.dense_on_device_) {
-        throw new std::runtime_error("copy_ldu_from_dense: dense not on device");
+        throw std::runtime_error("copy_ldu_from_dense: dense not on device");
     }
 
     auto cells = tt_meta.cell_count;
@@ -457,6 +462,89 @@ std::tuple<bool, bool, bool> copy_ldu_from_dense(
     return {diagNonZero, lowerNonZero, upperNonZero};
 }
 
+std::tuple<bool, bool, bool> copy_ldu_from_ellpack(
+    tt::tt_metal::IDevice* device,
+    tt_ldu_meta& tt_meta,
+    Foam::scalarField* diagField,
+    Foam::scalarField* lowerField,
+    Foam::scalarField* upperField,
+    const Foam::lduAddressing& lduAddressing
+) {
+
+    if (!tt_meta.d_ellpack_vals_ || !tt_meta.d_ellpack_addrs_ || !tt_meta.ellpack_on_device_) {
+        throw std::runtime_error("copy_ldu_from_ellpack: ellpack not on device");
+    }
+
+    uint32_t aligned_cols = 32;
+    auto cells = tt_meta.cell_count;
+    auto allocEntries = tt::round_up(cells, 32) * aligned_cols;
+
+    auto ellpack_addr = tt_meta.ellpack_addr_;
+    auto dat_buf = new float[allocEntries];
+
+    tt::tt_metal::EnqueueReadBuffer(
+        device->command_queue(0),
+        tt_meta.d_ellpack_vals_,
+        dat_buf,
+        true
+    );
+
+    auto get_ellpack_val = [&](uint32_t row, uint32_t col) { // still in not-really-tiled format (32x32 yes, 16x16 faces no)
+        uint32_t* const ellpack_line_start = ellpack_addr + row*aligned_cols;
+        uint32_t* const ellpack_line_end = ellpack_line_start + aligned_cols;
+        for (uint32_t* cur_addr = ellpack_line_start; cur_addr != ellpack_line_end; cur_addr++) {
+            uint32_t col_addr = *cur_addr;
+            if (col_addr == UINT32_MAX) { // no more entries in line to search
+                break;
+            } else if (col_addr == col) { // found the entry
+                return dat_buf[row*aligned_cols + (cur_addr - ellpack_line_start)];
+            }
+        }
+        return 0.0f; // not in ellpack
+    };
+
+    bool diagNonZero = false;
+    if (diagField) {
+        float* diag = diagField->data();
+        for (uint32_t i = 0; i < cells; ++i) {
+            float val = get_ellpack_val(i, i);
+            diagNonZero |= val != 0.0f;
+            diag[i] = val;
+        }
+    }
+
+    auto lowerAddr = lduAddressing.lowerAddr();
+    auto upperAddr = lduAddressing.upperAddr();
+    auto sparse_vals = lowerAddr.size();
+    
+    auto lower = lowerField? lowerField->data() : nullptr;
+    auto upper = upperField? upperField->data() : nullptr;
+
+    bool lowerNonZero = false;
+    bool upperNonZero = false;
+
+    if (lowerField || upperField) {
+        for (int32_t i= 0; i < sparse_vals; ++i) {
+            auto lowAddr = lowerAddr[i];
+            auto upAddr = upperAddr[i];
+            if (lower) {
+                auto val = get_ellpack_val(upAddr, lowAddr);
+                lower[i] = val;
+                lowerNonZero |= (lower[i] != 0.0f);
+            }
+            if (upper) {
+                auto val = get_ellpack_val(lowAddr, upAddr);
+                upper[i] = val;
+                upperNonZero |= (upper[i] != 0.0f);
+            }
+        }
+    }
+
+    delete[] dat_buf;
+
+    return {diagNonZero, lowerNonZero, upperNonZero};
+}
+
 /**
  * iface addr:
  *  0: iface 0 offset (= 2)
@@ -505,7 +593,7 @@ void copy_ldu_addrs_to_device(BufferPool& k, tt_ldu_meta& tt_meta, const Foam::l
     } else {
         if (tt_meta.d_addrs_->size() != total_size) {
             Foam::Warning << "Reallocating address buffer from " << tt_meta.d_addrs_->size() << " to " << total_size << Foam::endl;
-            throw new std::runtime_error("Reallocating address buffer, not implemented");
+            throw std::runtime_error("Reallocating address buffer, not implemented");
         }
     }
 
@@ -673,9 +761,11 @@ tt_ldu_meta& ensure_lduMat_on_device_as_ldu(BufferPool& k, const Foam::lduMatrix
     return tt_meta;
 }
 
-#define TT_DEBUG 1
-
-void copy_ldu_to_ellpack(BufferPool& bufferPool, tt_ldu_meta& tt_meta, const Foam::lduMatrix* lduMat) {
+void copy_ldu_to_ellpack(
+    BufferPool& bufferPool,
+    tt_ldu_meta& tt_meta,
+    const Foam::lduMatrix* lduMat
+) {
 
     // Foam::Info << "Copying ellpack to device for " << reinterpret_cast<const void*>(lduMat) << Foam::endl;
 
@@ -688,8 +778,8 @@ void copy_ldu_to_ellpack(BufferPool& bufferPool, tt_ldu_meta& tt_meta, const Foa
 
     auto allocEntries = tt::round_up(cells, 32)*aligned_cols;
 
-    auto dat_buf = new float[allocEntries];
-    auto addr_buf = new uint32_t[allocEntries];
+    auto dat_buf = new float[allocEntries]; // currently in tiles, but without faces (32 elements per row then next row)
+    auto addr_buf = tt_meta.ellpack_addr_? nullptr : new uint32_t[allocEntries]; // should be cached per mesh, not matrix
     auto col_counts = new uint32_t[cells];
     for (auto i = 0; i < cells; ++i) {
         col_counts[i] = 0;
@@ -734,28 +824,38 @@ void copy_ldu_to_ellpack(BufferPool& bufferPool, tt_ldu_meta& tt_meta, const Foa
         return target;
     };
 
-    if (lduMat->hasLower()) { // need to do lower first, as any will be before diag in each row
+    if (lduMat->hasLower() || lduMat->hasUpper()) { // need to do lower first, as any will be before diag in each row
         auto lowerAddr = lduMat->lduAddr().lowerAddr();
         auto upperAddr = lduMat->lduAddr().upperAddr();
-        auto lower = lduMat->lower().cdata();
+        auto lower = lduMat->hasLower()? lduMat->lower().cdata() : lduMat->upper().cdata();
         auto sparse_vals = lowerAddr.size();
 
         for (int32_t i= 0; i < sparse_vals; ++i) {
-            auto col_addr = lowerAddr[i];
-            auto row_addr = upperAddr[i];
-            auto next_col = get_next_col(row_addr);
+            auto val = lower[i];
+            if (val != 0.0f) {
+                auto col_addr = lowerAddr[i];
+                auto row_addr = upperAddr[i];
+                auto next_col = get_next_col(row_addr);
 
-            addr_buf[row_addr*aligned_cols + next_col] = col_addr;
-            dat_buf[row_addr*aligned_cols + next_col] = lower[i];
+                dat_buf[row_addr * aligned_cols + next_col] = lower[i];
+                if (addr_buf) {
+                    addr_buf[row_addr * aligned_cols + next_col] = col_addr;
+                }
+            }
         }
     }
 
     if (lduMat->hasDiag()) {
         auto diag = lduMat->diag().cdata();
         for (auto i = 0; i < cells; ++i) {
-            auto next_col = col_counts[i]++;
-            addr_buf[i*aligned_cols + next_col] = i;
-            dat_buf[i*aligned_cols + next_col] = diag[i];
+            auto val = diag[i];
+            if (val != 0.0f) {
+                auto next_col = get_next_col(i);
+                dat_buf[i * aligned_cols + next_col] = val;
+                if (addr_buf) {
+                    addr_buf[i * aligned_cols + next_col] = i;
+                }
+            }
         }
     }
 
@@ -766,44 +866,62 @@ void copy_ldu_to_ellpack(BufferPool& bufferPool, tt_ldu_meta& tt_meta, const Foa
         auto sparse_vals = lowerAddr.size();
 
         for (int32_t i= 0; i < sparse_vals; ++i) {
-            auto row_addr = lowerAddr[i];
-            auto col_addr = upperAddr[i];
-            auto next_col = col_counts[row_addr]++;
+            auto val = upper[i];
+            if (val != 0.0f) {
+                auto row_addr = lowerAddr[i];
+                auto col_addr = upperAddr[i];
+                auto next_col = get_next_col(row_addr);;
 
-            addr_buf[row_addr*aligned_cols + next_col] = col_addr;
-            dat_buf[row_addr*aligned_cols + next_col] = upper[i];
+                dat_buf[row_addr * aligned_cols + next_col] = upper[i];
+                if (addr_buf) {
+                    addr_buf[row_addr * aligned_cols + next_col] = col_addr;
+                }
+            }
         }
     }
 
-    tt_meta.ellpack_max_cols_ = max_cols;
+    if (addr_buf) { // fill with DontCare entries to allow  terminating list of values per line
+        for (auto i = 0; i < cells; ++i) {
+            for (auto j = col_counts[i]; j < aligned_cols; ++j) {
+                addr_buf[i*aligned_cols + j] = UINT32_MAX;
+            }
+        }
+    }
+
+    tt_meta.ellpack_cols_ = max_cols;
     tt_meta.ellpack_avg_cols_ = float(sum_cols) / float(cells);
 
     #ifdef TT_DEBUG
-    printf("ellpack mat %u x %u (max cols %u, avg cols %.2f):\n", cells, aligned_cols, max_cols, tt_meta.ellpack_avg_cols_);
+    printf("ellpack mat %u x %u (max cols %u, avg cols %.2f):\n", cells, cells, max_cols, tt_meta.ellpack_avg_cols_);
+    #if TT_DEBUG > 1
+    auto print_addrs = addr_buf ? addr_buf : tt_meta.ellpack_addr_;
     for (uint32_t i = 0; i < static_cast<uint32_t>(cells); ++i) {
         printf("  %u: ", i);
         for (uint32_t j = 0; j < col_counts[i]; ++j) {
-            printf("%3u:%6.3f ", addr_buf[i*aligned_cols + j], dat_buf[i*aligned_cols + j]);
+            printf("%3u:%6.3f ", print_addrs[i*aligned_cols + j], dat_buf[i*aligned_cols + j]);
         }
         printf("\n");
     }
+    #endif
     #endif
 
     tt::tt_metal::EnqueueWriteBuffer(
         device->command_queue(0),
         tt_meta.d_ellpack_vals_,
         dat_buf,
-        false
+        true  // we want to free the buffers
     );
-    tt::tt_metal::EnqueueWriteBuffer(
-        device->command_queue(0),
-        tt_meta.d_ellpack_addrs_,
-        addr_buf,
-        true // we want to free the buffers
-    );
+    if (addr_buf) {
+        tt::tt_metal::EnqueueWriteBuffer(
+            device->command_queue(0),
+            tt_meta.d_ellpack_addrs_,
+            addr_buf,
+            false // source buffer lives on
+        );
+        tt_meta.ellpack_addr_ = addr_buf;
+    }
 
     delete[] dat_buf;
-    delete[] addr_buf;
     delete[] col_counts;
 
     tt_meta.ellpack_on_device_ = true;
@@ -859,13 +977,13 @@ void copy_ldu_from_device(
     #if TT_IMPL == TT_IMPL_LDU
 
         if (diagField) {
-            tt::daisy::foam::copy_scalarField_from_device(bufferPool, tt_meta.d_data_, diagField);
+            tt::daisy::foam::copy_scalarField_from_device_bare(bufferPool, tt_meta.d_data_, diagField);
         }
         if (lowerField) {
-            tt::daisy::foam::copy_scalarField_from_device(bufferPool, *tt_meta.d_data_, lowerField, tt_meta.lower_contents_start_*4);
+            tt::daisy::foam::copy_scalarField_from_device_bare(bufferPool, *tt_meta.d_data_, lowerField, tt_meta.lower_contents_start_*4);
         }
         if (upperField) {
-            tt::daisy::foam::copy_scalarField_from_device(bufferPool, *tt_meta.d_data_, upperField, tt_meta.upper_contents_start_*4);
+            tt::daisy::foam::copy_scalarField_from_device_bare(bufferPool, *tt_meta.d_data_, upperField, tt_meta.upper_contents_start_*4);
         }
 
     #elif TT_IMPL == TT_IMPL_DENSE
@@ -874,8 +992,7 @@ void copy_ldu_from_device(
 
     #elif TT_IMPL == TT_IMPL_ELLPACK
 
-        // copy_ldu_from_ellpack()
-        throw new std::runtime_error("copy_ldu_from_device not implemented for ELLPACK");
+        copy_ldu_from_ellpack(bufferPool.device_, tt_meta, diagField, lowerField, upperField, lduAddressing);
 
     #else
 
