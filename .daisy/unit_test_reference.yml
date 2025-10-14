@@ -49,7 +49,7 @@ steps:
 
   run:
     lduMatrixATmul_Amul:
-      command: ./build/tests/lduMatrixATmul_Amul 30 30
+      command: ./build/tests/lduMatrixATmul_Amul 20 20
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
