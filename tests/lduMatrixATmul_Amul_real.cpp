@@ -29,75 +29,89 @@ int main(int argc, char* argv[])
     }
 
     std::cout << "Running with grid size: " << Nx << " x " << Ny << " = " << (Nx * Ny) << " cells" << std::endl;
-
-
-const Foam::label cells = Nx * Ny;
-
-// Maximum number of off-diagonal entries:
-// interior cells have 4 neighbors, boundary cells have 2 or 3
-// allocate maximum possible: 4 * cells
-Foam::labelList addr_upper(4 * cells);
-Foam::labelList addr_lower(4 * cells);
-
-int idx = 0;
-
-// OpenFOAM cell numbering: i + j*Nx
-// For LDU format: lower has row > col, upper has row < col
-for (Foam::label j = 0; j < Ny; ++j) {
-    for (Foam::label i = 0; i < Nx; ++i) {
-        Foam::label cell = i + j * Nx;
-
-        // East neighbor (i+1) - upper triangle (cell < neighbor)
-        if (i < Nx - 1) {
-            Foam::label neighbor = (i + 1) + j * Nx;
-            addr_lower[idx] = neighbor;  // row (higher index)
-            addr_upper[idx] = cell;      // col (lower index)
-            ++idx;
-        }
-
-        // North neighbor (j+1) - upper triangle (cell < neighbor)
-        if (j < Ny - 1) {
-            Foam::label neighbor = i + (j + 1) * Nx;
-            addr_lower[idx] = neighbor;  // row (higher index)
-            addr_upper[idx] = cell;      // col (lower index)
-            ++idx;
+    
+    
+    const Foam::label cells = Nx * Ny;
+    
+    // Maximum number of off-diagonal entries:
+    // interior cells have 4 neighbors, boundary cells have 2 or 3
+    // allocate maximum possible: 4 * cells
+    Foam::labelList addr_upper(4 * cells);
+    Foam::labelList addr_lower(4 * cells);
+    
+    int idx = 0;
+    
+    // OpenFOAM cell numbering: i + j*Nx
+    // For LDU format: lower has row > col, upper has row < col
+    for (Foam::label j = 0; j < Ny; ++j) {
+        for (Foam::label i = 0; i < Nx; ++i) {
+            Foam::label cell = i + j * Nx;
+    
+            // East neighbor (i+1) - upper triangle (cell < neighbor)
+            if (i < Nx - 1) {
+                Foam::label neighbor = (i + 1) + j * Nx;
+                addr_upper[idx] = neighbor;  // row (higher index)
+                addr_lower[idx] = cell;      // col (lower index)
+                ++idx;
+            }
+    
+            // North neighbor (j+1) - upper triangle (cell < neighbor)
+            if (j < Ny - 1) {
+                Foam::label neighbor = i + (j + 1) * Nx;
+                addr_upper[idx] = neighbor;  // row (higher index)
+                addr_lower[idx] = cell;      // col (lower index)
+                ++idx;
+            }
         }
     }
-}
-
-// Resize arrays to actual number of off-diagonal entries
-addr_lower.setSize(idx);
-addr_upper.setSize(idx);
-
-Foam::lduPrimitiveMesh mesh(
-        cells,
-        addr_lower,
-        addr_upper,
-        0, // comm
-        true
-);
-
-Foam::lduMatrix lduA(mesh);
-
-// Fill values
-lduA.diag() = 4.0;  // interior cells have 4 neighbors
-lduA.lower() = -1.0;
-lduA.upper() = -1.0;
-
-// Optionally, adjust diagonal for boundary cells
-for (Foam::label j = 0; j < Ny; ++j) {
-    for (Foam::label i = 0; i < Nx; ++i) {
-        Foam::label row = i + j * Nx;
-        Foam::scalar diag = 0.0;
-        if (i > 0) diag += 1.0;
-        if (i < Nx - 1) diag += 1.0;
-        if (j > 0) diag += 1.0;
-        if (j < Ny - 1) diag += 1.0;
-        lduA.diag()[row] = diag;
+    
+    // Resize arrays to actual number of off-diagonal entries
+    addr_lower.setSize(idx);
+    addr_upper.setSize(idx);
+    
+    Foam::lduPrimitiveMesh mesh(
+            cells,
+            addr_lower,
+            addr_upper,
+            0, // comm
+            true
+    );
+    
+    Foam::lduMatrix lduA(mesh);
+    
+    // Fill values
+    lduA.diag() = 4.0;  // interior cells have 4 neighbors
+    lduA.lower() = -1.0;
+    lduA.upper() = -1.0;
+    
+    for (int i = 0; i < cells; ++i) {
+        for (int j = 0; j < cells; ++j) {
+            for (int k = 0; k < idx; ++k) {
+                if ((i == addr_lower[k] && j == addr_upper[k]) || (j == addr_lower[k] && i == addr_upper[k])) {
+                    std::cout << addr_lower[k] << " , " << addr_upper[k] << " ";
+                    break;
+                }
+                else 
+                    { std::cout << 0;}
+            }
+        }
+        std::cout << std::endl;
     }
-}
 
-    // Construct a vector to multiply
+    // Optionally, adjust diagonal for boundary cells
+    for (Foam::label j = 0; j < Ny; ++j) {
+        for (Foam::label i = 0; i < Nx; ++i) {
+            Foam::label row = i + j * Nx;
+            Foam::scalar diag = 0.0;
+            if (i > 0) diag += 1.0;
+            if (i < Nx - 1) diag += 1.0;
+            if (j > 0) diag += 1.0;
+            if (j < Ny - 1) diag += 1.0;
+            lduA.diag()[row] = diag;
+        }
+    }
+    
+        // Construct a vector to multiply
     Foam::scalarField vec(cells, 2.0);
 
     Foam::direction cmpt = Foam::direction(0);
