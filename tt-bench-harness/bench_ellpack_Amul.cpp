@@ -87,9 +87,12 @@ int main() {
                 ++idx;
             }
             // South neighbor (j+1)
-            addr_lower[idx] = addr;
-            addr_upper[idx] = addr + Nx;
-            ++idx;
+            
+            if (j < Ny - 1) {
+                addr_lower[idx] = addr;
+                addr_upper[idx] = addr + Nx;
+                ++idx;
+            }
         }
     }
 
