@@ -232,14 +232,17 @@ int main() {
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id);
         uint32_t num_tiles = (lduA.diag().size() + tt::constants::TILE_WIDTH - 1) / tt::constants::TILE_WIDTH;
-        uint32_t vec_tiles_total = (lduA.diag().size() + 31) / 32;
         uint32_t batch_tiles = 8;
         uint32_t ell_tile_page_size = 4096;
         uint32_t vec_page_size = 1024;
+        uint32_t vec_entries_per_chunk = vec_page_size / 4u;
+        uint32_t vec_tile_h_per_chunk = vec_entries_per_chunk / 32u;
+        uint32_t vec_chunks_total = (num_tiles + vec_tile_h_per_chunk -1) / vec_tile_h_per_chunk;
+        uint32_t batches = (num_tiles + batch_tiles - 1) / batch_tiles;
         uint32_t nnz = lduA.diag().size() + lduA.lower().size() + lduA.upper().size();
-        uint32_t reads =  num_tiles * 2 * ell_tile_page_size
-                         + vec_tiles_total * vec_page_size;
-        uint32_t writes = vec_tiles_total * vec_page_size;
+        uint32_t reads =  num_tiles * 2 * ell_tile_page_size;
+                         + batches * vec_chunks_total * vec_entries_per_chunk * sizeof(float);
+        uint32_t writes = vec_chunks_total * vec_entries_per_chunk * sizeof(float);
         uint32_t flops = 2 * nnz;
         __daisy_instrumentation_increment(region_id, "flop", flops);
         __daisy_instrumentation_increment(region_id, "dram_bytes", reads + writes);
