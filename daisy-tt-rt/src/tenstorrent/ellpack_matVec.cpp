@@ -56,10 +56,20 @@ void tt_launch_ellpack_matVecOp(
             ell_tile_page_size * input_tile_count,
             {
                 {CBIndex::c_1, data_format},
-                {CBIndex::c_4, data_format},
             }
         )
         .set_page_size(CBIndex::c_1, ell_tile_page_size)
+    );
+
+    tt_metal::CreateCircularBuffer(
+        program,
+        used_cores,  // create on all cores
+        tt_metal::CircularBufferConfig(
+            ell_tile_page_size * input_tile_count,
+            {
+                {CBIndex::c_4, data_format},
+            }
+        )
         .set_page_size(CBIndex::c_4, ell_tile_page_size)
     );
 
@@ -81,10 +91,20 @@ void tt_launch_ellpack_matVecOp(
             vector_page_size * vector_chunk_count,
             {
                 {CBIndex::c_0, data_format},
-                {CBIndex::c_3, data_format}
             }
         )
         .set_page_size(CBIndex::c_0, vector_page_size)
+    );
+
+    tt_metal::CreateCircularBuffer(
+        program,
+        used_cores,  // create on all cores
+        tt_metal::CircularBufferConfig(
+            vector_page_size * vector_chunk_count,
+            {
+                {CBIndex::c_3, data_format}
+            }
+        )
         .set_page_size(CBIndex::c_3, vector_page_size)
     );
 
@@ -133,8 +153,6 @@ void tt_launch_ellpack_matVecOp(
         }
     );
 
-    std::cout << "Addr inVec: " << std::hex << d_inVec.address() << std::dec << std::endl;
-
     tt_metal::SetCommonRuntimeArgs(
         program,
         kernel_rd_0,
@@ -163,7 +181,7 @@ void tt_launch_ellpack_matVecOp(
     );
 
 
-    uint32_t start_tile = 0;
+    uint32_t start_batch = 0;
     uint32_t end_tile = ell_tiles_total; // ex
 
     for (auto& range : used_cores.ranges()) {
@@ -179,6 +197,7 @@ void tt_launch_ellpack_matVecOp(
             }
 
             auto tiles = units * batch_size;
+            auto start_tile = start_batch * batch_size;
             if (start_tile + tiles > end_tile) {
                 tiles = end_tile - start_tile;
             }
@@ -211,12 +230,12 @@ void tt_launch_ellpack_matVecOp(
                 kernel_wr_0,
                 core,
                 {
-                    start_tile,
+                    start_batch,
                     units // units is in 1 vec-page so the minimum the WB can do
                 }
             );
 
-            start_tile += tiles;
+            start_batch += units;
         }
     }
 

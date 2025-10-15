@@ -13,6 +13,7 @@ namespace NAMESPACE {
 
 void collect_for_mul_tile(uint32_t* addr_ptr, float* collect_ptr, float* vec_ptr, uint32_t vec_chunk_offset, uint32_t vecs_per_chunk) {
     const uint32_t vec_chunk_end = vec_chunk_offset + vecs_per_chunk;
+
     for (int rowIdx = 0; rowIdx < 32; ++rowIdx) { // row and col of ellpack dat/addr. Transposed for collect
         uint32_t* addr_row = addr_ptr + rowIdx * 32;
         float* collect_col = collect_ptr + rowIdx;
@@ -26,12 +27,13 @@ void collect_for_mul_tile(uint32_t* addr_ptr, float* collect_ptr, float* vec_ptr
                 if (adr == UINT32_MAX) {
                     break;
                 }
+                DPRINT << " col [" << colIdx << ", " << rowIdx << "]: " << adr << " not in range" << ENDL();
             } else {
                 auto val = vec_ptr[adr - vec_chunk_offset];
                 *collect = val;
-                if (vec_chunk_offset == 0) {
-                    DPRINT << " col [" << colIdx << ", " << rowIdx << "] = " << val << " (0x" << HEX() << collect << DEC() << ")" << ENDL();
-                }
+                
+                DPRINT << " col [" << colIdx << ", " << rowIdx << "] = " << val << ENDL();
+                
             }
         }
     }
@@ -50,7 +52,7 @@ void compute_mat_mul(float* dat_ptr, uint32_t* addr_ptr, float* collect_ptr, flo
                 float mat_in = dat_row[k];
                 float vec_in = collect_col[k * 32];
                 float elem_res = sum + mat_in * vec_in;
-                
+
                 DPRINT << "  [" << idx << "," << k << "]: " << sum << " + "  << mat_in << " * " << vec_in << "  => " << elem_res << ENDL();
 
                 sum = elem_res;
@@ -64,6 +66,7 @@ void compute_mat_mul(float* dat_ptr, uint32_t* addr_ptr, float* collect_ptr, flo
 
 void MAIN {
     uint32_t vec_chunks = get_common_arg_val<uint32_t>(0);
+    // uint32_t cells = get_common_arg_val<uint32_t>(3);
 
     uint32_t batches = get_arg_val<uint32_t>(0);
     uint32_t tiles_per_batch = get_arg_val<uint32_t>(1);
@@ -92,20 +95,26 @@ void MAIN {
         cb_wait_front(cb_addr, tiles_per_batch);
         cb_wait_front(cb_collect, tiles_per_batch);
 
-        for (uint32_t v = 0; v < vec_chunks; ++v) {
-            cb_wait_front(cb_vec, 1);
-            UNPACK(float* vec_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_vec)));
-
+        {
             UNPACK(uint32_t* addr_ptr = reinterpret_cast<uint32_t*>(CB_RD_PTR(cb_addr)));
             UNPACK(float* collect_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_collect)));
-            for (uint32_t i = tile; i < end_tile_in_batch; ++i) {
-                UNPACK(collect_for_mul_tile(addr_ptr, collect_ptr, vec_ptr, v * vecs_per_chunk, vecs_per_chunk));
 
-                UNPACK(addr_ptr += 1024);
-                UNPACK(collect_ptr += 1024);
-                UNPACK(DPRINT << "Processed tile " << i << "/" << tiles_per_batch << ENDL());
+            for (uint32_t v = 0; v < vec_chunks; ++v) {
+                cb_wait_front(cb_vec, 1);
+                UNPACK(float* vec_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_vec)));
+
+                UNPACK(uint32_t* tile_addr_ptr = addr_ptr);
+                UNPACK(float* tile_collect_ptr = collect_ptr);
+                for (uint32_t i = tile; i < end_tile_in_batch; ++i) {
+                    float* dat_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_dat));
+                    UNPACK(DPRINT << "Collecting for tile " << i+1 << "/" << tiles_per_batch << ", v" << v << ENDL());
+                    UNPACK(collect_for_mul_tile(tile_addr_ptr, tile_collect_ptr, vec_ptr, v * vecs_per_chunk, vecs_per_chunk));
+
+                    UNPACK(tile_addr_ptr += 1024);
+                    UNPACK(tile_collect_ptr += 1024);
+                }
+                cb_pop_front(cb_vec, 1);
             }
-            cb_pop_front(cb_vec, 1);
         }
 
         UNPACK(DPRINT << "Unpack done" << ENDL());
@@ -131,7 +140,7 @@ void MAIN {
 
             PACK(compute_mat_mul(dat_ptr, addr_ptr, collect_ptr, wr_ptr));
 
-            PACK(dat_ptr += 1024);
+            PACK(dat_ptr += 1024); // in float, not bytes
             PACK(addr_ptr += 1024);
             PACK(collect_ptr += 1024);
             PACK(wr_ptr += 32);

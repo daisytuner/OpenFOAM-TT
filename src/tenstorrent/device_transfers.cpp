@@ -24,7 +24,7 @@
 
 namespace tt::daisy::foam {
 
-#define TT_DEBUG 2
+#define TT_DEBUG 1
 
 uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght) {
     auto tile_row = row / tt::constants::TILE_HEIGHT;
@@ -888,6 +888,9 @@ void copy_ldu_to_ellpack(
                 addr_buf[i*aligned_cols + j] = UINT32_MAX;
                 dat_buf[i*aligned_cols + j] = 0.0f; // so we can run it through tile-wide mat-mul
             }
+        }
+        for (auto i = cells; i < tt::round_up(cells, 32); ++i) { // clear the padding rows too
+            addr_buf[i*aligned_cols + 0] = UINT32_MAX;
         }
     }
 

@@ -26,13 +26,50 @@
 using namespace tt::daisy;
 using namespace tt::daisy::foam;
 
+void refAmul(
+    const Foam::lduMatrix& lduMat,
+    Foam::scalarField& Apsi,
+    const Foam::tmp<Foam::scalarField>& tpsi
+) {
+    Foam::scalar* __restrict__ ApsiPtr = Apsi.begin();
+
+    const Foam::scalarField& psi = tpsi();
+
+    const Foam::scalar* const __restrict__ psiPtr = psi.begin();
+
+    const Foam::scalar* const __restrict__ diagPtr = lduMat.diag().begin();
+
+    const Foam::label* const __restrict__ uPtr = lduMat.lduAddr().upperAddr().begin();
+    const Foam::label* const __restrict__ lPtr = lduMat.lduAddr().lowerAddr().begin();
+
+    const Foam::scalar* const __restrict__ upperPtr = lduMat.upper().begin();
+    const Foam::scalar* const __restrict__ lowerPtr = lduMat.lower().begin();
+
+    const Foam::label nCells = lduMat.diag().size();
+    for (Foam::label cell=0; cell<nCells; cell++)
+    {
+        ApsiPtr[cell] = diagPtr[cell]*psiPtr[cell];
+    }
+
+
+    const Foam::label nFaces = lduMat.upper().size();
+
+    for (Foam::label face=0; face<nFaces; face++)
+    {
+        ApsiPtr[uPtr[face]] += lowerPtr[face]*psiPtr[lPtr[face]];
+        ApsiPtr[lPtr[face]] += upperPtr[face]*psiPtr[uPtr[face]];
+    }
+
+    tpsi.clear();
+}
+
 int main() {
 
     auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
     tt::tt_metal::IDevice* device = tt::tt_metal::CreateDevice(0);
 
-    auto Nx = 8;
-    auto Ny = 8;
+    auto Nx = 32;
+    auto Ny = 32;
     Foam::label cells = Nx * Ny;
 
 
@@ -99,14 +136,15 @@ int main() {
 
     Foam::lduMatrix lduA(mesh);
     lduA.diag() = 3.0;
-//    lduA.lower() = 0.0; // no values at all means mirrored from upper, 1.0 as well
+    lduA.lower() = 0.0; // no values at all means mirrored from upper, 1.0 as well
     lduA.upper() = 1.0;
 
     Foam::scalarField inVec(cells, 2.0);
     for (int i = 0; i < cells; ++i) {
         inVec[i] = static_cast<float>(i+1);
     }
-    Foam::scalarField result(cells);
+    Foam::scalarField result(cells, 0.0);
+
 
     Foam::Info << "lduA: " << lduA << Foam::endl;
 //    Foam::Info << "Input: " << inVec << Foam::endl;
@@ -127,7 +165,7 @@ int main() {
 
     tt::tt_metal::Finish(device->command_queue(0));
 
-    auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());;
+    auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());
 
 //    Foam::lduMatrix lduRes(mesh);
 //
@@ -214,12 +252,13 @@ int main() {
 
     tt::tt_metal::Finish(device->command_queue(0));
 
-    Foam::Info << "Result: " << result << Foam::endl;
+    Foam::scalarField expected(cells);
 
-    Foam::scalarField expected(cells, 6.0);
+    refAmul(lduA, expected, inVec);
 
     if (!Foam::daisy::matches(result, expected)) {
         Foam::SeriousError << "FAIL Expected: " << expected << Foam::endl;
+        Foam::Info << "Result: " << result << Foam::endl;
     }
 
     tt::tt_metal::CloseDevice(device);
