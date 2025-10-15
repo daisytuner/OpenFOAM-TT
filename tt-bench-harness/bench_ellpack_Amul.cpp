@@ -1,3 +1,6 @@
+#ifdef ENABLE_DAISY_RTL
+#include <daisy_rtl/daisy_rtl.h>
+#endif
 
 #include <cstdlib>
 #include <iostream>
@@ -41,7 +44,7 @@ int main() {
     int idx = 0;
     // OpenFOAM cell numbering: i + j*Nx
     for (Foam::label j = 0; j < Ny; ++j) {
-        for (Foam::label i = j+1; i < Nx; ++i) {
+        for (Foam::label i = 0; i < Nx; ++i) {
             Foam::label addr = i + j * Nx;
 
             if (i < Nx - 1) {
@@ -156,6 +159,29 @@ int main() {
 //        throw new std::runtime_error("TT copy_ldu_to_dense / copy_ldu_from_dense results do not match!");
 //    }
 
+    tt_launch_ellpack_matVecOp(
+        device,
+        tt_meta_a,
+        *d_inVec.buffer,
+        *d_resVec.buffer,
+        kernel_dir
+    );
+
+    #ifdef ENABLE_DAISY_RTL
+    __daisy_metadata_t metadata = {
+        .file_name = "bench_ellpack_Amul.cpp",
+        .function_name = "main",
+        .line_begin = 29,
+        .line_end = 192,
+        .column_begin = 0,
+        .column_end = 0,
+        .target_type = "TENSTORRENT",
+        .region_uuid = "foam_ellpack_Amul"
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
+    __daisy_instrumentation_enter(region_id);
+    #endif
+
 
     tt_launch_ellpack_matVecOp(
         device,
@@ -164,6 +190,23 @@ int main() {
         *d_resVec.buffer,
         kernel_dir
     );
+
+    #ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id);
+        uint32_t num_tiles = (lduA.diag().size() + tt::constants::TILE_WIDTH - 1) / tt::constants::TILE_WIDTH;
+        uint32_t vec_tiles_total = (lduA.diag().size() + 31) / 32;
+        uint32_t batch_tiles = 8;
+        uint32_t ell_tile_page_size = 4096;
+        uint32_t vec_page_size = 1024;
+        uint32_t nnz = lduA.diag().size() + lduA.lower().size() + lduA.upper().size();
+        uint32_t reads =  num_tiles * 2 * ell_tile_page_size
+                         + vec_tiles_total * vec_page_size;
+        uint32_t writes = vec_tiles_total * vec_page_size;
+        uint32_t flops = 2 * nnz;
+        __daisy_instrumentation_increment(region_id, "flop", flops);
+        __daisy_instrumentation_increment(region_id, "dram_bytes", reads + writes);
+        __daisy_instrumentation_finalize(region_id);
+    #endif
 
     tt::tt_metal::Finish(device->command_queue(0));
 
