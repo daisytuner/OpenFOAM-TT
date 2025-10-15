@@ -50,10 +50,36 @@ int main() {
                 ++idx;
             }
             // South neighbor (j+1)
-            addr_lower[idx] = addr;
-            addr_upper[idx] = addr + Nx;
-            ++idx;
+            if (j < Ny - 1) {
+                addr_lower[idx] = addr;
+                addr_upper[idx] = addr + Nx;
+                ++idx;
+            }
         }
+    }
+
+    bool is_nnz = false;
+    for (int i = 0; i < cells; ++i) {
+        for (int j = 0; j < cells; ++j) {
+            is_nnz = false;
+            if (i == j) { std::cout << i << "," << j << " "; continue; }
+            for (int k = 0; k < idx; ++k) {
+                if ((i == addr_lower[k] && j == addr_upper[k])) {
+                    std::cout << addr_lower[k] << "," << addr_upper[k] << " ";
+                    is_nnz = true;
+                    break;
+                }
+                else if ((j == addr_lower[k] && i == addr_upper[k])) {
+                    std::cout << addr_upper[k] << "," << addr_lower[k] << " ";
+                    is_nnz = true;
+                    break;
+                }
+            }
+            if (!is_nnz) {
+                std::cout << 0 << " ";
+            }
+        }
+        std::cout << std::endl;
     }
 
     // Resize arrays to actual number of off-diagonal entries
