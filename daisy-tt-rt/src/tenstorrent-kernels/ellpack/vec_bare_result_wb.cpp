@@ -14,7 +14,7 @@ void kernel_main() {
 
     constexpr uint32_t cb_out = 0;
 
-    constexpr uint32_t page_size = get_tile_size(cb_out);
+    constexpr uint32_t page_size = 1024;
     constexpr uint32_t vecs_per_page = page_size / 4;
 
     constexpr auto dest_args = TensorAccessorArgs<0, 1>();
@@ -30,18 +30,18 @@ void kernel_main() {
 
         noc_async_write_page(tile, dest, get_read_ptr(cb_out));
 
-         float* ptr_a = reinterpret_cast<float*>(get_read_ptr(cb_out));
+        //  float* ptr_a = reinterpret_cast<float*>(get_read_ptr(cb_out));
 
-         for (uint32_t x = 0; x < 32; ++x) {
-             auto val_a = *(ptr_a+x);
-             DPRINT << "[" << x << "]=" << val_a << ENDL();
-         }
+        //  for (uint32_t x = 0; x < 32; ++x) {
+        //      auto val_a = *(ptr_a+x);
+        //      DPRINT << "[" << x << "]=" << val_a << ENDL();
+        //  }
 
         noc_async_writes_flushed(); // all reads from SRAM are done now
 
         cb_pop_front(cb_out, 1);
 
-        DPRINT << "Wb done chunk " << tile << ENDL();
+        // DPRINT << "Wb done chunk " << tile << ENDL();
     }
 
     noc_async_write_barrier();

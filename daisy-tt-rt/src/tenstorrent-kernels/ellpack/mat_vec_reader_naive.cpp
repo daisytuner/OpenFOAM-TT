@@ -24,7 +24,7 @@ void kernel_main() {
     constexpr uint8_t cb_collect = 4;
 
     constexpr uint32_t mat_page_size = get_tile_size(cb_dat);
-    constexpr uint32_t vec_page_size = get_tile_size(cb_inVec);
+    constexpr uint32_t vec_page_size = 1024;
 
     constexpr auto ell_val_args = TensorAccessorArgs<0, 4>();
     const auto ell_val_buf = TensorAccessor(ell_val_args, ell_val_base_addr, mat_page_size);
@@ -62,11 +62,11 @@ void kernel_main() {
             noc_async_read_page(vec_chunk, vec_buf, vec_ptr);
             noc_async_read_barrier();
             if (vec_chunk == 0) { // we let the batch reads run concurrent with the first vecChunk, so mark them as available now
-                float* vecf_ptr = reinterpret_cast<float*>(vec_ptr);
-                DPRINT << "vec" << vec_chunk << ENDL();
-                for (int i = 0; i < 32; ++i) {
-                    DPRINT << "  ["<<i<<"]= " << vecf_ptr[i] << ENDL();
-                }
+                // float* vecf_ptr = reinterpret_cast<float*>(vec_ptr);
+                // DPRINT << "vec" << vec_chunk << ENDL();
+                // for (int i = 0; i < 32; ++i) {
+                //     DPRINT << "  ["<<i<<"]= " << vecf_ptr[i] << ENDL();
+                // }
 //                DPRINT << "a t" << tile << ":\n" << TileSlice(cb_dat, 0, SliceRange::h0_w0_32(), TSLICE_OUTPUT_CB, TSLICE_WR_PTR, true, true) << ENDL();
 //                DPRINT << "b t" << tile << ":\n" << TileSlice(cb_addr, 0, SliceRange::h0_w0_32(), TSLICE_OUTPUT_CB, TSLICE_WR_PTR, true, true) << ENDL();
                 cb_push_back(cb_dat, tiles_per_batch);
@@ -84,8 +84,6 @@ void kernel_main() {
 
         tile += tiles_per_batch;
     }
-
-    DPRINT << "Ellpack Rd done" << ENDL();
 }
 
 
