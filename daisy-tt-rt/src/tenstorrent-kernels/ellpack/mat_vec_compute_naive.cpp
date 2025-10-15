@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <cstdint>
+#include <algorithm>
 #include <compute_kernel_api/common.h>
 #include <compute_kernel_api/eltwise_binary.h>
 
@@ -10,7 +11,8 @@ using std::uint32_t;
 
 namespace NAMESPACE {
 
-void collect_for_mul_tile(uint32_t* addr_ptr, float* collect_ptr, float* vec_ptr, uint32_t vec_chunk_offset) {
+void collect_for_mul_tile(uint32_t* addr_ptr, float* collect_ptr, float* vec_ptr, uint32_t vec_chunk_offset, uint32_t vecs_per_chunk) {
+    const uint32_t vec_chunk_end = vec_chunk_offset + vecs_per_chunk;
     for (int rowIdx = 0; rowIdx < 32; ++rowIdx) { // row and col of ellpack dat/addr. Transposed for collect
         uint32_t* addr_row = addr_ptr + rowIdx * 32;
         float* collect_col = collect_ptr + rowIdx;
@@ -20,13 +22,16 @@ void collect_for_mul_tile(uint32_t* addr_ptr, float* collect_ptr, float* vec_ptr
 
             uint32_t adr = addr_row[colIdx];
 
-            if (adr < vec_chunk_offset || adr >= vec_chunk_offset + 32) {
-                collect[0] = 0.0f;
+            if (adr < vec_chunk_offset || adr >= vec_chunk_end) {
                 if (adr == UINT32_MAX) {
                     break;
                 }
             } else {
-                collect[0] = vec_ptr[adr - vec_chunk_offset];
+                auto val = vec_ptr[adr - vec_chunk_offset];
+                *collect = val;
+                if (vec_chunk_offset == 0) {
+                    DPRINT << " col [" << colIdx << ", " << rowIdx << "] = " << val << " (0x" << HEX() << collect << DEC() << ")" << ENDL();
+                }
             }
         }
     }
@@ -42,7 +47,13 @@ void compute_mat_mul(float* dat_ptr, uint32_t* addr_ptr, float* collect_ptr, flo
         for (int k = 0; k < 32; ++k) {
             uint32_t adr = addr_row[k];
             if (adr != UINT32_MAX) {
-                sum += dat_row[k] * collect_col[k * 32];
+                float mat_in = dat_row[k];
+                float vec_in = collect_col[k * 32];
+                float elem_res = sum + mat_in * vec_in;
+                
+                DPRINT << "  [" << idx << "," << k << "]: " << sum << " + "  << mat_in << " * " << vec_in << "  => " << elem_res << ENDL();
+
+                sum = elem_res;
             } else {
                 break; // early abort, because right now it's left-aligned
             }
@@ -54,8 +65,9 @@ void compute_mat_mul(float* dat_ptr, uint32_t* addr_ptr, float* collect_ptr, flo
 void MAIN {
     uint32_t vec_chunks = get_common_arg_val<uint32_t>(0);
 
-    uint32_t num_tiles = get_arg_val<uint32_t>(0);
-    uint32_t batch_tiles = get_arg_val<uint32_t>(1);
+    uint32_t batches = get_arg_val<uint32_t>(0);
+    uint32_t tiles_per_batch = get_arg_val<uint32_t>(1);
+    uint32_t num_tiles = get_arg_val<uint32_t>(2);
 
 
     constexpr uint8_t cb_res = 0;
@@ -64,55 +76,60 @@ void MAIN {
     constexpr uint8_t cb_vec = 3;
     constexpr uint8_t cb_collect = 4;
 
-    for (uint32_t i = 0; i < num_tiles; i += batch_tiles) {
+    constexpr uint32_t vec_page_size = 1024;
+    constexpr uint32_t vecs_per_page = vec_page_size / 4;
+    constexpr uint32_t vecs_per_chunk = vecs_per_page;
+    constexpr uint32_t vecs_per_mat_tile = 32;
+    constexpr uint32_t tiles_per_result_page = vecs_per_chunk / 32;
 
-        cb_wait_front(cb_dat, batch_tiles);
-        cb_wait_front(cb_addr, batch_tiles);
-        cb_wait_front(cb_collect, batch_tiles);
+    UNPACK(DPRINT << "ellpack matVec up: " << batches << " batch (" << tiles_per_batch << " tiles/batch), " << num_tiles << " tiles total, " << vec_chunks << " vec chunks" << ENDL());
+
+    uint32_t tile = 0;
+    for (uint32_t b = 0; b < batches; ++b) {
+        uint32_t end_tile_in_batch = std::min(num_tiles, tile + tiles_per_batch);
+
+        cb_wait_front(cb_dat, tiles_per_batch);
+        cb_wait_front(cb_addr, tiles_per_batch);
+        cb_wait_front(cb_collect, tiles_per_batch);
 
         for (uint32_t v = 0; v < vec_chunks; ++v) {
             cb_wait_front(cb_vec, 1);
             UNPACK(float* vec_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_vec)));
-            UNPACK(DPRINT << "Fetching vec chunk " << v << ENDL());
 
             UNPACK(uint32_t* addr_ptr = reinterpret_cast<uint32_t*>(CB_RD_PTR(cb_addr)));
             UNPACK(float* collect_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_collect)));
-            for (uint32_t b = 0; b < batch_tiles; ++b) {
-                UNPACK(collect_for_mul_tile(addr_ptr, collect_ptr, vec_ptr, v * 32));
+            for (uint32_t i = tile; i < end_tile_in_batch; ++i) {
+                UNPACK(collect_for_mul_tile(addr_ptr, collect_ptr, vec_ptr, v * vecs_per_chunk, vecs_per_chunk));
 
                 UNPACK(addr_ptr += 1024);
                 UNPACK(collect_ptr += 1024);
-                UNPACK(DPRINT << "Processed batch " << b+1 << "/" << batch_tiles << ENDL());
-
-                for (int k = 0; k < 32; ++k) {
-                    UNPACK(DPRINT << "[" << k << "]=" << collect_ptr[k] << ENDL());
-                }
+                UNPACK(DPRINT << "Processed tile " << i << "/" << tiles_per_batch << ENDL());
             }
             cb_pop_front(cb_vec, 1);
         }
 
         UNPACK(DPRINT << "Unpack done" << ENDL());
 
-        float* collect_ptr;
-        cb_get_tile(cb_collect, 0, collect_ptr);
+        float* collect_ptr, *dat_ptr;
+        uint32_t* addr_ptr;
+        cb_get_tile(cb_collect, 0, &collect_ptr);
+        cb_get_tile(cb_dat, 0, &dat_ptr);
+        cb_get_tile(cb_addr, 0, &addr_ptr);
+
+        // Because for some magic and undocumented reason cb_get_tile does read_ptr-1, which is 1 L1 line before the actual data
+        collect_ptr += 4;
+        dat_ptr += 4;
+        addr_ptr += 4;
 
         PACK(DPRINT << "Starting Pack batch" << ENDL());
 
         // now we have assembled mat-tiles in cb_collect matching each tile in cb_dat for mat_mul, where the first line
 
-        PACK(float* dat_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_dat)));
-        PACK(uint32_t* addr_ptr = reinterpret_cast<uint32_t*>(CB_RD_PTR(cb_addr)));
+        cb_reserve_back(cb_res, 1);
         PACK(float* wr_ptr = reinterpret_cast<float*>(CB_WR_PTR(cb_res)));
-        for (uint32_t b = 0; b < batch_tiles; ++b) {
-            cb_reserve_back(cb_res, 1);
+        for (; tile < end_tile_in_batch; ++tile) {
 
             PACK(compute_mat_mul(dat_ptr, addr_ptr, collect_ptr, wr_ptr));
-
-            for (int k = 0; k < 32; ++k) {
-                PACK(DPRINT << "[" << k << "]=" << wr_ptr[k] << ENDL());
-            }
-
-            cb_push_back(cb_res, 1);
 
             PACK(dat_ptr += 1024);
             PACK(addr_ptr += 1024);
@@ -120,18 +137,26 @@ void MAIN {
             PACK(wr_ptr += 32);
         }
 
-        cb_release_tile(cb_collect);
+        cb_push_back(cb_res, 1);
+        // cb_release_tile(cb_collect);
+        UNPACK(DPRINT << "Releasing collect" << ENDL());
+        cb_pop_front(cb_collect, tiles_per_batch);
 
-        UNPACK(DPRINT << "Releasing inputs" << ENDL());
-        cb_pop_front(cb_dat, batch_tiles);
-        cb_pop_front(cb_addr, batch_tiles);
-        cb_pop_front(cb_collect, batch_tiles);
+        // cb_release_tile(cb_dat);
+        UNPACK(DPRINT << "Releasing dat" << ENDL());
+        cb_pop_front(cb_dat, tiles_per_batch);
 
-        tile_regs_acquire();
-        tile_regs_commit();
-        tile_regs_wait();
-        tile_regs_release();
+        // cb_release_tile(cb_addr);
+        UNPACK(DPRINT << "Releasing addr" << ENDL());
+        cb_pop_front(cb_addr, tiles_per_batch);
+
+        // tile_regs_acquire();
+        // tile_regs_commit();
+        // tile_regs_wait();
+        // tile_regs_release();
     }
+
+    DPRINT << "Ellpack Compute done" << ENDL();
 }
 
 }  // namespace NAMESPACE
