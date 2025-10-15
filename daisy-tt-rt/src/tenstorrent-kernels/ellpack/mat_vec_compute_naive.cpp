@@ -27,12 +27,12 @@ void collect_for_mul_tile(uint32_t* addr_ptr, float* collect_ptr, float* vec_ptr
                 if (adr == UINT32_MAX) {
                     break;
                 }
-                DPRINT << " col [" << colIdx << ", " << rowIdx << "]: " << adr << " not in range" << ENDL();
+                // DPRINT << " col [" << colIdx << ", " << rowIdx << "]: " << adr << " not in range" << ENDL();
             } else {
                 auto val = vec_ptr[adr - vec_chunk_offset];
                 *collect = val;
                 
-                DPRINT << " col [" << colIdx << ", " << rowIdx << "] = " << val << ENDL();
+                // DPRINT << " col [" << colIdx << ", " << rowIdx << "] = " << val << ENDL();
                 
             }
         }
@@ -53,7 +53,7 @@ void compute_mat_mul(float* dat_ptr, uint32_t* addr_ptr, float* collect_ptr, flo
                 float vec_in = collect_col[k * 32];
                 float elem_res = sum + mat_in * vec_in;
 
-                DPRINT << "  [" << idx << "," << k << "]: " << sum << " + "  << mat_in << " * " << vec_in << "  => " << elem_res << ENDL();
+                // DPRINT << "  [" << idx << "," << k << "]: " << sum << " + "  << mat_in << " * " << vec_in << "  => " << elem_res << ENDL();
 
                 sum = elem_res;
             } else {
@@ -85,11 +85,16 @@ void MAIN {
     constexpr uint32_t vecs_per_mat_tile = 32;
     constexpr uint32_t tiles_per_result_page = vecs_per_chunk / 32;
 
+    // binary_op_init_common(cb_dat, cb_collect, cb_res);
+
     UNPACK(DPRINT << "ellpack matVec up: " << batches << " batch (" << tiles_per_batch << " tiles/batch), " << num_tiles << " tiles total, " << vec_chunks << " vec chunks" << ENDL());
 
     uint32_t tile = 0;
     for (uint32_t b = 0; b < batches; ++b) {
         uint32_t end_tile_in_batch = std::min(num_tiles, tile + tiles_per_batch);
+
+        UNPACK(DPRINT << "waiting on DST" << ENDL());
+        tile_regs_acquire();
 
         cb_wait_front(cb_dat, tiles_per_batch);
         cb_wait_front(cb_addr, tiles_per_batch);
@@ -121,9 +126,17 @@ void MAIN {
 
         float* collect_ptr, *dat_ptr;
         uint32_t* addr_ptr;
+        // UNPACK((llk_unpack_get_tile<false, true>(cb_collect, 0, (uint32_t*)&collect_ptr)));
+        // PACK(llk_pack_get_tile(cb_collect, 0, (uint32_t*)&collect_ptr));
         cb_get_tile(cb_collect, 0, &collect_ptr);
+
+        // UNPACK((llk_unpack_get_tile<false, true>(cb_dat, 0, (uint32_t*)&dat_ptr)));
+        // PACK(llk_pack_get_tile(cb_dat, 0, (uint32_t*)&dat_ptr));
         cb_get_tile(cb_dat, 0, &dat_ptr);
+        // UNPACK((llk_unpack_get_tile<false, true>(cb_addr, 0, (uint32_t*)&addr_ptr)));
+        // PACK(llk_pack_get_tile(cb_addr, 0, (uint32_t*)&addr_ptr));
         cb_get_tile(cb_addr, 0, &addr_ptr);
+
 
         // Because for some magic and undocumented reason cb_get_tile does read_ptr-1, which is 1 L1 line before the actual data
         collect_ptr += 4;
@@ -137,6 +150,7 @@ void MAIN {
         cb_reserve_back(cb_res, 1);
         PACK(float* wr_ptr = reinterpret_cast<float*>(CB_WR_PTR(cb_res)));
         for (; tile < end_tile_in_batch; ++tile) {
+            PACK(DPRINT << " MatMul tile " << tile+1 << "/" << tiles_per_batch << ENDL());
 
             PACK(compute_mat_mul(dat_ptr, addr_ptr, collect_ptr, wr_ptr));
 
@@ -146,8 +160,15 @@ void MAIN {
             PACK(wr_ptr += 32);
         }
 
+        tile_regs_wait();
+
+        tile_regs_commit();
+
+        PACK(DPRINT << "Pushing result" << ENDL());
         cb_push_back(cb_res, 1);
-        // cb_release_tile(cb_collect);
+        // UNPACK((llk_unpack_release_tile<false, true>(cb_collect)));
+        // PACK(llk_pack_release_tile(cb_collect));
+        cb_release_tile(cb_collect);
         UNPACK(DPRINT << "Releasing collect" << ENDL());
         cb_pop_front(cb_collect, tiles_per_batch);
 
@@ -156,16 +177,19 @@ void MAIN {
         cb_pop_front(cb_dat, tiles_per_batch);
 
         // cb_release_tile(cb_addr);
+        // UNPACK((llk_unpack_release_tile<false, true>(cb_addr)));
+        // PACK(llk_pack_release_tile(cb_addr));
         UNPACK(DPRINT << "Releasing addr" << ENDL());
         cb_pop_front(cb_addr, tiles_per_batch);
 
-        // tile_regs_acquire();
-        // tile_regs_commit();
-        // tile_regs_wait();
-        // tile_regs_release();
+        PACK(DPRINT << "Packer iter done" << ENDL());
+        MATH(DPRINT << "Math iter done" << ENDL());
+
+        
+        tile_regs_release();
     }
 
-    DPRINT << "Ellpack Compute done" << ENDL();
+    // DPRINT << "Ellpack Compute done" << ENDL();
 }
 
 }  // namespace NAMESPACE

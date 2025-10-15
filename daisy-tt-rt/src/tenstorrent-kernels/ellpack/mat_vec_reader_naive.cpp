@@ -81,9 +81,9 @@ void kernel_main() {
         // float* ptr_a = reinterpret_cast<float*>(get_write_ptr(cb_a));
         // float* ptr_b = reinterpret_cast<float*>(get_write_ptr(cb_b));
 
-
-        tile += tiles_per_batch;
     }
+
+    DPRINT << "Rd Done" << ENDL();
 }
 
 
