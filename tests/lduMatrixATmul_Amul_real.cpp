@@ -5,37 +5,42 @@
 
 int main(int argc, char* argv[])
 {
-// Parse command line arguments
+/    int Nx, Ny;
+
+    // Parse command line arguments
     if (argc != 3) {
         std::cerr << "Usage: " << argv[0] << " <Nx> <Ny>" << std::endl;
         std::cerr << "  Nx: Number of cells in x direction" << std::endl;
         std::cerr << "  Ny: Number of cells in y direction" << std::endl;
-        return 1;
+        std::cerr << "Continuing with default 5x5 grid." << std::endl;
+        Nx = 5;
+        Ny = 5;
     }
+    else {
 
-    int Nx, Ny;
-    try {
-        Nx = std::stoi(argv[1]);
-        Ny = std::stoi(argv[2]);
+        try {
+            Nx = std::stoi(argv[1]);
+            Ny = std::stoi(argv[2]);
 
-        if (Nx <= 0 || Ny <= 0) {
-            std::cerr << "Error: Nx and Ny must be positive integers" << std::endl;
+            if (Nx <= 0 || Ny <= 0) {
+                std::cerr << "Error: Nx and Ny must be positive integers" << std::endl;
+                return 1;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Error parsing command line arguments: " << e.what() << std::endl;
+            std::cerr << "Usage: " << argv[0] << " <Nx> <Ny>" << std::endl;
             return 1;
         }
-    } catch (const std::exception& e) {
-        std::cerr << "Error parsing command line arguments: " << e.what() << std::endl;
-        std::cerr << "Usage: " << argv[0] << " <Nx> <Ny>" << std::endl;
-        return 1;
     }
 
     const Foam::label cells = Nx * Ny;
-    
+
     // Maximum number of off-diagonal entries:
     // interior cells have 4 neighbors, boundary cells have 2 or 3
     // allocate maximum possible: 4 * cells
     Foam::labelList addr_upper(4 * cells);
     Foam::labelList addr_lower(4 * cells);
-    
+
     int idx = 0;
     
     // OpenFOAM cell numbering: i + j*Nx
@@ -66,33 +71,6 @@ int main(int argc, char* argv[])
     addr_lower.setSize(idx);
     addr_upper.setSize(idx);
 
-
-    /*
-    bool is_nnz = false;
-    for (int i = 0; i < cells; ++i) {
-        for (int j = 0; j < cells; ++j) {
-            is_nnz = false;
-            if (i == j) { std::cout << i << "," << j << " "; continue; }
-            for (int k = 0; k < idx; ++k) {
-                if ((i == addr_lower[k] && j == addr_upper[k])) {
-                    std::cout << addr_lower[k] << "," << addr_upper[k] << " ";
-                    is_nnz = true;
-                    break;
-                }
-                else if ((j == addr_lower[k] && i == addr_upper[k])) {
-                    std::cout << addr_upper[k] << "," << addr_lower[k] << " ";
-                    is_nnz = true;
-                    break;
-                }
-            }
-            if (!is_nnz) {
-                std::cout << 0 << " ";
-            }
-        }
-        std::cout << std::endl;
-    }
-        */
-
     Foam::lduPrimitiveMesh mesh(
             cells,
             addr_lower,
@@ -104,7 +82,7 @@ int main(int argc, char* argv[])
     std::cout << "Created lduPrimitiveMesh" << std::endl;
 
     Foam::lduMatrix lduA(mesh);
-    
+
     // Fill values
     lduA.diag() = 4.0;  // interior cells have 4 neighbors
     lduA.lower() = -1.0;
@@ -160,9 +138,9 @@ int main(int argc, char* argv[])
             if (i < Nx - 1) numNeighbors += 1.0;
             if (j > 0) numNeighbors += 1.0;
             if (j < Ny - 1) numNeighbors += 1.0;
-            
+
             Foam::scalar expected = lduA.diag()[cell] * 2.0 - numNeighbors * 2.0;
-            
+
             if (Foam::mag(result[cell] - expected) > 1e-10) {
                 Foam::Info << "Error: result[" << cell << "] = " << result[cell]
                            << ", expected " << expected << Foam::endl;
