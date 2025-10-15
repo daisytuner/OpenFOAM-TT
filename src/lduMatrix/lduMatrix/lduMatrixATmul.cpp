@@ -94,6 +94,15 @@ void Foam::lduMatrix::Amul
             auto& tt_Apsi = k.allocateBuffer(sizeof(float)*Apsi.size(), tt::daisy::foam::tt_block_size);
             // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
+            k.launch_amul(
+                tt_meta,
+                *tt_psi.buffer,
+                *tt_Apsi.buffer,
+                // *tt_iface_contents.buffer,
+                // iface_count,
+                cmpt
+            );
+
             #ifdef ENABLE_DAISY_RTL
                 unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
                 __daisy_instrumentation_enter(region_id);
