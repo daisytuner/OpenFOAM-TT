@@ -34,11 +34,15 @@ steps:
     # Step 1: Compiler instrumented binaries
     cd ../../
     mkdir build && cd build
-    cmake -G Ninja -DENABLE_TT=ON -DENABLE_DAISY_RTL=ON ..
+    cmake -G Ninja -DENABLE_TT=ON -DENABLE_DAISY_RTL=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     ninja
 
     # Rename libOpenFOAM.so to libOpenFOAM.instrumented.so to avoid conflicts
     mv libOpenFOAM.so libOpenFOAM.instrumented.so
+    cp tt-bench-harness/tt_bench_dense_Amul.out tt-bench-harness/tt_bench_dense_Amul.instrumented.out
+    cp tt-bench-harness/tt_bench_dense_Amul_test.out tt-bench-harness/tt_bench_dense_Amul_test.instrumented.out
+    # mv tt-bench-harness/tt_bench_harness_mat_add.out tt-bench-harness/tt_bench_harness_mat_add.instrumented.out
+    # mv tt-bench-harness/tt_bench_harness_mat_neg.out tt-bench-harness/tt_bench_harness_mat_neg.instrumented.out
 
     # Step 2: Compiler non-instrumented binaries
     cmake -G Ninja -DENABLE_TT=ON -DENABLE_DAISY_RTL=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
@@ -49,7 +53,13 @@ steps:
 
   run:
     lduMatrixATmul_Amul:
-      command: ./build/tests/lduMatrixATmul_Amul
+      command: ./build/tests/lduMatrixATmul_Amul 20 20
+      env:
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
+        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
+    lduMatrixATmul_Amul_test:
+      command: ./build/tests/lduMatrixATmul_Amul_test
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
@@ -86,6 +96,18 @@ steps:
         TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
     lduMatrixOperations_AddAssign_asymm:
       command: ./build/tests/lduMatrixOperations_AddAssign_asymm
+      env:
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
+        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
+    denseMatrix_Amul:
+      command: ./build/tt-bench-harness/tt_bench_dense_Amul.out 200 200
+      env:
+        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
+        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
+        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
+    denseMatrix_Amul_test:
+      command: ./build/tt-bench-harness/tt_bench_dense_Amul_test.out
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH

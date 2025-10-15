@@ -25,44 +25,109 @@
 using namespace tt::daisy;
 using namespace tt::daisy::foam;
 
-int main() {
+int main(int argc, char* argv[]) {
+
+    int Nx, Ny;
+
+    // Parse command line arguments
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <Nx> <Ny>" << std::endl;
+        std::cerr << "  Nx: Number of cells in x direction" << std::endl;
+        std::cerr << "  Ny: Number of cells in y direction" << std::endl;
+        std::cerr << "Continuing with default 5x5 grid." << std::endl;
+        Nx = 5;
+        Ny = 5;
+    }
+    else {
+
+        try {
+            Nx = std::stoi(argv[1]);
+            Ny = std::stoi(argv[2]);
+
+            if (Nx <= 0 || Ny <= 0) {
+                std::cerr << "Error: Nx and Ny must be positive integers" << std::endl;
+                return 1;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Error parsing command line arguments: " << e.what() << std::endl;
+            std::cerr << "Usage: " << argv[0] << " <Nx> <Ny>" << std::endl;
+            return 1;
+        }
+    }
+
+    std::cout << "Running with grid size: " << Nx << " x " << Ny << " = " << (Nx * Ny) << " cells" << std::endl;
 
     tt::tt_metal::IDevice* device = tt::tt_metal::CreateDevice(0);
 
     BufferPool buffer_pool(device);
 
     auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
+    const Foam::label cells = Nx * Ny;
 
-    Foam::label cells = 4096;
+    // Maximum number of off-diagonal entries:
+    // interior cells have 4 neighbors, boundary cells have 2 or 3
+    // allocate maximum possible: 4 * cells
+    Foam::labelList addr_upper(4 * cells);
+    Foam::labelList addr_lower(4 * cells);
 
-
-    auto triang_size = cells*(cells-1)/2;
-    Foam::labelList addr_upper(triang_size);
-    Foam::labelList addr_lower(triang_size);
-
-    // Walk the upper triangle of a square matrix (excluding diagonal)
     int idx = 0;
-    for (Foam::label row = 0; row < cells; ++row) {
-        for (Foam::label col = row + 1; col < cells; ++col) {
-            addr_upper[idx] = col;
-            addr_lower[idx] = row;
 
-            ++idx;
+    // OpenFOAM cell numbering: i + j*Nx
+    // For LDU format: lower has row > col, upper has row < col
+    for (Foam::label j = 0; j < Ny; ++j) {
+        for (Foam::label i = 0; i < Nx; ++i) {
+            Foam::label cell = i + j * Nx;
+
+            // East neighbor (i+1) - upper triangle (cell < neighbor)
+            if (i < Nx - 1) {
+                Foam::label neighbor = (i + 1) + j * Nx;
+                addr_upper[idx] = neighbor;  // row (higher index)
+                addr_lower[idx] = cell;      // col (lower index)
+                ++idx;
+            }
+
+            // North neighbor (j+1) - upper triangle (cell < neighbor)
+            if (j < Ny - 1) {
+                Foam::label neighbor = i + (j + 1) * Nx;
+                addr_upper[idx] = neighbor;  // row (higher index)
+                addr_lower[idx] = cell;      // col (lower index)
+                ++idx;
+            }
         }
     }
 
-    Foam::lduPrimitiveMesh mesh(
-            cells,
-            addr_lower,
-            addr_upper,
-            0, // comm
-            true
-    );
+    // Resize arrays to actual number of off-diagonal entries
+    addr_lower.setSize(idx);
+    addr_upper.setSize(idx);
+    
+        Foam::lduPrimitiveMesh mesh(
+                cells,
+                addr_lower,
+                addr_upper,
+                0, // comm
+                true
+        );
 
-    Foam::lduMatrix lduA(mesh);
-    lduA.diag() = 3.0;
-    lduA.lower() = 0.0;
-    lduA.upper() = 0.0;
+        Foam::lduMatrix lduA(mesh);
+
+        // Fill values
+        lduA.diag() = 4.0;  // interior cells have 4 neighbors
+        lduA.lower() = -1.0;
+        lduA.upper() = -1.0;
+
+        // Optionally, adjust diagonal for boundary cells
+        for (Foam::label j = 0; j < Ny; ++j) {
+            for (Foam::label i = 0; i < Nx; ++i) {
+                Foam::label row = i + j * Nx;
+                Foam::scalar diag = 0.0;
+                if (i > 0) diag += 1.0;
+                if (i < Nx - 1) diag += 1.0;
+                if (j > 0) diag += 1.0;
+                if (j < Ny - 1) diag += 1.0;
+                lduA.diag()[row] = diag;
+            }
+        }
+
 
     Foam::scalarField inVec(cells, 2.0);
     Foam::scalarField result(cells);
@@ -84,34 +149,6 @@ int main() {
 
     auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), tile_size);
 
-    // tt::daisy::foam::copy_ldu_from_dense(device, tt_meta_a, &lduRes.diag(), &lduRes.lower(), &lduRes.upper(), lduRes.lduAddr());
-
-    // bool fail = false;
-    // if (!Foam::daisy::matches(lduA.diag(), lduRes.diag())) {
-    //     Foam::SeriousError << "TT diag do not match!" << Foam::endl;
-    //     Foam::Info << "org  Result: " << lduA.diag() << Foam::endl;
-    //     Foam::Info << "new Result: " << lduRes.diag() << Foam::endl;
-    //     fail = true;
-    // }
-
-    // if (!Foam::daisy::matches(lduA.lower(), lduRes.lower())) {
-    //     Foam::SeriousError << "TT lower do not match!" << Foam::endl;
-    //     Foam::Info << "org  Result: " << lduA.lower() << Foam::endl;
-    //     Foam::Info << "new Result: " << lduRes.lower() << Foam::endl;
-    //     fail = true;
-    // }
-
-    // if (!Foam::daisy::matches(lduA.upper(), lduRes.upper())) {
-    //     Foam::SeriousError << "TT upper do not match!" << Foam::endl;
-    //     Foam::Info << "org  Result: " << lduA.upper() << Foam::endl;
-    //     Foam::Info << "new Result: " << lduRes.upper() << Foam::endl;
-    //     fail = true;
-    // }
-
-    // if (fail) {
-    //     throw new std::runtime_error("TT copy_ldu_to_dense / copy_ldu_from_dense results do not match!");
-    // }
-
     tt_launch_dense_matMul(
         device,
         *tt_meta_a.d_dense_,
@@ -129,14 +166,14 @@ int main() {
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata = {
-        .file_name = "bench_ldu_Amul.cpp",
+        .file_name = "bench_ldu_Amul_real.cpp",
         .function_name = "main",
         .line_begin = 25,
-        .line_end = 182,
+        .line_end = 230,
         .column_begin = 0,
         .column_end = 0,
         .target_type = "TENSTORRENT",
-        .region_uuid = "foam_lduMatrix_Amul"
+        .region_uuid = "foam_lduMatrix_Amul_real"
     };
     unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
     __daisy_instrumentation_enter(region_id);
@@ -181,12 +218,6 @@ int main() {
     tt::tt_metal::Finish(device->command_queue(0));
 
     Foam::Info << "Result: " << result << Foam::endl;
-
-    Foam::scalarField expected(cells, 6.0);
-
-    if (!Foam::daisy::matches(result, expected)) {
-        Foam::SeriousError << "FAIL Expected: " << expected << Foam::endl;
-    }
 
     tt::tt_metal::CloseDevice(device);
 
