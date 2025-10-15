@@ -5,7 +5,7 @@
 
 int main(int argc, char* argv[])
 {
-/    int Nx, Ny;
+    int Nx, Ny;
 
     // Parse command line arguments
     if (argc != 3) {
