@@ -68,8 +68,8 @@ int main() {
     auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
     tt::tt_metal::IDevice* device = tt::tt_metal::CreateDevice(0);
 
-    auto Nx = 32;
-    auto Ny = 32;
+    auto Nx = 128;
+    auto Ny = 128;
     Foam::label cells = Nx * Ny;
 
 
