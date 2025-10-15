@@ -15,11 +15,12 @@ void kernel_main() {
     constexpr uint32_t cb_out = 0;
 
     constexpr uint32_t page_size = get_tile_size(cb_out);
+    constexpr uint32_t vecs_per_page = page_size / 4;
 
     constexpr auto dest_args = TensorAccessorArgs<0, 1>();
     const auto dest = TensorAccessor(dest_args, dst_addr, page_size);
 
-    DPRINT << "Ellpack Wb up" << ENDL();
+    DPRINT << "Ellpack Wb up ( " << first_tile_offset << ".+" << num_tiles << " pages, " << vecs_per_page << " vals/page)" << ENDL();
 
     uint32_t end_tile = first_tile_offset + num_tiles;
     for (uint32_t tile = first_tile_offset; tile < end_tile; ++tile) {
@@ -44,4 +45,6 @@ void kernel_main() {
     }
 
     noc_async_write_barrier();
+
+    DPRINT << "Ellpack Wb done" << ENDL();
 }
