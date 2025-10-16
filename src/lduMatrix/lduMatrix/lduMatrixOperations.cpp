@@ -43,9 +43,11 @@ Description
     #define ENABLE_TT_SUMDIAG
     #define ENABLE_TT_NEGSUMDIAG
 #endif
-#define ENABLE_TT_NEGATE
-#define ENABLE_TT_ADD_ASSIGN
-#define ENABLE_TT_SUB_ASSIGN
+#if TT_IMPL == TT_IMPL_LDU || TT_IMPL == TT_IMPL_DENSE
+    #define ENABLE_TT_NEGATE
+    #define ENABLE_TT_ADD_ASSIGN
+    #define ENABLE_TT_SUB_ASSIGN
+#endif
 #endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

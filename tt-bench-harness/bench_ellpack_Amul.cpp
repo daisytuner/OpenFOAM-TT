@@ -1,3 +1,6 @@
+#ifdef ENABLE_DAISY_RTL
+#include <daisy_rtl/daisy_rtl.h>
+#endif
 
 #include <cstdlib>
 #include <iostream>
@@ -65,8 +68,9 @@ int main() {
     auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
     tt::tt_metal::IDevice* device = tt::tt_metal::CreateDevice(0);
 
-    auto Nx = 32;
-    auto Ny = 32;
+    auto Nx = 128;
+    auto Ny = 128;
+    
     Foam::label cells = Nx * Ny;
 
 
@@ -87,7 +91,6 @@ int main() {
                 ++idx;
             }
             // South neighbor (j+1)
-            
             if (j < Ny - 1) {
                 addr_lower[idx] = addr;
                 addr_upper[idx] = addr + Nx;
@@ -110,7 +113,7 @@ int main() {
 
     Foam::lduMatrix lduA(mesh);
     lduA.diag() = 3.0;
-    lduA.lower() = 0.0; // no values at all means mirrored from upper, 1.0 as well
+    lduA.lower() = 1.0; // no values at all means mirrored from upper, 1.0 as well
     lduA.upper() = 1.0;
 
     Foam::scalarField inVec(cells, 2.0);
@@ -138,6 +141,8 @@ int main() {
     auto& d_inVec = tt::daisy::foam::copy_scalarField_to_device_bare(buffer_pool, inVec);
 
     tt::tt_metal::Finish(device->command_queue(0));
+
+    auto& d_resWarmup = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());
 
     auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());
 
@@ -170,6 +175,35 @@ int main() {
 //    if (fail) {
 //        throw new std::runtime_error("TT copy_ldu_to_dense / copy_ldu_from_dense results do not match!");
 //    }
+    
+    // WARMUP
+
+    tt_launch_ellpack_matVecOp(
+        device,
+        tt_meta_a,
+        *d_inVec.buffer,
+        *d_resWarmup.buffer,
+        kernel_dir
+    );
+
+    tt::tt_metal::Finish(device->command_queue(0));
+
+    // Actual Measurement of Kernel
+
+    #ifdef ENABLE_DAISY_RTL
+    __daisy_metadata_t metadata = {
+        .file_name = "bench_ellpack_Amul.cpp",
+        .function_name = "main",
+        .line_begin = 29,
+        .line_end = 192,
+        .column_begin = 0,
+        .column_end = 0,
+        .target_type = "TENSTORRENT",
+        .region_uuid = "foam_ellpack_Amul_kernel"
+    };
+    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
+    __daisy_instrumentation_enter(region_id);
+    #endif
 
 
     tt_launch_ellpack_matVecOp(
@@ -181,6 +215,26 @@ int main() {
     );
 
     tt::tt_metal::Finish(device->command_queue(0));
+
+    #ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id);
+        uint32_t num_tiles = (lduA.diag().size() + tt::constants::TILE_WIDTH - 1) / tt::constants::TILE_WIDTH;
+        uint32_t batch_tiles = 8;
+        uint32_t ell_tile_page_size = 4096;
+        uint32_t vec_page_size = 1024;
+        uint32_t vec_entries_per_chunk = vec_page_size / 4u;
+        uint32_t vec_tile_h_per_chunk = vec_entries_per_chunk / 32u;
+        uint32_t vec_chunks_total = (num_tiles + vec_tile_h_per_chunk -1) / vec_tile_h_per_chunk;
+        uint32_t batches = (num_tiles + batch_tiles - 1) / batch_tiles;
+        uint32_t nnz = lduA.diag().size() + lduA.lower().size() + lduA.upper().size();
+        uint32_t reads =  num_tiles * 2 * ell_tile_page_size;
+                         + batches * vec_chunks_total * vec_entries_per_chunk * sizeof(float);
+        uint32_t writes = vec_chunks_total * vec_entries_per_chunk * sizeof(float);
+        uint32_t flops = 2 * nnz;
+        __daisy_instrumentation_increment(region_id, "flop", flops);
+        __daisy_instrumentation_increment(region_id, "dram_bytes", reads + writes);
+        __daisy_instrumentation_finalize(region_id);
+    #endif
 
     tt::daisy::foam::copy_scalarField_from_device_bare(buffer_pool, d_resVec, &result);
 
