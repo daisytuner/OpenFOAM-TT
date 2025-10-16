@@ -643,8 +643,8 @@ void tt_compute_matBinOp(
             k.device_,
             *a_tt_meta.d_dense_,
             *b_tt_meta.d_dense_,
-            *tt_meta.d_dense_,
-            tt_meta.cell_count,
+            *tt_meta_res.d_dense_,
+            a_tt_meta.cell_count,
             op,
             k.kernel_dir_
         );
