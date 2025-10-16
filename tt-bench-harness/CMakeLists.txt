@@ -78,3 +78,19 @@ if (ENABLE_DAISY_RTL)
     daisy_rtl arg_capture_io
   )
 endif()
+
+add_executable(tt_bench_ldu_Amul.out
+    bench_ldu_Amul_real.cpp
+)
+target_link_libraries(tt_bench_ldu_Amul.out PUBLIC OpenFOAM::OpenFOAM OpenFOAM::daisy_tt_rt)
+target_include_directories(tt_bench_ldu_Amul.out PRIVATE
+    ./include
+)
+if (ENABLE_DAISY_RTL)
+  target_compile_definitions(tt_bench_ldu_Amul.out PRIVATE
+    ENABLE_DAISY_RTL
+  )
+  target_link_libraries(tt_bench_ldu_Amul.out PRIVATE
+    daisy_rtl arg_capture_io
+  )
+endif()
