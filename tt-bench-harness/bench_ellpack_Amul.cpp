@@ -142,6 +142,8 @@ int main() {
 
     tt::tt_metal::Finish(device->command_queue(0));
 
+    auto& d_resWarmup = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());
+
     auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());
 
 //    Foam::lduMatrix lduRes(mesh);
@@ -173,14 +175,20 @@ int main() {
 //    if (fail) {
 //        throw new std::runtime_error("TT copy_ldu_to_dense / copy_ldu_from_dense results do not match!");
 //    }
+    
+    // WARMUP
 
     tt_launch_ellpack_matVecOp(
         device,
         tt_meta_a,
         *d_inVec.buffer,
-        *d_resVec.buffer,
+        *d_resWarmup.buffer,
         kernel_dir
     );
+
+    tt::tt_metal::Finish(device->command_queue(0));
+
+    // Actual Measurement of Kernel
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata = {
@@ -191,7 +199,7 @@ int main() {
         .column_begin = 0,
         .column_end = 0,
         .target_type = "TENSTORRENT",
-        .region_uuid = "foam_ellpack_Amul"
+        .region_uuid = "foam_ellpack_Amul_kernel"
     };
     unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
     __daisy_instrumentation_enter(region_id);
@@ -205,6 +213,8 @@ int main() {
         *d_resVec.buffer,
         kernel_dir
     );
+
+    tt::tt_metal::Finish(device->command_queue(0));
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id);
@@ -225,8 +235,6 @@ int main() {
         __daisy_instrumentation_increment(region_id, "dram_bytes", reads + writes);
         __daisy_instrumentation_finalize(region_id);
     #endif
-
-    tt::tt_metal::Finish(device->command_queue(0));
 
     tt::daisy::foam::copy_scalarField_from_device_bare(buffer_pool, d_resVec, &result);
 
