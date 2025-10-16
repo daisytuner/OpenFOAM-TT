@@ -112,7 +112,7 @@ int main() {
 
     Foam::lduMatrix lduA(mesh);
     lduA.diag() = 3.0;
-    lduA.lower() = 0.0; // no values at all means mirrored from upper, 1.0 as well
+    lduA.lower() = 1.0; // no values at all means mirrored from upper, 1.0 as well
     lduA.upper() = 1.0;
 
     Foam::scalarField inVec(cells, 2.0);

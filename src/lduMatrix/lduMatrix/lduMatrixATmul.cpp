@@ -43,7 +43,7 @@ Description
 
 #define ENABLE_TT_AMUL
 
-if (TT_IMPL == TT_IMPL_LDU || TT_IMPL == TT_IMPL_DENSE)
+#if (TT_IMPL == TT_IMPL_LDU || TT_IMPL == TT_IMPL_DENSE)
     #define ENABLE_TT_SUMA
     #define ENABLE_TT_RESIDUAL
 #endif
