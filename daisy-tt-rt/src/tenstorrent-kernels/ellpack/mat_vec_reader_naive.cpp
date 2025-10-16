@@ -62,6 +62,7 @@ void kernel_main() {
             noc_async_read_page(vec_chunk, vec_buf, vec_ptr);
             noc_async_read_barrier();
             if (vec_chunk == 0) { // we let the batch reads run concurrent with the first vecChunk, so mark them as available now
+                DeviceZoneScopedN("PushingTiles");
                 // float* vecf_ptr = reinterpret_cast<float*>(vec_ptr);
                 // DPRINT << "vec" << vec_chunk << ENDL();
                 // for (int i = 0; i < 32; ++i) {

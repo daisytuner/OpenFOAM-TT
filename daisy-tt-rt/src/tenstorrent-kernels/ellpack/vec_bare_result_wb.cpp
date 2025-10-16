@@ -24,6 +24,7 @@ void kernel_main() {
 
     uint32_t end_tile = first_tile_offset + num_tiles;
     for (uint32_t tile = first_tile_offset; tile < end_tile; ++tile) {
+        DeviceZoneScopedN("Pulling Tiles");
         cb_wait_front(cb_out, 1);
 
         DPRINT << "Wb got chunk " << tile << ENDL();

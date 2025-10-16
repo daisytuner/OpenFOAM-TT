@@ -5,7 +5,10 @@
 #include <cstdint>
 #include <algorithm>
 #include <compute_kernel_api/common.h>
-#include <compute_kernel_api/eltwise_binary.h>
+#include "compute_kernel_api/eltwise_binary.h"
+#include "compute_kernel_api/tile_move_copy.h"
+#include <unistd.h>
+#include <tools/profiler/kernel_profiler.hpp>
 
 using std::uint32_t;
 
@@ -85,7 +88,8 @@ void MAIN {
     constexpr uint32_t vecs_per_mat_tile = 32;
     constexpr uint32_t tiles_per_result_page = vecs_per_chunk / 32;
 
-    // binary_op_init_common(cb_dat, cb_collect, cb_res);
+    binary_op_init_common(cb_dat, cb_dat, cb_collect);  // Unpack, Math, Pack
+    add_tiles_init(cb_dat, cb_dat);
 
     UNPACK(DPRINT << "ellpack matVec up: " << batches << " batch (" << tiles_per_batch << " tiles/batch), " << num_tiles << " tiles total, " << vec_chunks << " vec chunks" << ENDL());
 
@@ -96,15 +100,20 @@ void MAIN {
         UNPACK(DPRINT << "waiting on DST" << ENDL());
         tile_regs_acquire();
 
-        cb_wait_front(cb_dat, tiles_per_batch);
-        cb_wait_front(cb_addr, tiles_per_batch);
-        cb_wait_front(cb_collect, tiles_per_batch);
+        {
+            DeviceZoneScopedN("WaitForCbTiles");
+            cb_wait_front(cb_dat, tiles_per_batch);
+            cb_wait_front(cb_addr, tiles_per_batch);
+            cb_wait_front(cb_collect, tiles_per_batch);
+        }
 
+#ifdef TRISC_UNPACK
         {
             UNPACK(uint32_t* addr_ptr = reinterpret_cast<uint32_t*>(CB_RD_PTR(cb_addr)));
             UNPACK(float* collect_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_collect)));
 
             for (uint32_t v = 0; v < vec_chunks; ++v) {
+                DeviceZoneScopedN("CollectFromChunk");
                 cb_wait_front(cb_vec, 1);
                 UNPACK(float* vec_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_vec)));
 
@@ -121,21 +130,31 @@ void MAIN {
                 cb_pop_front(cb_vec, 1);
             }
         }
+#endif
 
         UNPACK(DPRINT << "Unpack done" << ENDL());
 
         float* collect_ptr, *dat_ptr;
         uint32_t* addr_ptr;
-        // UNPACK((llk_unpack_get_tile<false, true>(cb_collect, 0, (uint32_t*)&collect_ptr)));
-        // PACK(llk_pack_get_tile(cb_collect, 0, (uint32_t*)&collect_ptr));
-        cb_get_tile(cb_collect, 0, &collect_ptr);
+        {
+            DeviceZoneScopedN("GetTileCollect");
+            // UNPACK((llk_unpack_get_tile<false, true>(cb_collect, 0, (uint32_t*)&collect_ptr)));
+            // PACK(llk_pack_get_tile(cb_collect, 0, (uint32_t*)&collect_ptr));
+            cb_get_tile(cb_collect, 0, &collect_ptr);
+        }
 
-        // UNPACK((llk_unpack_get_tile<false, true>(cb_dat, 0, (uint32_t*)&dat_ptr)));
-        // PACK(llk_pack_get_tile(cb_dat, 0, (uint32_t*)&dat_ptr));
-        cb_get_tile(cb_dat, 0, &dat_ptr);
-        // UNPACK((llk_unpack_get_tile<false, true>(cb_addr, 0, (uint32_t*)&addr_ptr)));
-        // PACK(llk_pack_get_tile(cb_addr, 0, (uint32_t*)&addr_ptr));
-        cb_get_tile(cb_addr, 0, &addr_ptr);
+        {
+            DeviceZoneScopedN("GetTileDat");
+            // UNPACK((llk_unpack_get_tile<false, true>(cb_dat, 0, (uint32_t*)&dat_ptr)));
+            // PACK(llk_pack_get_tile(cb_dat, 0, (uint32_t*)&dat_ptr));
+            cb_get_tile(cb_dat, 0, &dat_ptr);
+        }
+        {
+            DeviceZoneScopedN("GetTileAddr");
+            // UNPACK((llk_unpack_get_tile<false, true>(cb_addr, 0, (uint32_t*)&addr_ptr)));
+            // PACK(llk_pack_get_tile(cb_addr, 0, (uint32_t*)&addr_ptr));
+            cb_get_tile(cb_addr, 0, &addr_ptr);
+        }
 
 
         // Because for some magic and undocumented reason cb_get_tile does read_ptr-1, which is 1 L1 line before the actual data
@@ -148,6 +167,7 @@ void MAIN {
         // now we have assembled mat-tiles in cb_collect matching each tile in cb_dat for mat_mul, where the first line
 
         cb_reserve_back(cb_res, 1);
+#ifdef TRISC_PACK
         PACK(float* wr_ptr = reinterpret_cast<float*>(CB_WR_PTR(cb_res)));
         for (; tile < end_tile_in_batch; ++tile) {
             PACK(DPRINT << " MatMul tile " << tile+1 << "/" << tiles_per_batch << ENDL());
@@ -159,6 +179,7 @@ void MAIN {
             PACK(collect_ptr += 1024);
             PACK(wr_ptr += 32);
         }
+#endif
 
         tile_regs_wait();
 
@@ -168,9 +189,12 @@ void MAIN {
         cb_push_back(cb_res, 1);
         // UNPACK((llk_unpack_release_tile<false, true>(cb_collect)));
         // PACK(llk_pack_release_tile(cb_collect));
-        cb_release_tile(cb_collect);
-        UNPACK(DPRINT << "Releasing collect" << ENDL());
-        cb_pop_front(cb_collect, tiles_per_batch);
+//        cb_release_tile(cb_collect);
+        {
+            DeviceZoneScopedN("ReleaseCollect");
+            UNPACK(DPRINT << "Releasing collect" << ENDL());
+            cb_pop_front(cb_collect, tiles_per_batch);
+        }
 
         // cb_release_tile(cb_dat);
         UNPACK(DPRINT << "Releasing dat" << ENDL());
