@@ -667,6 +667,10 @@ if (ENABLE_TT)
 
   add_subdirectory(daisy-tt-rt)
 
+  target_compile_definitions(OpenFOAM PUBLIC
+      ENABLE_TT
+  )
+
   if (VERIFY_TT)
     message(STATUS "Building with Tenstorrent verification")
     target_compile_definitions(OpenFOAM PUBLIC
