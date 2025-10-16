@@ -137,7 +137,6 @@ int main(int argc, char* argv[]) {
 
     auto tt_meta_a = get_tt_meta(&lduA, ldu_tt_meta_map);
     auto tile_size = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
-    auto cells_aligned = tt::round_up(cells, tt::constants::TILE_WIDTH);
 
     auto& k = tt::daisy::foam::require_kernel_launcher();
 
@@ -225,18 +224,13 @@ int main(int argc, char* argv[]) {
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id3);
-        uint32_t M = cells_aligned;
-        uint32_t N = 32;
-        uint32_t K = cells_aligned;
-        uint32_t Kt = K / tt::constants::TILE_WIDTH;
-        uint32_t num_output_tiles = (M * N) / tt::constants::TILE_HW;
-        uint32_t num_tiles = num_output_tiles;
-
-        uint32_t reads = num_output_tiles * Kt  * (2 * tt::constants::TILE_HW) * sizeof(float);
-        uint32_t writes = num_tiles * tt::constants::TILE_HW;
-
-        uint32_t flops = num_output_tiles * Kt * 2 * tt::constants::TILE_HW * tt::constants::TILE_WIDTH;
-        __daisy_instrumentation_increment(region_id3, "flop", flops); // ~ 2 * M * N * K
+            uint32_t page_size = 1024;
+            uint32_t page_count_faces = (tt_meta.iface_map_start_ + page_size/4 + page_size/4) / (page_size / 4);
+            uint32_t page_count_offdiagonal = (tt_meta.upper_contents_start_+ tt_meta.sparse_count + page_size/4 -1) / (page_size / 4);
+            uint32_t page_count_diagonal = (tt_meta.cell_count + page_size/4 -1)/ (page_size / 4);
+            uint32_t reads = page_size* (page_count_faces + page_count_diagonal) * sizeof(float) + page_size * page_count_offdiagonal * sizeof(int);
+            uint32_t writes = page_size * page_count_diagonal * sizeof(float);
+        __daisy_instrumentation_increment(region_id3, "flop", 4 * tt_meta.sparse_count);
         __daisy_instrumentation_increment(region_id3, "dram_bytes", reads + writes);
         __daisy_instrumentation_finalize(region_id3);
     #endif
