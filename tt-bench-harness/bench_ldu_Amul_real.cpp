@@ -21,6 +21,9 @@
 #include "ttLduData.hpp"
 #include "Field.H"
 #include "tmp.H"
+#include "kernel_launcher.hpp"
+#include "ldu_meta_cache.hpp"
+#include "device_transfers.hpp"
 
 using namespace tt::daisy;
 using namespace tt::daisy::foam;
@@ -134,27 +137,26 @@ int main(int argc, char* argv[]) {
 
     auto tt_meta_a = get_tt_meta(&lduA, ldu_tt_meta_map);
     auto tile_size = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
-    auto cells_aligned = tt::round_up(cells, tt::constants::TILE_WIDTH);
 
+    auto& k = tt::daisy::foam::require_kernel_launcher();
 
      #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata1 = {
-        .file_name = "bench_dense_Amul_real.cpp",
-        .function_name = "copy_ldu_to_dense",
+        .file_name = "bench_ldu_Amul_real.cpp",
+        .function_name = "main",
         .line_begin = 154,
         .line_end = 158,
         .column_begin = 0,
         .column_end = 0,
         .target_type = "TENSTORRENT",
-        .region_uuid = "copy_ldu_to_dense"
+        .region_uuid = "ensure_lduMat_on_device"
     };
-    unsigned long long region_id1 = __daisy_instrumentation_init(&metadata1, __DAISY_EVENT_SET_NONE);
-    __daisy_instrumentation_enter(region_id1);
+        unsigned long long region_id1 = __daisy_instrumentation_init(&metadata1, __DAISY_EVENT_SET_NONE);
+        __daisy_instrumentation_enter(region_id1);
     #endif
 
     // copying starts
-
-    tt::daisy::foam::copy_ldu_to_dense(device, tt_meta_a, &lduA);
+    auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(buffer_pool, &lduA);
 
     tt::tt_metal::Finish(device->command_queue(0));
 
@@ -169,19 +171,20 @@ int main(int argc, char* argv[]) {
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata2 = {
         .file_name = "bench_dense_Amul_real.cpp",
-        .function_name = "copy_scalarfield",
+        .function_name = "main",
         .line_begin = 178,
         .line_end = 182,
         .column_begin = 0,
         .column_end = 0,
         .target_type = "TENSTORRENT",
-        .region_uuid = "copy_scalarfield"
+        .region_uuid = "copy_ldu_to_dense"
     };
-    unsigned long long region_id2 = __daisy_instrumentation_init(&metadata2, __DAISY_EVENT_SET_NONE);
-    __daisy_instrumentation_enter(region_id2);
+        unsigned long long region_id2 = __daisy_instrumentation_init(&metadata2, __DAISY_EVENT_SET_NONE);
+        __daisy_instrumentation_enter(region_id2);
     #endif
 
-    auto& d_inVec = tt::daisy::foam::copy_scalarField_to_device_as_dense_mat(buffer_pool, inVec);
+    auto& d_inVec = tt::daisy::foam::copy_scalarField_to_device(buffer_pool, inVec);
+
     tt::tt_metal::Finish(device->command_queue(0));
 
     #ifdef ENABLE_DAISY_RTL
@@ -191,28 +194,17 @@ int main(int argc, char* argv[]) {
         __daisy_instrumentation_finalize(region_id2);
     #endif
 
-    auto& d_resWarmup = buffer_pool.allocateBuffer(d_inVec.buffer->size(),tile_size);
+    auto& d_resWarmup = buffer_pool.allocateBuffer(d_inVec.buffer->size(), tile_size);
     auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), tile_size);
 
-    tt_launch_dense_matMul(
-        device,
-        *tt_meta_a.d_dense_,
-        *d_inVec.buffer,
-        *d_resWarmup.buffer,
-        cells_aligned,
-        32,
-        cells_aligned,
-        1,
-        false,
-        kernel_dir
-    );
+    tt::daisy::foam::tt_compute_amul(k, tt_meta, d_inVec, d_resWarmup);
 
     tt::tt_metal::Finish(device->command_queue(0));
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata3 = {
         .file_name = "bench_ldu_Amul_real.cpp",
-        .function_name = "tt_launch_dense_matMul",
+        .function_name = "main",
         .line_begin = 218,
         .line_end = 235,
         .column_begin = 0,
@@ -220,61 +212,45 @@ int main(int argc, char* argv[]) {
         .target_type = "TENSTORRENT",
         .region_uuid = "tt_launch_dense_matMul"
     };
+
     unsigned long long region_id3 = __daisy_instrumentation_init(&metadata3, __DAISY_EVENT_SET_NONE);
     __daisy_instrumentation_enter(region_id3);
     #endif
 
-    tt_launch_dense_matMul(
-        device,
-        *tt_meta_a.d_dense_,
-        *d_inVec.buffer,
-        *d_resVec.buffer,
-        cells_aligned,
-        32,
-        cells_aligned,
-        1,
-        false,
-        kernel_dir
-    );
+    tt::daisy::foam::tt_compute_amul(k, tt_meta, d_inVec, d_resVec);
 
     tt::tt_metal::Finish(device->command_queue(0));
 
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id3);
-        uint64_t M = cells_aligned;
-        uint64_t N = 32;
-        uint64_t K = cells_aligned;
-        uint64_t Kt = K / tt::constants::TILE_WIDTH;
-        uint64_t num_output_tiles = (M * N) / tt::constants::TILE_HW;
-        uint64_t num_tiles = num_output_tiles;
-
-        uint64_t reads = num_output_tiles * Kt  * (2 * tt::constants::TILE_HW) * sizeof(float);
-        uint64_t writes = num_tiles * tt::constants::TILE_HW;
-        uint64_t bytes = reads + writes;
-
-        uint64_t flops = num_output_tiles * Kt * 2 * tt::constants::TILE_HW * tt::constants::TILE_WIDTH;
-        __daisy_instrumentation_increment(region_id3, "flop", flops); // ~ 2 * M * N * K
-        __daisy_instrumentation_increment(region_id3, "dram_bytes", bytes);
+            uint32_t page_size = 1024;
+            uint32_t page_count_faces = (tt_meta.iface_map_start_ + page_size/4 + page_size/4) / (page_size / 4);
+            uint32_t page_count_offdiagonal = (tt_meta.upper_contents_start_+ tt_meta.sparse_count + page_size/4 -1) / (page_size / 4);
+            uint32_t page_count_diagonal = (tt_meta.cell_count + page_size/4 -1)/ (page_size / 4);
+            uint32_t reads = page_size* (page_count_faces + page_count_diagonal) * sizeof(float) + page_size * page_count_offdiagonal * sizeof(int);
+            uint32_t writes = page_size * page_count_diagonal * sizeof(float);
+        __daisy_instrumentation_increment(region_id3, "flop", 4 * tt_meta.sparse_count);
+        __daisy_instrumentation_increment(region_id3, "dram_bytes", reads + writes);
         __daisy_instrumentation_finalize(region_id3);
     #endif
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata4 = {
         .file_name = "bench_dense_Amul_real.cpp",
-        .function_name = "copy_scalarField_from_device_dense_mat",
+        .function_name = "main",
         .line_begin = 267,
-        .line_end = 169,
+        .line_end = 269,
         .column_begin = 0,
         .column_end = 0,
         .target_type = "TENSTORRENT",
-        .region_uuid = "copy_scalarField_from_device_dense_mat"
+        .region_uuid = "copy_scalarField_from_device"
     };
-        unsigned long long region_id4 = __daisy_instrumentation_init(&metadata4, __DAISY_EVENT_SET_NONE);
-        __daisy_instrumentation_enter(region_id4);
+    unsigned long long region_id4 = __daisy_instrumentation_init(&metadata4, __DAISY_EVENT_SET_NONE);
+    __daisy_instrumentation_enter(region_id4);
     #endif
 
-    tt::daisy::foam::copy_scalarField_from_device_dense_mat(buffer_pool, d_resVec, &result);
+    tt::daisy::foam::copy_scalarField_from_device(buffer_pool, d_resVec, &result);
 
     tt::tt_metal::Finish(device->command_queue(0));
 
@@ -284,7 +260,6 @@ int main(int argc, char* argv[]) {
         __daisy_instrumentation_increment(region_id4, "dram_bytes", 1);
         __daisy_instrumentation_finalize(region_id4);
     #endif
-
 
     Foam::Info << "Result: " << result << Foam::endl;
 

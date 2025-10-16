@@ -93,7 +93,9 @@ void Foam::lduMatrix::Amul
             unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
             __daisy_instrumentation_enter(region_id);
         #endif
+
         tt::daisy::foam::tt_compute_amul(k, tt_meta, tt_psi, tt_Apsi);
+
         #ifdef ENABLE_DAISY_RTL
             __daisy_instrumentation_exit(region_id);
             __daisy_instrumentation_increment(region_id, "flop", 4 * tt_meta.sparse_count);

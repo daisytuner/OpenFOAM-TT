@@ -137,13 +137,58 @@ int main() {
 
     // copying starts
 
+
+    #ifdef ENABLE_DAISY_RTL
+    __daisy_metadata_t metadata1 = {
+        .file_name = "bench_ellpack_Amul.cpp",
+        .function_name = "foam_ldu_to_ellpack_copy",
+        .line_begin = 150,
+        .line_end = 153,
+        .column_begin = 0,
+        .column_end = 0,
+        .target_type = "TENSTORRENT",
+        .region_uuid = "foam_ldu_to_ellpack_copy"
+    };
+    unsigned long long region_id1 = __daisy_instrumentation_init(&metadata1, __DAISY_EVENT_SET_NONE);
+    __daisy_instrumentation_enter(region_id1);
+    #endif
+
     tt::daisy::foam::copy_ldu_to_ellpack(buffer_pool, tt_meta_a, &lduA);
 
     tt::tt_metal::Finish(device->command_queue(0));
 
+    #ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id1);
+        __daisy_instrumentation_increment(region_id1, "flop", 0);
+        __daisy_instrumentation_increment(region_id1, "dram_bytes", 1);
+        __daisy_instrumentation_finalize(region_id1);
+    #endif
+
+    #ifdef ENABLE_DAISY_RTL
+    __daisy_metadata_t metadata2 = {
+        .file_name = "bench_ellpack_Amul.cpp",
+        .function_name = "scalarField_copy",
+        .line_begin = 173,
+        .line_end = 180,
+        .column_begin = 0,
+        .column_end = 0,
+        .target_type = "TENSTORRENT",
+        .region_uuid = "scalarField_copy"
+    };
+    unsigned long long region_id2 = __daisy_instrumentation_init(&metadata2, __DAISY_EVENT_SET_NONE);
+    __daisy_instrumentation_enter(region_id2);
+    #endif
     auto& d_inVec = tt::daisy::foam::copy_scalarField_to_device_bare(buffer_pool, inVec);
 
     tt::tt_metal::Finish(device->command_queue(0));
+
+    #ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id2);
+        __daisy_instrumentation_increment(region_id2, "flop", 0);
+        __daisy_instrumentation_increment(region_id2, "dram_bytes", 1);
+        __daisy_instrumentation_finalize(region_id2);
+    #endif
+
 
     auto& d_resWarmup = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());
 
@@ -196,20 +241,19 @@ int main() {
     // Actual Measurement of Kernel
 
     #ifdef ENABLE_DAISY_RTL
-    __daisy_metadata_t metadata = {
+    __daisy_metadata_t metadata3 = {
         .file_name = "bench_ellpack_Amul.cpp",
-        .function_name = "main",
-        .line_begin = 29,
-        .line_end = 192,
+        .function_name = "foam_ellpack_Amul_kernel",
+        .line_begin = 193,
+        .line_end = 218,
         .column_begin = 0,
         .column_end = 0,
         .target_type = "TENSTORRENT",
         .region_uuid = "foam_ellpack_Amul_kernel"
     };
-    unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
-    __daisy_instrumentation_enter(region_id);
+    unsigned long long region_id3 = __daisy_instrumentation_init(&metadata3, __DAISY_EVENT_SET_NONE);
+    __daisy_instrumentation_enter(region_id3);
     #endif
-
 
     tt_launch_ellpack_matVecOp(
         device,
@@ -225,28 +269,52 @@ int main() {
 
 
     #ifdef ENABLE_DAISY_RTL
-        __daisy_instrumentation_exit(region_id);
-        uint32_t num_tiles = (lduA.diag().size() + tt::constants::TILE_WIDTH - 1) / tt::constants::TILE_WIDTH;
-        uint32_t batch_tiles = 8;
-        uint32_t ell_tile_page_size = 4096;
-        uint32_t vec_page_size = 1024;
-        uint32_t vec_entries_per_chunk = vec_page_size / 4u;
-        uint32_t vec_tile_h_per_chunk = vec_entries_per_chunk / 32u;
-        uint32_t vec_chunks_total = (num_tiles + vec_tile_h_per_chunk -1) / vec_tile_h_per_chunk;
-        uint32_t batches = (num_tiles + batch_tiles - 1) / batch_tiles;
-        uint32_t nnz = lduA.diag().size() + lduA.lower().size() + lduA.upper().size();
-        uint32_t reads =  num_tiles * 2 * ell_tile_page_size;
+        __daisy_instrumentation_exit(region_id3);
+        uint64_t num_tiles = (lduA.diag().size() + tt::constants::TILE_WIDTH - 1) / tt::constants::TILE_WIDTH;
+        uint64_t batch_tiles = 8;
+        uint64_t ell_tile_page_size = 4096;
+        uint64_t vec_page_size = 1024;
+        uint64_t vec_entries_per_chunk = vec_page_size / 4u;
+        uint64_t vec_tile_h_per_chunk = vec_entries_per_chunk / 32u;
+        uint64_t vec_chunks_total = (num_tiles + vec_tile_h_per_chunk -1) / vec_tile_h_per_chunk;
+        uint64_t batches = (num_tiles + batch_tiles - 1) / batch_tiles;
+        uint64_t nnz = lduA.diag().size() + lduA.lower().size() + lduA.upper().size();
+        uint64_t reads =  num_tiles * 2 * ell_tile_page_size
                          + batches * vec_chunks_total * vec_entries_per_chunk * sizeof(float);
-        uint32_t writes = vec_chunks_total * vec_entries_per_chunk * sizeof(float);
-        uint32_t flops = 2 * nnz;
-        __daisy_instrumentation_increment(region_id, "flop", flops);
-        __daisy_instrumentation_increment(region_id, "dram_bytes", reads + writes);
-        __daisy_instrumentation_finalize(region_id);
+        uint64_t writes = vec_chunks_total * vec_entries_per_chunk * sizeof(float);
+        uint64_t bytes = reads + writes;
+        uint64_t flops = 2 * nnz;
+        __daisy_instrumentation_increment(region_id3, "flop", flops);
+        __daisy_instrumentation_increment(region_id3, "dram_bytes", bytes);
+        __daisy_instrumentation_finalize(region_id3);
+    #endif
+
+    #ifdef ENABLE_DAISY_RTL
+    __daisy_metadata_t metadata4 = {
+        .file_name = "bench_ellpack_Amul.cpp",
+        .function_name = "scalarField_copy",
+        .line_begin = 173,
+        .line_end = 180,
+        .column_begin = 0,
+        .column_end = 0,
+        .target_type = "TENSTORRENT",
+        .region_uuid = "scalarField_copy"
+    };
+    unsigned long long region_id4 = __daisy_instrumentation_init(&metadata4, __DAISY_EVENT_SET_NONE);
+    __daisy_instrumentation_enter(region_id4);
     #endif
 
     tt::daisy::foam::copy_scalarField_from_device_bare(buffer_pool, d_resVec, &result);
 
     tt::tt_metal::Finish(device->command_queue(0));
+
+    #ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id4);
+        __daisy_instrumentation_increment(region_id4, "flop", 0);
+        __daisy_instrumentation_increment(region_id4, "dram_bytes", 1);
+        __daisy_instrumentation_finalize(region_id4);
+    #endif
+
 
     Foam::scalarField expected(cells);
 
