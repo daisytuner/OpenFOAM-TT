@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include <tt-metalium/host_api.hpp>
+#include <unistd.h>
 
 #include "dense_matBinOp.hpp"
 #include "dense_matMul.hpp"
@@ -19,6 +20,8 @@
 #include "result_matchers.hpp"
 #include "scalarField.H"
 #include "tt-metalium/buffer.hpp"
+#include "tt-metalium/profiler_types.hpp"
+#include "tt-metalium/tt_metal_profiler.hpp"
 #include "ttLduData.hpp"
 #include "Field.H"
 #include "tmp.H"
@@ -68,8 +71,8 @@ int main() {
     auto kernel_dir = std::string(std::getenv("TT_FOAM_KERNEL_DIR"));
     tt::tt_metal::IDevice* device = tt::tt_metal::CreateDevice(0);
 
-    auto Nx = 128;
-    auto Ny = 128;
+    auto Nx = 256;
+    auto Ny = 256;
     
     Foam::label cells = Nx * Ny;
 
@@ -188,6 +191,8 @@ int main() {
 
     tt::tt_metal::Finish(device->command_queue(0));
 
+    tt::tt_metal::detail::ReadDeviceProfilerResults(device);
+
     // Actual Measurement of Kernel
 
     #ifdef ENABLE_DAISY_RTL
@@ -215,6 +220,9 @@ int main() {
     );
 
     tt::tt_metal::Finish(device->command_queue(0));
+
+    tt::tt_metal::detail::ReadDeviceProfilerResults(device);
+
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id);

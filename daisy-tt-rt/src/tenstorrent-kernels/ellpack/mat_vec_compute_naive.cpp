@@ -95,6 +95,7 @@ void MAIN {
 
     uint32_t tile = 0;
     for (uint32_t b = 0; b < batches; ++b) {
+        DeviceZoneScopedN("Batch");
         uint32_t end_tile_in_batch = std::min(num_tiles, tile + tiles_per_batch);
 
         UNPACK(DPRINT << "waiting on DST" << ENDL());
@@ -111,9 +112,9 @@ void MAIN {
         {
             UNPACK(uint32_t* addr_ptr = reinterpret_cast<uint32_t*>(CB_RD_PTR(cb_addr)));
             UNPACK(float* collect_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_collect)));
+            DeviceZoneScopedN("Collect");
 
             for (uint32_t v = 0; v < vec_chunks; ++v) {
-                DeviceZoneScopedN("CollectFromChunk");
                 cb_wait_front(cb_vec, 1);
                 UNPACK(float* vec_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_vec)));
 
