@@ -37,6 +37,17 @@ Description
 #include "kernel_launcher.hpp"
 #include "ldu_meta_cache.hpp"
 #include "device_transfers.hpp"
+#include "dense_matBinOp.hpp"
+
+#if TT_IMPL == TT_IMPL_LDU
+    #define ENABLE_TT_SUMDIAG
+    #define ENABLE_TT_NEGSUMDIAG
+#endif
+#if TT_IMPL == TT_IMPL_LDU || TT_IMPL == TT_IMPL_DENSE
+    #define ENABLE_TT_NEGATE
+    #define ENABLE_TT_ADD_ASSIGN
+    #define ENABLE_TT_SUB_ASSIGN
+#endif
 #endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -51,7 +62,7 @@ void Foam::lduMatrix::sumDiag()
     scalarField& Diag = diag();
     scalarField* tt_result;
 
-    #ifdef ENABLE_TT
+    #ifdef ENABLE_TT_SUMDIAG
         #ifdef VERIFY_TT
             tt_result = new scalarField(Diag.size(), 0.0);
         #else
@@ -60,16 +71,16 @@ void Foam::lduMatrix::sumDiag()
 
         auto& k = tt::daisy::foam::require_kernel_launcher();
 
-        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this);
+        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device_as_ldu(k, this);
 
         k.launch_sumDiag(
             tt_meta
         );
 
-        tt::daisy::foam::copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result);
+        tt::daisy::foam::copy_scalarField_from_device_bare(k, tt_meta.d_data_, tt_result);
     #endif
 
-    #if !defined(ENABLE_TT) || defined(VERIFY_TT)
+    #if !defined(ENABLE_TT_SUMDIAG) || defined(VERIFY_TT)
 
 
     const scalarField& Lower = const_cast<const lduMatrix&>(*this).lower();
@@ -86,7 +97,7 @@ void Foam::lduMatrix::sumDiag()
 
     #endif
 
-    #if defined(ENABLE_TT) && defined(VERIFY_TT)
+    #if defined(ENABLE_TT_SUMDIAG) && defined(VERIFY_TT)
         if (!daisy::matches(*tt_result, Diag)) {
             Foam::SeriousError << "sumDiag TT results do not match!" << Foam::endl;
             Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
@@ -114,7 +125,7 @@ void Foam::lduMatrix::negSumDiag()
     scalarField& Diag = diag();
     scalarField* tt_result;
 
-    #ifdef ENABLE_TT
+    #ifdef ENABLE_TT_NEGSUMDIAG
         #ifdef VERIFY_TT
             tt_result = new scalarField(Diag.size(), 0.0);
         #else
@@ -123,16 +134,16 @@ void Foam::lduMatrix::negSumDiag()
 
         auto& k = tt::daisy::foam::require_kernel_launcher();
 
-        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this);
+        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device_as_ldu(k, this);
 
         k.launch_negSumDiag(
             tt_meta
         );
 
-        tt::daisy::foam::copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result);
+        tt::daisy::foam::copy_scalarField_from_device_bare(k, *tt_meta.d_data_, tt_result);
     #endif
 
-    #if !defined(ENABLE_TT) || defined(VERIFY_TT)
+    #if !defined(ENABLE_TT_NEGSUMDIAG) || defined(VERIFY_TT)
 
     const scalarField& Lower = const_cast<const lduMatrix&>(*this).lower();
     const scalarField& Upper = const_cast<const lduMatrix&>(*this).upper();
@@ -148,7 +159,7 @@ void Foam::lduMatrix::negSumDiag()
 
     #endif
 
-    #if defined(ENABLE_TT) && defined(VERIFY_TT)
+    #if defined(ENABLE_TT_NEGSUMDIAG) && defined(VERIFY_TT)
         if (!daisy::matches(*tt_result, Diag)) {
             Foam::SeriousError << "negSumDiag TT results do not match!" << Foam::endl;
             Foam::Info << "TT  Result: " << *tt_result << Foam::endl;
@@ -241,43 +252,48 @@ void Foam::lduMatrix::negate()
         * tt_result_lower = nullptr,
         * tt_result_upper = nullptr;
 
-    #ifdef ENABLE_TT
+    #ifdef ENABLE_TT_NEGATE
+        #if TT_IMPL != TT_IMPL_LDU
+        const bool force_full = true;
+        #else
+        const bool force_full = false;
+        #endif
         #ifdef VERIFY_TT
-            if (diagPtr_) {
+            if (diagPtr_ || force_full) {
                 tt_result_diag = new scalarField(diagPtr_->size());
             }
-            if (lowerPtr_) {
+            if (lowerPtr_ || force_full) {
                 tt_result_lower = new scalarField(lowerPtr_->size());
             }
-            if (upperPtr_) {
+            if (upperPtr_ || force_full) {
                 tt_result_upper = new scalarField(upperPtr_->size());
             }
         #else
-            tt_result_diag = diagPtr_;
-            tt_result_lower = lowerPtr_;
-            tt_result_upper = upperPtr_;
+            tt_result_diag = force_full ? diag() : diagPtr_;
+            tt_result_lower = force_full ? lower() : lowerPtr_;
+            tt_result_upper = force_full ? upper() : upperPtr_;
         #endif
 
         auto& k = tt::daisy::foam::require_kernel_launcher();
 
         auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this);
 
-        k.launch_negate(
+        tt::daisy::foam::tt_compute_negate(
+            k,
             tt_meta
         );
 
-        if (tt_result_diag) {
-            tt::daisy::foam::copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_diag);
-        }
-        if (tt_result_lower) {
-            tt::daisy::foam::copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_lower, tt_meta.lower_contents_start_*4);
-        }
-        if (tt_result_upper) {
-            tt::daisy::foam::copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_upper, tt_meta.upper_contents_start_*4);
-        }
+        tt::daisy::foam::copy_ldu_from_device(
+            k,
+            tt_meta,
+            tt_result_diag,
+            tt_result_lower,
+            tt_result_upper,
+            lduAddr()
+        );
     #endif
 
-    #if !defined(ENABLE_TT) || defined(VERIFY_TT)
+    #if !defined(ENABLE_TT_NEGATE) || defined(VERIFY_TT)
 
     if (lowerPtr_)
     {
@@ -296,7 +312,7 @@ void Foam::lduMatrix::negate()
 
     #endif
 
-    #if defined(ENABLE_TT) && defined(VERIFY_TT)
+    #if defined(ENABLE_TT_NEGATE) && defined(VERIFY_TT)
         bool fail = false;
         if (diagPtr_) {
             if (!daisy::matches(*tt_result_diag, *diagPtr_)) {
@@ -345,8 +361,14 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
                 * tt_result_lower = nullptr,
                 * tt_result_upper = nullptr;
 
-    #ifdef ENABLE_TT
+    #ifdef ENABLE_TT_ADD_ASSIGN
         if (A.diagPtr_ || A.lowerPtr_ || A.upperPtr_) { // if A is 0, there is nothing to do
+
+            #if (TT_IMPL != TT_IMPL_LDU)
+            const bool force_full = true;
+            #else
+            const bool force_full = false;
+            #endif
 
             if (A.diagPtr_ && !diagPtr_) { // if we need to create new ones, create our temps
                 tt_result_diag = new scalarField(lduAddr().size());
@@ -374,12 +396,14 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
                     tt_result_upper = new scalarField(upperPtr_->size());
                 }
             #else
-                tt_result_diag = diagPtr_;
+                if (!tt_result_diag) {
+                    tt_result_diag = force_full? new scalarField(lduAddr().size()) : diagPtr_;
+                }
                 if (!tt_result_lower) {
-                    tt_result_lower = lowerPtr_;
+                    tt_result_lower = force_full? new scalarField(lowerPtr_->size()) : lowerPtr_;
                 }
                 if (!tt_result_upper) {
-                    tt_result_upper = upperPtr_;
+                    tt_result_upper = force_full? new scalarField(upperPtr_->size()) : upperPtr_;
                 }
             #endif
 
@@ -388,24 +412,26 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
             auto& tt_meta = ensure_lduMat_on_device(k, this, is_expand);
             auto& a_tt_meta = ensure_lduMat_on_device(k, &A);
 
-            k.launch_matAddAssign(
+            tt::daisy::foam::tt_compute_matBinOp(
+                k,
                 tt_meta,
-                a_tt_meta
+                tt_meta,
+                a_tt_meta,
+                tt::daisy::MatBinOp::ADD
             );
 
-            if (tt_result_diag) {
-                copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_diag);
-            }
-            if (tt_result_lower) {
-                copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_lower, tt_meta.lower_contents_start_*4);
-            }
-            if (tt_result_upper) {
-                copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_upper, tt_meta.upper_contents_start_*4);
-            }
+            tt::daisy::foam::copy_ldu_from_device(
+                k,
+                tt_meta,
+                tt_result_diag,
+                tt_result_lower,
+                tt_result_upper,
+                lduAddr()
+            );
         }
     #endif
 
-    #if !defined(ENABLE_TT) || defined(VERIFY_TT)
+    #if !defined(ENABLE_TT_ADD_ASSIGN) || defined(VERIFY_TT)
 
     if (A.diagPtr_)
     {
@@ -484,7 +510,7 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
 
     #endif
 
-    #ifdef ENABLE_TT
+    #ifdef ENABLE_TT_ADD_ASSIGN
     #ifdef VERIFY_TT
         bool fail = false;
         if (tt_result_diag) {
@@ -553,9 +579,16 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
                 * tt_result_lower = nullptr,
                 * tt_result_upper = nullptr;
 
-    #ifdef ENABLE_TT
+    #ifdef ENABLE_TT_SUB_ASSIGN
 
         if (A.diagPtr_ || A.lowerPtr_ || A.upperPtr_) { // if A is 0, there is nothing to do
+
+            #if (TT_IMPL != TT_IMPL_LDU)
+            const bool force_full = true;
+            #else
+            const bool force_full = false;
+            #endif
+
 
             if (A.diagPtr_ && !diagPtr_) { // if we need to create new ones, create our temps
                 tt_result_diag = new scalarField(lduAddr().size());
@@ -573,22 +606,24 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
             }
 
             #ifdef VERIFY_TT
-                if (diagPtr_ && !tt_result_diag) { // if there is not already a tt_result buffer, create a temp one
+                if ((diagPtr_ && !tt_result_diag) || force_full) { // if there is not already a tt_result buffer, create a temp one
                     tt_result_diag = new scalarField(diagPtr_->size());
                 }
-                if (lowerPtr_ && !tt_result_lower) {
+                if ((lowerPtr_ && !tt_result_lower) || force_full) {
                     tt_result_lower = new scalarField(lowerPtr_->size());
                 }
-                if (upperPtr_ && !tt_result_upper) {
+                if ((upperPtr_ && !tt_result_upper) || force_full) {
                     tt_result_upper = new scalarField(upperPtr_->size());
                 }
             #else
-                tt_result_diag = diagPtr_;
+                if (!tt_result_diag) {
+                    tt_result_diag = force_full? new scalarField(lduAddr().size()) : diagPtr_;
+                }
                 if (!tt_result_lower) {
-                    tt_result_lower = lowerPtr_;
+                    tt_result_lower = force_full? new scalarField(lowerPtr_->size()) : lowerPtr_;
                 }
                 if (!tt_result_upper) {
-                    tt_result_upper = upperPtr_;
+                    tt_result_upper = force_full? new scalarField(upperPtr_->size()) : upperPtr_;
                 }
             #endif
 
@@ -597,24 +632,26 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
             auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this, is_expand);
             auto& a_tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, &A);
 
-            k.launch_matSubAssign(
+            tt::daisy::foam::tt_compute_matBinOp(
+                k,
                 tt_meta,
-                a_tt_meta
+                tt_meta,
+                a_tt_meta,
+                tt::daisy::MatBinOp::SUB
             );
 
-            if (tt_result_diag) {
-                tt::daisy::foam::copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_diag);
-            }
-            if (tt_result_lower) {
-                tt::daisy::foam::copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_lower, tt_meta.lower_contents_start_*4);
-            }
-            if (tt_result_upper) {
-                tt::daisy::foam::copy_scalarField_from_device(k, *tt_meta.d_data_, tt_result_upper, tt_meta.upper_contents_start_*4);
-            }
+            tt::daisy::foam::copy_ldu_from_device(
+                k,
+                tt_meta,
+                tt_result_diag,
+                tt_result_lower,
+                tt_result_upper,
+                lduAddr()
+            );
         }
     #endif
 
-    #if !defined(ENABLE_TT) || defined(VERIFY_TT)
+    #if !defined(ENABLE_TT_SUB_ASSIGN) || defined(VERIFY_TT)
 
     if (A.diagPtr_)
     {
@@ -693,7 +730,7 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
 
     #endif
 
-    #ifdef ENABLE_TT
+    #ifdef ENABLE_TT_SUB_ASSIGN
     #ifdef VERIFY_TT
         bool fail = false;
         if (tt_result_diag) {
