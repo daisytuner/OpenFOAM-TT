@@ -70,6 +70,7 @@ int main() {
 
     auto Nx = 128;
     auto Ny = 128;
+    
     Foam::label cells = Nx * Ny;
 
 
