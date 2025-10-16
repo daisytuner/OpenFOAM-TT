@@ -16,19 +16,6 @@ if(ENABLE_TT AND TT_IMPL STREQUAL "-1")
     message(FATAL_ERROR "TT_IMPL is not defined. Please set TT_IMPL to one of the supported implementation types (e.g., TT_IMPL_LDU, TT_IMPL_DENSE, TT_IMPL_ELLPACK) in the cache.")
 endif()
 
-if(TT_IMPL STREQUAL "TT_IMPL_LDU")
-    set(ENABLE_TT_SUMA ON CACHE BOOL "Enable SUMA for LDU implementation" FORCE)
-    set(ENABLE_TT_AMUL ON CACHE BOOL "Enable AMUL for LDU implementation" FORCE)
-    set(ENABLE_TT_RESIDUAL ON CACHE BOOL "Enable RESIDUAL for LDU implementation" FORCE)
-    message(STATUS "TT_IMPL_LDU detected: Enabled SUMA, AMUL, and RESIDUAL")
-elseif(TT_IMPL STREQUAL "TT_IMPL_DENSE")
-    set(ENABLE_TT_AMUL ON CACHE BOOL "Enable AMUL for DENSE implementation" FORCE)
-    message(STATUS "TT_IMPL_DENSE detected: Enabled AMUL only")
-elseif(TT_IMPL STREQUAL "TT_IMPL_ELLPACK")
-    set(ENABLE_TT_AMUL ON CACHE BOOL "Enable AMUL for ELLPACK implementation" FORCE)
-    message(STATUS "TT_IMPL_ELLPACK detected: Enabled AMUL only")
-endif()
-
 include(cmake/CPM.cmake)
 
 set(OPENFOAM_OS_SPECIFIC_SOURCES
@@ -680,12 +667,6 @@ if (ENABLE_TT)
 
   add_subdirectory(daisy-tt-rt)
 
-  target_compile_definitions(OpenFOAM PUBLIC
-    ENABLE_TT
-    ENABLE_TT_SUMA
-    ENABLE_TT_AMUL
-    ENABLE_TT_RESIDUAL
-  )
   if (VERIFY_TT)
     message(STATUS "Building with Tenstorrent verification")
     target_compile_definitions(OpenFOAM PUBLIC
