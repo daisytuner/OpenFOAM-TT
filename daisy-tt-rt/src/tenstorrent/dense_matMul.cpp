@@ -435,7 +435,7 @@ void tt_launch_dense_matMul_small(
     EnqueueProgram(device->command_queue(0), program, false);
 }
 
-void tt_launch_dense_matMul(
+void tt_launch_dense_matMul( // warning: does NOT PAD
     tt_metal::IDevice* device,
     tt_metal::Buffer& d_a,
     tt_metal::Buffer& d_b,

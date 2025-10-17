@@ -27,6 +27,7 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
+#include "lduAddressing.H"
 #include "lduMatrix.H"
 
 #ifdef ENABLE_DAISY_RTL
@@ -43,7 +44,7 @@ Description
 
 #define ENABLE_TT_AMUL
 
-#if (TT_IMPL == TT_IMPL_LDU || TT_IMPL == TT_IMPL_DENSE)
+#if (TT_IMPL == TT_IMPL_LDU)
     #define ENABLE_TT_SUMA
     #define ENABLE_TT_RESIDUAL
 #endif
@@ -280,7 +281,7 @@ void Foam::lduMatrix::sumA
 
         auto tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this);
 
-        auto& tt_res = k.allocateBuffer(tt_meta.d_data_->size(), tt_meta.d_data_->page_size());
+        auto& tt_res = tt::daisy::foam::allocate_field_buffer(k, diag().size());
         // auto [tt_iface_contents, iface_count] = tt::daisy::foam::copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
 
         #ifdef ENABLE_DAISY_RTL

@@ -118,7 +118,7 @@ int main() {
         *tt_meta_b.d_dense_,
         *tt_meta_res.d_dense_,
         cells,
-        MatBinOp::ADD,
+        MatBinOp::SUB,
         kernel_dir
     );
 
@@ -132,9 +132,9 @@ int main() {
 
     Foam::Info << "Result: " << lduRes << Foam::endl;
 
-    Foam::scalarField expected_diag(cells, 5.0);
-    Foam::scalarField expected_lower(triang_size, 151.0);
-    Foam::scalarField expected_upper(triang_size, 250.0);
+    Foam::scalarField expected_diag(cells, 1.0);
+    Foam::scalarField expected_lower(triang_size, -149.0);
+    Foam::scalarField expected_upper(triang_size, -50.0);
 
     if (!Foam::daisy::matches(lduRes.diag(), expected_diag)) {
         Foam::SeriousError << "FAIL Expected diag: " << expected_diag << Foam::endl;

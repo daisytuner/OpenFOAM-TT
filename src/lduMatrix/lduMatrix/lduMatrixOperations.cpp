@@ -252,6 +252,8 @@ void Foam::lduMatrix::negate()
         * tt_result_lower = nullptr,
         * tt_result_upper = nullptr;
 
+    bool had_diag = diagPtr_ != nullptr, had_lower = lowerPtr_ != nullptr, had_upper = upperPtr_ != nullptr;
+
     #ifdef ENABLE_TT_NEGATE
         #if TT_IMPL != TT_IMPL_LDU
         const bool force_full = true;
@@ -259,14 +261,15 @@ void Foam::lduMatrix::negate()
         const bool force_full = false;
         #endif
         #ifdef VERIFY_TT
+            auto& addr = lduAddr();
             if (diagPtr_ || force_full) {
-                tt_result_diag = new scalarField(diagPtr_->size());
+                tt_result_diag = new scalarField(addr.size());
             }
             if (lowerPtr_ || force_full) {
-                tt_result_lower = new scalarField(lowerPtr_->size());
+                tt_result_lower = new scalarField(addr.lowerAddr().size());
             }
             if (upperPtr_ || force_full) {
-                tt_result_upper = new scalarField(upperPtr_->size());
+                tt_result_upper = new scalarField(addr.upperAddr().size());
             }
         #else
             tt_result_diag = force_full ? diag() : diagPtr_;
@@ -349,6 +352,8 @@ void Foam::lduMatrix::negate()
         }
 
         if (fail) {
+            Foam::Info << "had diag: " << had_diag << ", had lower: " << had_lower << ", had upper: " << had_upper << Foam::endl;
+            Foam::Info << " => " << (force_full? "force " : "") << " diag: " << (tt_result_diag != nullptr) << ", lower: " << (tt_result_lower != nullptr) << ", upper: " << (tt_result_upper != nullptr) << Foam::endl;
             throw new std::runtime_error("negate TT results do not match!");
         }
     #endif
@@ -360,6 +365,8 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
     scalarField * tt_result_diag  = nullptr,
                 * tt_result_lower = nullptr,
                 * tt_result_upper = nullptr;
+
+    bool had_diag = diagPtr_ != nullptr, had_lower = lowerPtr_ != nullptr, had_upper = upperPtr_ != nullptr;
 
     #ifdef ENABLE_TT_ADD_ASSIGN
         if (A.diagPtr_ || A.lowerPtr_ || A.upperPtr_) { // if A is 0, there is nothing to do
@@ -397,15 +404,24 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
                 }
             #else
                 if (!tt_result_diag) {
-                    tt_result_diag = force_full? new scalarField(lduAddr().size()) : diagPtr_;
+                    tt_result_diag = diagPtr_;
                 }
                 if (!tt_result_lower) {
-                    tt_result_lower = force_full? new scalarField(lowerPtr_->size()) : lowerPtr_;
+                    tt_result_lower = lowerPtr_;
                 }
                 if (!tt_result_upper) {
-                    tt_result_upper = force_full? new scalarField(upperPtr_->size()) : upperPtr_;
+                    tt_result_upper = upperPtr_;
                 }
             #endif
+            if (!tt_result_diag && force_full) {
+                tt_result_diag = new scalarField(lduAddr().size());
+            }
+            if (!tt_result_lower && force_full) {
+                tt_result_lower = new scalarField(lduAddr().lowerAddr().size());
+            }
+            if (!tt_result_upper && force_full) {
+                tt_result_upper = new scalarField(lduAddr().upperAddr().size());
+            }
 
             auto& k = tt::daisy::foam::require_kernel_launcher();
 
@@ -555,6 +571,7 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
 
         if (fail) {
             Foam::Info << " A: diag " << !!A.diagPtr_ << " lower " << !!A.lowerPtr_ << " upper " << !!A.upperPtr_ << Foam::endl;
+            Foam::Info << " this: diag " << had_diag << " lower " << had_lower << " upper " << had_upper << Foam::endl;
             Foam::Info << " tt_diag " << !!tt_result_diag << " tt_lower " << !!tt_result_lower << " tt_upper " << !!tt_result_upper << Foam::endl;
             throw new std::runtime_error("+= TT results in call do not match!");
         }
@@ -606,26 +623,35 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
             }
 
             #ifdef VERIFY_TT
-                if ((diagPtr_ && !tt_result_diag) || force_full) { // if there is not already a tt_result buffer, create a temp one
+                if (diagPtr_ && !tt_result_diag) { // if there is not already a tt_result buffer, create a temp one
                     tt_result_diag = new scalarField(diagPtr_->size());
                 }
-                if ((lowerPtr_ && !tt_result_lower) || force_full) {
+                if (lowerPtr_ && !tt_result_lower) {
                     tt_result_lower = new scalarField(lowerPtr_->size());
                 }
-                if ((upperPtr_ && !tt_result_upper) || force_full) {
+                if (upperPtr_ && !tt_result_upper) {
                     tt_result_upper = new scalarField(upperPtr_->size());
                 }
             #else
                 if (!tt_result_diag) {
-                    tt_result_diag = force_full? new scalarField(lduAddr().size()) : diagPtr_;
+                    tt_result_diag = diagPtr_;
                 }
                 if (!tt_result_lower) {
-                    tt_result_lower = force_full? new scalarField(lowerPtr_->size()) : lowerPtr_;
+                    tt_result_lower = lowerPtr_;
                 }
                 if (!tt_result_upper) {
-                    tt_result_upper = force_full? new scalarField(upperPtr_->size()) : upperPtr_;
+                    tt_result_upper = upperPtr_;
                 }
             #endif
+            if (!tt_result_diag && force_full) {
+                tt_result_diag = new scalarField(lduAddr().size());
+            }
+            if (!tt_result_lower && force_full) {
+                tt_result_lower = new scalarField(lduAddr().lowerAddr().size());
+            }
+            if (!tt_result_upper && force_full) {
+                tt_result_upper = new scalarField(lduAddr().upperAddr().size());
+            }
 
             auto& k = tt::daisy::foam::require_kernel_launcher();
 
@@ -734,7 +760,7 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
     #ifdef VERIFY_TT
         bool fail = false;
         if (tt_result_diag) {
-            if (!daisy::matches(*tt_result_diag, *diagPtr_)) {
+            if (diagPtr_ && !daisy::matches(*tt_result_diag, *diagPtr_)) {
                 Foam::SeriousError << "-= diag TT results do not match!" << Foam::endl;
                 Foam::Info << "TT  Result diag: " << *tt_result_diag << Foam::endl;
                 Foam::Info << "CPU Result diag: " << *diagPtr_ << Foam::endl;
@@ -747,7 +773,7 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
             }
         }
         if (tt_result_lower) {
-            if (!daisy::matches(*tt_result_lower, *lowerPtr_)) {
+            if (lowerPtr_ && !daisy::matches(*tt_result_lower, *lowerPtr_)) {
                 Foam::SeriousError << "-= lower TT results do not match!" << Foam::endl;
                 Foam::Info << "TT  Result lower: " << *tt_result_lower << Foam::endl;
                 Foam::Info << "CPU Result lower: " << *lowerPtr_ << Foam::endl;
@@ -760,7 +786,7 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
             }
         }
         if (tt_result_upper) {
-            if (!daisy::matches(*tt_result_upper, *upperPtr_)) {
+            if (upperPtr_ && !daisy::matches(*tt_result_upper, *upperPtr_)) {
                 Foam::SeriousError << "-= upper TT results do not match!" << Foam::endl;
                 Foam::Info << "TT  Result upper: " << *tt_result_upper << Foam::endl;
                 Foam::Info << "CPU Result upper: " << *upperPtr_ << Foam::endl;

@@ -1,4 +1,6 @@
 #include "dense_matNeg.hpp"
+#include "tt-metalium/base_types.hpp"
+#include "tt-metalium/circular_buffer_constants.h"
 #include "tt-metalium/core_coord.hpp"
 #include "tt-metalium/program.hpp"
 #include <cstdint>
@@ -6,6 +8,7 @@
 #include <tt-metalium/work_split.hpp>
 #include <tt-metalium/kernel_types.hpp>
 #include <tt-metalium/tensor_accessor_args.hpp>
+#include <vector>
 
 namespace tt::daisy {
 
@@ -60,6 +63,7 @@ void tt_launch_dense_matNeg(
         tt::tt_metal::ComputeConfig {
             .math_fidelity = MathFidelity::HiFi4,
             .fp32_dest_acc_en = true,
+            .unpack_to_dest_mode = std::vector<UnpackToDestMode>(NUM_CIRCULAR_BUFFERS, UnpackToDestMode::UnpackToDestFp32),
             .compile_args = {},
         }
     );

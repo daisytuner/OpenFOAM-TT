@@ -5,6 +5,7 @@
 #include "ReusableTtBuffer.hpp"
 #include <vector>
 #include "buffer_pool.hpp"
+#include "dense_matBinOp.hpp"
 #include "ttLduData.hpp"
 
 namespace tt::daisy::foam {
@@ -180,7 +181,7 @@ void tt_compute_matBinOp(
     tt_ldu_meta& tt_meta,
     const tt_ldu_meta& a_tt_meta,
     const tt_ldu_meta& b_tt_meta,
-    std::string opSymbol
+    MatBinOp opSymbol
 );
 
 

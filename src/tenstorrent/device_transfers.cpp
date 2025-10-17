@@ -45,6 +45,31 @@ uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght)
     return face_start + in_face_row * tt::constants::FACE_WIDTH + in_face_col;
 }
 
+ReusableTtBuffer& allocate_field_buffer_bare(BufferPool& bufferPool, uint32_t num_elements) {
+    size_t bytes = sizeof(float)*num_elements;
+
+    return bufferPool.allocateBuffer(bytes, tt_block_size);
+}
+
+ReusableTtBuffer& allocate_field_buffer_1tile(BufferPool& bufferPool, uint32_t num_elements) {
+    size_t tiles = (num_elements + 31) / 32;
+    size_t tileBytes = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
+    size_t bytes = tiles * tileBytes;
+
+    return bufferPool.allocateBuffer(bytes, tileBytes);
+}
+
+ReusableTtBuffer& allocate_field_buffer(BufferPool& bufferPool, uint32_t num_elements) {
+    
+    #if TT_IMPL == TT_IMPL_LDU || TT_IMPL == TT_IMPL_ELLPACK
+        return allocate_field_buffer_bare(bufferPool, num_elements);
+    #elif TT_IMPL == TT_IMPL_DENSE
+        return allocate_field_buffer_1tile(bufferPool, num_elements);
+    #else
+        #error unsupported TT IMPL TT_IMPL
+    #endif
+}
+
 ReusableTtBuffer& copy_scalarField_to_device_bare(BufferPool& bufferPool, const Foam::scalarField& field) {
     auto* device = bufferPool.device_;
 
@@ -330,8 +355,8 @@ void copy_ldu_to_dense(tt::tt_metal::IDevice* device, tt_ldu_meta& tt_meta, cons
     for (int i= 0; i < sparse_vals; ++i) {
         auto lowAddr = lowerAddr[i];
         auto upAddr = upperAddr[i];
-        float l_val = hasLower? lower[i] : 0.0f;
         float u_val = hasUpper? upper[i] : 0.0f;
+        float l_val = hasLower? lower[i] : u_val;
 
         dense[offset_into_tiled_mat(upAddr, lowAddr, aligned_cells)] = l_val;
         dense[offset_into_tiled_mat(lowAddr, upAddr, aligned_cells)] = u_val;
@@ -362,9 +387,9 @@ void copy_ldu_to_dense(tt::tt_metal::IDevice* device, tt_ldu_meta& tt_meta, cons
     #if TT_DEBUG > 1
     for (uint32_t i = 0; i < aligned_cells; ++i) {
         for (uint32_t j = 0; j < aligned_cells; ++j) {
-            printf("%6.3f ", dense[i*aligned_cells + j]);
-            if (j > 0 && j % 16 == 0) {
-                if (j % 32 == 0) {
+            printf("%6.2f ", dense[i*aligned_cells + j]);
+            if (j > 0 && (j+1) % 16 == 0) {
+                if ((j+1) % 32 == 0) {
                     printf("|| ");
                 } else {
                     printf("| ");

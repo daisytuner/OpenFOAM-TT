@@ -6,13 +6,13 @@
 #include <debug/dprint.h>
 
 #ifndef KERNEL_OP
-#define KERNEL_OP sub
+#define KERNEL_OP 1
 #endif
 
-#if KERNEL_OP == add
+#if KERNEL_OP == 0
 #define op_tiles add_tiles
 #define op_tiles_init add_tiles_init
-#elif KERNEL_OP == sub
+#elif KERNEL_OP == 1
 #define op_tiles sub_tiles
 #define op_tiles_init sub_tiles_init
 #endif
