@@ -1,14 +1,17 @@
 #pragma once
 
 #include <scalarField.H>
-#include <tt_impls.hpp>
 
 namespace Foam::daisy {
 
 constexpr float DEFAULT_SP_MATCHER_TOL = 1e-10;
 constexpr float DEFAULT_TF32_MATCHER_TOL = 1e-7;
 
-#if TT_IMPL == TT_IMPL_DENSE
+#define TT_IMPL_LDU 0
+#define TT_IMPL_DENSE 10
+#define TT_IMPL_ELLPACK 20
+
+#if defined(TT_IMPL) && TT_IMPL == TT_IMPL_DENSE
 constexpr float DEFAULT_MATCHER_TOL = DEFAULT_TF32_MATCHER_TOL;
 #else
 constexpr float DEFAULT_MATCHER_TOL = DEFAULT_SP_MATCHER_TOL;
