@@ -132,9 +132,9 @@ ReusableTtBuffer& copy_scalarField_to_device_as_dense_mat(BufferPool& bufferPool
 }
 
 ReusableTtBuffer& copy_scalarField_to_device(BufferPool& bufferPool, const Foam::scalarField& field) {
-    #if TT_IMPL == TT_IMPL_LDU
+    #if TT_IMPL == TT_IMPL_LDU || TT_IMPL == TT_IMPL_ELLPACK
         return copy_scalarField_to_device_bare(bufferPool, field);
-    #elif TT_IMPL == TT_IMPL_DENSE || TT_IMPL == TT_IMPL_ELLPACK
+    #elif TT_IMPL == TT_IMPL_DENSE
         return copy_scalarField_to_device_as_dense_mat(bufferPool, field);
     #else
         #error unsupported TT IMPL TT_IMPL
@@ -234,9 +234,9 @@ void copy_scalarField_from_device(
     Foam::scalarField* field,
     uint32_t buf_offset
 ) {
-    #if TT_IMPL == TT_IMPL_LDU
+    #if TT_IMPL == TT_IMPL_LDU || TT_IMPL == TT_IMPL_ELLPACK
         copy_scalarField_from_device_bare(bufferPool, buffer, field, buf_offset);
-    #elif TT_IMPL == TT_IMPL_DENSE || TT_IMPL == TT_IMPL_ELLPACK
+    #elif TT_IMPL == TT_IMPL_DENSE
         copy_scalarField_from_device_dense_mat(bufferPool, buffer, field, buf_offset);
     #else
         #error unsupported TT IMPL TT_IMPL

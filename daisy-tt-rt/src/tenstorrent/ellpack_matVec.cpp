@@ -36,8 +36,10 @@ void tt_launch_ellpack_matVecOp(
     auto [num_cores, used_cores, core_group_1, core_group_2, work_per_core1, work_per_core2] =
         tt::tt_metal::split_work_to_cores(avail_cores, batches_total);
 
+    #if TT_DEBUG > 0
     std::cout << "Using " << num_cores << " cores to process " << batches_total << " batches, " << batch_size << " tiles each ("
               << work_per_core1 << " on " << core_group_1.num_cores() << ", " << work_per_core2 << " on " << core_group_2.num_cores() << "; " << vec_chunks_total << " vec chunks (" << vec_entries_per_chunk << " floats/chunk))" << std::endl;
+    #endif
 
     auto input_tile_count = batch_size * 2;
     auto vector_chunk_count = 32u; // at least

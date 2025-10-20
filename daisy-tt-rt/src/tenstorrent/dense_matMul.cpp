@@ -304,8 +304,10 @@ void tt_launch_dense_matMul_small(
     auto [num_cores, all_cores, core_group_1, core_group_2, work_per_core1, work_per_core2] =
         tt_metal::split_work_to_cores(core_grid, num_output_tiles_total);
 
+    #if TT_DEBUG > 0
     std::cout << "Using " << num_cores << " cores to process " << num_output_tiles_total << " tiles. ("
               << work_per_core1 << " on " << core_group_1.num_cores() << ", " << work_per_core2 << " on " << core_group_2.num_cores() << ")" << std::endl;
+    #endif
 
     // Extracting Matrix dimensions from input/output vectors and converting to tile coordinates.
     // The accelerator works with 32x32 tiles, so we need to convert from element dimensions
