@@ -13,6 +13,21 @@ namespace tt::daisy::foam {
 
 constexpr size_t tt_block_size = 1024;
 
+ReusableTtBuffer& allocate_field_buffer(
+    BufferPool& bufferPool,
+    uint32_t num_elements
+);
+
+ReusableTtBuffer& allocate_field_buffer_bare(
+    BufferPool& bufferPool,
+    uint32_t num_elements
+);
+
+ReusableTtBuffer& allocate_field_buffer_1tile(
+    BufferPool& bufferPool,
+    uint32_t num_elements
+);
+
 ReusableTtBuffer& copy_scalarField_to_device(
     BufferPool& bufferPool,
     const Foam::scalarField& field

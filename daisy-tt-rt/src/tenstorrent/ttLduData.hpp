@@ -40,6 +40,7 @@ struct tt_ldu_meta {
 
     // -------------- ellpack meta
     bool ellpack_on_device_ = false;
+    bool ellpack_addr_on_device_ = false;
 
     uint32_t ellpack_cols_ = 0;
 

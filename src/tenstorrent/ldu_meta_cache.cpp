@@ -1,6 +1,7 @@
 #include "ldu_meta_cache.hpp"
 #include "buffer_pool.hpp"
 #include "device_transfers.hpp"
+#include <iostream>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
@@ -47,6 +48,8 @@ void clear_tt_meta(const void* key, bool clear_addrs, bool clear_contents) {
             ZoneScopedN("TT Meta clear addr");
             #endif
             meta.addrs_on_device_ = false;
+            meta.ellpack_addr_on_device_ = false;
+            std::cout << "Cleared TT meta addrs for " << key << std::endl;
         }
         if (clear_contents && meta.contents_on_device_) {
             #ifdef TRACY_ENABLE
@@ -54,6 +57,7 @@ void clear_tt_meta(const void* key, bool clear_addrs, bool clear_contents) {
             #endif
             meta.contents_on_device_ = false;
             meta.dense_on_device_ = false;
+            meta.ellpack_on_device_ = false;
         }
     } // never uploaded to begin with
 }

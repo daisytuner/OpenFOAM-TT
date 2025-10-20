@@ -98,7 +98,6 @@ void MAIN {
         DeviceZoneScopedN("Batch");
         uint32_t end_tile_in_batch = std::min(num_tiles, tile + tiles_per_batch);
 
-        UNPACK(DPRINT << "waiting on DST" << ENDL());
         tile_regs_acquire();
 
         {
@@ -193,22 +192,19 @@ void MAIN {
 //        cb_release_tile(cb_collect);
         {
             DeviceZoneScopedN("ReleaseCollect");
-            UNPACK(DPRINT << "Releasing collect" << ENDL());
+            // UNPACK(DPRINT << "Releasing collect" << ENDL());
             cb_pop_front(cb_collect, tiles_per_batch);
         }
 
         // cb_release_tile(cb_dat);
-        UNPACK(DPRINT << "Releasing dat" << ENDL());
+        // UNPACK(DPRINT << "Releasing dat" << ENDL());
         cb_pop_front(cb_dat, tiles_per_batch);
 
         // cb_release_tile(cb_addr);
         // UNPACK((llk_unpack_release_tile<false, true>(cb_addr)));
         // PACK(llk_pack_release_tile(cb_addr));
-        UNPACK(DPRINT << "Releasing addr" << ENDL());
+        // UNPACK(DPRINT << "Releasing addr" << ENDL());
         cb_pop_front(cb_addr, tiles_per_batch);
-
-        PACK(DPRINT << "Packer iter done" << ENDL());
-        MATH(DPRINT << "Math iter done" << ENDL());
 
         
         tile_regs_release();

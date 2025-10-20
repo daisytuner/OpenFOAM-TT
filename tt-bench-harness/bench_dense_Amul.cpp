@@ -21,6 +21,7 @@
 #include "ttLduData.hpp"
 #include "Field.H"
 #include "tmp.H"
+#include "ref_Amul.hpp"
 
 using namespace tt::daisy;
 using namespace tt::daisy::foam;
@@ -180,12 +181,13 @@ int main() {
 
     tt::tt_metal::Finish(device->command_queue(0));
 
-    Foam::Info << "Result: " << result << Foam::endl;
+    Foam::scalarField expected(cells);
 
-    Foam::scalarField expected(cells, 6.0);
+    refAmul(lduA, expected, inVec);
 
     if (!Foam::daisy::matches(result, expected)) {
         Foam::SeriousError << "FAIL Expected: " << expected << Foam::endl;
+        Foam::Info << "Result: " << result << Foam::endl;
     }
 
     tt::tt_metal::CloseDevice(device);

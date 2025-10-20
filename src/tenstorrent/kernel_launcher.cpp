@@ -538,14 +538,15 @@ void tt_compute_amul(KernelLauncher& k, tt_ldu_meta& tt_meta, ReusableTtBuffer& 
     #if TT_IMPL == TT_IMPL_LDU
         k.launch_amul(tt_meta, *tt_psi.buffer, *tt_Apsi.buffer, 0);
     #elif TT_IMPL == TT_IMPL_DENSE
+        auto aligned_cells = tt::round_up(tt_meta.cell_count, 32);
         tt_launch_dense_matMul(
             k.device_,
             *tt_meta.d_dense_,
             *tt_psi.buffer,
             *tt_Apsi.buffer,
-            tt_meta.cell_count,
+            aligned_cells,
             32,
-            tt_meta.cell_count,
+            aligned_cells,
             1,
             false,
             k.kernel_dir_
@@ -617,35 +618,27 @@ void tt_compute_matBinOp(
     tt_ldu_meta& tt_meta_res,
     const tt_ldu_meta& a_tt_meta,
     const tt_ldu_meta& b_tt_meta,
-    std::string opSymbol
+    MatBinOp opSymbol
 ) {
     #if TT_IMPL == TT_IMPL_LDU
         if (&tt_meta_res != &a_tt_meta) {
             throw std::runtime_error("for LDU matBinOp, the result mat must be the same as the first operand mat");
         }
-        if (opSymbol == "add") {
+        if (opSymbol == MatBinOp::ADD) {
             k.launch_matAddAssign(tt_meta_res, b_tt_meta);
-        } else if (opSymbol == "sub") {
+        } else if (opSymbol == MatBinOp::SUB) {
             k.launch_matSubAssign(tt_meta_res, b_tt_meta);
         } else {
-            throw std::runtime_error("unsupported opSymbol " + opSymbol);
+            throw std::runtime_error("unsupported opSymbol " + std::to_string(static_cast<int>(opSymbol)));
         }
     #elif TT_IMPL == TT_IMPL_DENSE
-        std::string op;
-        if (opSymbol == "+") {
-            op = "add";
-        } else if (opSymbol == "-") {
-            op = "sub";
-        } else {
-            throw std::runtime_error("unsupported opSymbol " + opSymbol);
-        }
         tt_launch_dense_matBinOp(
             k.device_,
             *a_tt_meta.d_dense_,
             *b_tt_meta.d_dense_,
             *tt_meta_res.d_dense_,
             a_tt_meta.cell_count,
-            op,
+            opSymbol,
             k.kernel_dir_
         );
     #elif TT_IMPL == TT_IMPL_ELLPACK
