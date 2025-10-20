@@ -43,6 +43,7 @@ struct tt_ldu_meta {
     bool ellpack_addr_on_device_ = false;
 
     uint32_t ellpack_cols_ = 0;
+    bool ellpack_dat_tiled_faced_ = true;
 
     uint32_t* ellpack_addr_ = nullptr;
     std::shared_ptr<tt::tt_metal::Buffer> d_ellpack_vals_ = nullptr;

@@ -10,60 +10,124 @@
 #include <unistd.h>
 #include <tools/profiler/kernel_profiler.hpp>
 
-using std::uint32_t;
+#ifndef FACE_LAYOUT
+#define FACE_LAYOUT 1
+#endif
 
 namespace NAMESPACE {
+
+/**
+ * Custom for 1-tile width
+ */
+uint32_t faced_offset(uint32_t row, uint32_t col) {
+    uint32_t in_face_row = row & 0xF;
+    uint32_t face_id = ((row & 0x10) >> 3) | ((col & 0x10) >> 4);
+    face_id += (row >> 5) * 4;
+    uint32_t in_face_col = col & 0xF;
+
+    return face_id * (16 * 16) + in_face_row * 16 + in_face_col;
+}
+
+bool collect_for(float* result, uint32_t addr, float* vec_ptr, uint32_t vec_chunk_offset, uint32_t vec_chunk_offset_end, uint32_t rowIdx, uint32_t colIdx) {
+
+    if (addr < vec_chunk_offset || addr >= vec_chunk_offset_end) {
+        if (addr == UINT32_MAX) {
+            return true;
+        }
+        DPRINT << " col [" << rowIdx << ", " << colIdx << "]: " << addr << " not in range" << ENDL();
+    } else {
+        auto val = vec_ptr[addr - vec_chunk_offset];
+        *result = val;
+
+        DPRINT << " col [" << rowIdx << ", " << colIdx << "] = " << val << ENDL();
+    }
+
+    return false;
+}
 
 void collect_for_mul_tile(uint32_t* addr_ptr, float* collect_ptr, float* vec_ptr, uint32_t vec_chunk_offset, uint32_t vecs_per_chunk) {
     const uint32_t vec_chunk_end = vec_chunk_offset + vecs_per_chunk;
 
-    for (int rowIdx = 0; rowIdx < 32; ++rowIdx) { // row and col of ellpack dat/addr. Transposed for collect
-        uint32_t* addr_row = addr_ptr + rowIdx * 32;
-        float* collect_col = collect_ptr + rowIdx;
+    constexpr uint32_t NEXT_ROW_OFFSET = (FACE_LAYOUT == 1) ? 16 : 32;
+    constexpr uint32_t NEXT_FACE_ROW_OFFSET = (FACE_LAYOUT == 1) ? (16*16 + 16) : 32;
+    constexpr uint32_t NEXT_FACE_COL_OFFSET = (FACE_LAYOUT == 1) ? (16*16 - 15) : 1;
 
+
+    float* collect_row = collect_ptr;
+    for (int rowIdx = 0; rowIdx < 32; ++rowIdx) {
+        uint32_t* addr_row = addr_ptr + rowIdx * 32;
+        bool upper_face = rowIdx < 16;
+
+        float* collect = collect_row;
         for (int colIdx = 0; colIdx < 32; ++colIdx) {
-            float* collect = collect_col + colIdx * 32;
 
             uint32_t adr = addr_row[colIdx];
 
-            if (adr < vec_chunk_offset || adr >= vec_chunk_end) {
-                if (adr == UINT32_MAX) {
-                    break;
-                }
-                // DPRINT << " col [" << colIdx << ", " << rowIdx << "]: " << adr << " not in range" << ENDL();
-            } else {
-                auto val = vec_ptr[adr - vec_chunk_offset];
-                *collect = val;
-                
-                // DPRINT << " col [" << colIdx << ", " << rowIdx << "] = " << val << ENDL();
-                
+            bool line_done = collect_for(collect, adr, vec_ptr, vec_chunk_offset, vec_chunk_end, rowIdx, colIdx);
+            if (line_done) {
+                break;
             }
+
+            if (colIdx == 15) {
+                collect += NEXT_FACE_COL_OFFSET;
+            } else {
+                collect += 1;
+            }
+        }
+        if (rowIdx == 15) {
+            collect_row += NEXT_FACE_ROW_OFFSET;
+        } else {
+            collect_row += NEXT_ROW_OFFSET;
         }
     }
 }
 
 void compute_mat_mul(float* dat_ptr, uint32_t* addr_ptr, float* collect_ptr, float* res_ptr) {
+    
+    constexpr uint32_t NEXT_ROW_OFFSET = (FACE_LAYOUT == 1) ? 16 : 32;
+    constexpr uint32_t NEXT_FACE_ROW_OFFSET = (FACE_LAYOUT == 1) ? (16*16 + 16) : 32;
+    constexpr uint32_t NEXT_FACE_COL_OFFSET = (FACE_LAYOUT == 1) ? (16*16 - 15) : 1;
 
+    float* collect_row = collect_ptr;
+    float* dat_row = dat_ptr;
     for (int idx = 0; idx < 32; ++idx) { // row and col of result of matmul
-        float* collect_col = collect_ptr + idx;
+
         uint32_t* addr_row = addr_ptr + 32 * idx;
-        float* dat_row = dat_ptr + 32 * idx;
+
         float sum = 0.0f;
+        float* dat_entry = dat_row;
+        float* collect_entry = collect_row;
         for (int k = 0; k < 32; ++k) {
+            bool face_left = k < 16;
             uint32_t adr = addr_row[k];
             if (adr != UINT32_MAX) {
-                float mat_in = dat_row[k];
-                float vec_in = collect_col[k * 32];
+                float mat_in = *dat_entry;
+                float vec_in = *collect_entry;
                 float elem_res = sum + mat_in * vec_in;
 
                 // DPRINT << "  [" << idx << "," << k << "]: " << sum << " + "  << mat_in << " * " << vec_in << "  => " << elem_res << ENDL();
 
                 sum = elem_res;
+                if (k == 15) {
+                    collect_entry += NEXT_FACE_COL_OFFSET;
+                    dat_entry += NEXT_FACE_COL_OFFSET;
+                } else {
+                    collect_entry += 1;
+                    dat_entry += 1;
+                }
             } else {
                 break; // early abort, because right now it's left-aligned
             }
         }
         res_ptr[idx] = sum;
+
+        if (idx == 15) {
+            collect_row += NEXT_FACE_ROW_OFFSET;
+            dat_row += NEXT_FACE_ROW_OFFSET;
+        } else {
+            collect_row += NEXT_ROW_OFFSET;
+            dat_row += NEXT_ROW_OFFSET;
+        }
     }
 }
 
