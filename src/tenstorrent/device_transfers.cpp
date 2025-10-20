@@ -806,7 +806,7 @@ void copy_ldu_to_ellpack(
     auto allocEntries = tt::round_up(cells, 32)*aligned_cols;
 
     auto dat_buf = new float[allocEntries]; // currently in tiles, but without faces (32 elements per row then next row)
-    auto addr_buf = tt_meta.ellpack_addr_? nullptr : new uint32_t[allocEntries]; // should be cached per mesh, not matrix
+    auto addr_buf = tt_meta.ellpack_addr_on_device_? nullptr : new uint32_t[allocEntries]; // should be cached per mesh, not matrix
     auto col_counts = new uint32_t[cells];
     for (auto i = 0; i < cells; ++i) {
         col_counts[i] = 0;
@@ -942,6 +942,8 @@ void copy_ldu_to_ellpack(
         dat_buf,
         true  // we want to free the buffers
     );
+    tt_meta.ellpack_on_device_ = true;
+
     if (addr_buf) {
         tt::tt_metal::EnqueueWriteBuffer(
             device->command_queue(0),
@@ -950,13 +952,11 @@ void copy_ldu_to_ellpack(
             false // source buffer lives on
         );
         tt_meta.ellpack_addr_ = addr_buf;
+        tt_meta.ellpack_addr_on_device_ = true;
     }
 
     delete[] dat_buf;
     delete[] col_counts;
-
-    tt_meta.ellpack_on_device_ = true;
-
 }
 
 tt_ldu_meta& ensure_lduMat_on_device(
@@ -983,7 +983,7 @@ tt_ldu_meta& ensure_lduMat_on_device(
 
         auto& tt_meta = get_tt_meta(lduMat, ldu_tt_meta_map);
 
-        if (!tt_meta.ellpack_on_device_) {
+        if (!tt_meta.ellpack_on_device_ || !tt_meta.ellpack_addr_on_device_) {
             copy_ldu_to_ellpack(k, tt_meta, lduMat);
         }
 

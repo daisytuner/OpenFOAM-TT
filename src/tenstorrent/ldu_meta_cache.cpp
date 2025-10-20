@@ -48,6 +48,7 @@ void clear_tt_meta(const void* key, bool clear_addrs, bool clear_contents) {
             ZoneScopedN("TT Meta clear addr");
             #endif
             meta.addrs_on_device_ = false;
+            meta.ellpack_addr_on_device_ = false;
             std::cout << "Cleared TT meta addrs for " << key << std::endl;
         }
         if (clear_contents && meta.contents_on_device_) {
