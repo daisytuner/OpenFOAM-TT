@@ -28,6 +28,20 @@ steps:
     # Install OpenFOAM
     ./Allwmake -j128
 
+    # Build driven cavity example
+    cd ${WM_PROJECT_DIR}/tutorials/incompressibleFluid/cavity
+    ${FOAM_APPBIN}/blockMesh
+    cd ${WM_PROJECT_DIR}
+
+    # Build motorcycle example
+    cd ${WM_PROJECT_DIR}/tutorials/incompressibleFluid/motorBikeSteady
+    cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/geometry/
+    ${FOAM_APPBIN}/surfaceFeatures
+    ${FOAM_APPBIN}/blockMesh
+    ${FOAM_APPBIN}/snappyHexMesh -overwrite
+    ${FOAM_APPBIN}/patchSummary
+    ${FOAM_APPBIN}/potentialFoam
+
 
     # Build tests with CMake and Ninja
 
@@ -51,20 +65,6 @@ steps:
 
     # CLI runners will automatically measure application performance with non-instrumented binaries
     # and then run with instrumented binaries for coverage data collection
-
-    # Build driven cavity example
-    cd ${WM_PROJECT_DIR}/tutorials/incompressibleFluid/cavity
-    ${FOAM_APPBIN}/blockMesh
-    cd ${WM_PROJECT_DIR}
-
-    # Build motorcycle example
-    cd ${WM_PROJECT_DIR}/tutorials/incompressibleFluid/motorBikeSteady
-    cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/geometry/
-    ${FOAM_APPBIN}/surfaceFeatures
-    ${FOAM_APPBIN}/blockMesh
-    ${FOAM_APPBIN}/snappyHexMesh -overwrite
-    ${FOAM_APPBIN}/patchSummary
-    ${FOAM_APPBIN}/potentialFoam
 
   run:
     cavity:
