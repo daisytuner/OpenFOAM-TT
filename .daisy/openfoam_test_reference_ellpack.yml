@@ -34,13 +34,13 @@ steps:
     cd ${WM_PROJECT_DIR}
 
     # Build motorcycle example
-    #cd ${WM_PROJECT_DIR}/tutorials/incompressibleFluid/motorBikeSteady
-    #cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/geometry/
-    #${FOAM_APPBIN}/surfaceFeatures
-    #${FOAM_APPBIN}/blockMesh
-    #${FOAM_APPBIN}/snappyHexMesh -overwrite
-    #${FOAM_APPBIN}/patchSummary
-    #${FOAM_APPBIN}/potentialFoam
+    cd ${WM_PROJECT_DIR}/tutorials/incompressibleFluid/motorBikeSteady
+    cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/geometry/
+    ${FOAM_APPBIN}/surfaceFeatures
+    ${FOAM_APPBIN}/blockMesh
+    ${FOAM_APPBIN}/snappyHexMesh -overwrite
+    ${FOAM_APPBIN}/patchSummary
+    ${FOAM_APPBIN}/potentialFoam
 
 
     # Build tests with CMake and Ninja
