@@ -229,9 +229,6 @@ int main() {
 
     tt::tt_metal::Finish(device->command_queue(0));
 
-    tt::tt_metal::detail::ReadDeviceProfilerResults(device);
-
-
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id3);
         uint64_t num_tiles = (lduA.diag().size() + tt::constants::TILE_WIDTH - 1) / tt::constants::TILE_WIDTH;
@@ -253,16 +250,18 @@ int main() {
         __daisy_instrumentation_finalize(region_id3);
     #endif
 
+     tt::tt_metal::detail::ReadDeviceProfilerResults(device);
+
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata4 = {
         .file_name = "bench_ellpack_Amul.cpp",
-        .function_name = "scalarField_copy",
-        .line_begin = 173,
-        .line_end = 180,
+        .function_name = "scalarField_from_device_bare",
+        .line_begin = 295,
+        .line_end = 296,
         .column_begin = 0,
         .column_end = 0,
         .target_type = "TENSTORRENT",
-        .region_uuid = "scalarField_copy"
+        .region_uuid = "scalarField_from_device_bare"
     };
     unsigned long long region_id4 = __daisy_instrumentation_init(&metadata4, __DAISY_EVENT_SET_NONE);
     __daisy_instrumentation_enter(region_id4);
