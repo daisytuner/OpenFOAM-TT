@@ -1,12 +1,20 @@
 #include "ellpack_matVec.hpp"
+#include "ReusableTtBuffer.hpp"
+#include "hostdevcommon/kernel_structs.h"
+#include "tt-metalium/buffer.hpp"
+#include "tt-metalium/tt_backend_api_types.hpp"
 
+#include <memory>
 #include <tt-metalium/host_api.hpp>
 #include <tt-metalium/work_split.hpp>
 #include <filesystem>
 #include <tt-metalium/kernel_types.hpp>
 #include <tt-metalium/tensor_accessor_args.hpp>
+#include <tt-metalium/tt_metal.hpp>
 
 namespace tt::daisy {
+
+#define TT_DEBUG 1
 
 void tt_launch_ellpack_matVecOp(
     tt::tt_metal::IDevice* device,
@@ -15,6 +23,8 @@ void tt_launch_ellpack_matVecOp(
     tt::tt_metal::Buffer& d_resVec,
     const std::filesystem::path& kernel_dir
 ) {
+
+    constexpr bool diag_wb = true;
 
     tt::tt_metal::Program program;
     // assume 1 tile wide ellpack (in allocation)
@@ -26,10 +36,10 @@ void tt_launch_ellpack_matVecOp(
     auto vec_entries_per_chunk = vector_page_size / 4u;
     auto vec_tile_h_per_chunk = vec_entries_per_chunk / 32u;
     auto vec_chunks_total = (ell_tiles_total + vec_tile_h_per_chunk -1) / vec_tile_h_per_chunk; // 1024 byte pages -> 256 floats -> 8 tiles for each vec-chunk
-    uint32_t batch_size = 8u;
+
+    uint32_t batch_size = diag_wb? 4u : 8u;
 
     auto batches_total = (ell_tiles_total + batch_size - 1) / batch_size;
-
 
     auto avail_cores = device->compute_with_storage_grid_size();
 
@@ -43,9 +53,11 @@ void tt_launch_ellpack_matVecOp(
 
     auto input_tile_count = batch_size * 2;
     auto vector_chunk_count = 32u; // at least
+    auto result_page_count = 4;
 
     size_t vector_size = vector_page_size * 2;
 
+    std::cout << "Reaching before buf creation TF32" << std::endl;
     // c0 output (vector)
     // c1 input (mat - ellpack data)
     // c2 input (mat - ellpack addr)
@@ -57,11 +69,13 @@ void tt_launch_ellpack_matVecOp(
         tt_metal::CircularBufferConfig(
             ell_tile_page_size * input_tile_count,
             {
-                {CBIndex::c_1, data_format},
+                {CBIndex::c_1, DataFormat::Float32},
             }
         )
         .set_page_size(CBIndex::c_1, ell_tile_page_size)
     );
+
+    std::cout << "Reaching after buf creation TF32" << std::endl;
 
     tt_metal::CreateCircularBuffer(
         program,
@@ -69,7 +83,7 @@ void tt_launch_ellpack_matVecOp(
         tt_metal::CircularBufferConfig(
             ell_tile_page_size * input_tile_count,
             {
-                {CBIndex::c_4, data_format},
+                {CBIndex::c_4, DataFormat::Float32},
             }
         )
         .set_page_size(CBIndex::c_4, ell_tile_page_size)
@@ -86,16 +100,17 @@ void tt_launch_ellpack_matVecOp(
         )
         .set_page_size(CBIndex::c_2, ell_tile_page_size));
 
+    auto res_buf_page_size = (diag_wb? tt_metal::detail::TileSize(data_format) : vector_page_size);
     tt_metal::CreateCircularBuffer(
         program,
         used_cores,  // create on all cores
         tt_metal::CircularBufferConfig(
-            vector_page_size * vector_chunk_count,
+            res_buf_page_size * result_page_count,
             {
                 {CBIndex::c_0, data_format},
             }
         )
-        .set_page_size(CBIndex::c_0, vector_page_size)
+        .set_page_size(CBIndex::c_0, res_buf_page_size)
     );
 
     tt_metal::CreateCircularBuffer(
@@ -127,23 +142,32 @@ void tt_launch_ellpack_matVecOp(
     tt_metal::TensorAccessorArgs(d_resVec).append_to(wr_compile_args, wr_common_args);
     auto kernel_wr_0 = tt_metal::CreateKernel(
         program,
-        kernel_dir / "ellpack" / "vec_bare_result_wb.cpp",
+        kernel_dir / "ellpack" / (diag_wb? "vec_diag_result_wb.cpp" : "vec_bare_result_wb.cpp"),
         used_cores,
         tt_metal::WriterDataMovementConfig(
             wr_compile_args
         )
     );
 
+    std::vector<UnpackToDestMode> unpack_modes(NUM_CIRCULAR_BUFFERS, UnpackToDestMode::Default);
+    // unpack_modes[CBIndex::c_1] = UnpackToDestMode::UnpackToDestFp32;
+    // unpack_modes[CBIndex::c_4] = UnpackToDestMode::UnpackToDestFp32;
+
     auto kernel_comp_0 = tt_metal::CreateKernel(
         program,
-        kernel_dir / "ellpack" / "mat_vec_compute_naive.cpp",
+        kernel_dir / "ellpack" / (diag_wb? "mat_vec_compute_matmul.cpp" : "mat_vec_compute_naive.cpp"),
         used_cores,
         tt_metal::ComputeConfig {
             .math_fidelity = MathFidelity::HiFi4,
             .fp32_dest_acc_en = true,
+            .dst_full_sync_en = false,
+            .unpack_to_dest_mode = unpack_modes,
+            .math_approx_mode = false,
             .compile_args = {},
         }
     );
+
+    std::cout << "Reaching after kernel creation TF32" << std::endl;
 
     rd_common_args.insert(
         rd_common_args.begin(),
@@ -165,7 +189,9 @@ void tt_launch_ellpack_matVecOp(
         program,
         kernel_comp_0,
         {
-            vec_chunks_total
+            vec_chunks_total,
+            1, // vec_chunk_batch_size
+            1 // stream vec
         }
     );
 
@@ -173,6 +199,7 @@ void tt_launch_ellpack_matVecOp(
         wr_common_args.begin(),
         {
             d_resVec.address(),
+            batch_size,
         }
     );
 
@@ -233,7 +260,9 @@ void tt_launch_ellpack_matVecOp(
                 core,
                 {
                     start_batch,
-                    units // units is in 1 vec-page so the minimum the WB can do
+                    units,
+                    start_tile,
+                    tiles,
                 }
             );
 
@@ -241,7 +270,13 @@ void tt_launch_ellpack_matVecOp(
         }
     }
 
+    std::cout << "Reaching before launch TF32" << std::endl;
+
+    tt_metal::detail::CompileProgram(device, program);
+
     tt_metal::EnqueueProgram(device->command_queue(0), program, false);
+
+    std::cout << "Reaching after launch TF32" << std::endl;
 }
 
 }   // namespace tt::daisy::foam

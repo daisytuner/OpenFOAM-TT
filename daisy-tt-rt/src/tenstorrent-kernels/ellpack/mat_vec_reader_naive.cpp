@@ -51,6 +51,10 @@ void kernel_main() {
         auto addr_wr_addr = get_write_ptr(cb_addr);
         for (uint32_t i = 0; i < tiles_per_batch; ++i, ++tile) {
             noc_async_read_page(tile, ell_val_buf, val_wr_addr);
+            // float* val_ptr = reinterpret_cast<float*>(val_wr_addr);
+            // for (int j = 0; j < 1024; ++j) {
+            //     *val_ptr++ = 2.0f;
+            // }
             val_wr_addr += mat_page_size;
             noc_async_read_page(tile, ell_addr_buf, addr_wr_addr);
             addr_wr_addr += mat_page_size;
@@ -63,6 +67,12 @@ void kernel_main() {
             noc_async_read_barrier();
             if (vec_chunk == 0) { // we let the batch reads run concurrent with the first vecChunk, so mark them as available now
                 DeviceZoneScopedN("PushingTiles");
+                // float* dat_ptr = reinterpret_cast<float*>(get_write_ptr(cb_dat));
+                // for (int d = 0; d < 16; ++d) {
+                //     for (int e = 0; e < 16; ++e) {
+                //         DPRINT << " dat[" << d << "," << e << "] = " << dat_ptr[d*16+e] << ENDL();
+                //     }
+                // }
                 // float* vecf_ptr = reinterpret_cast<float*>(vec_ptr);
                 // DPRINT << "vec" << vec_chunk << ENDL();
                 // for (int i = 0; i < 32; ++i) {
