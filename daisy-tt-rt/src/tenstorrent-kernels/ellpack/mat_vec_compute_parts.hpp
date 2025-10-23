@@ -25,12 +25,12 @@ static bool collect_for(float* result, uint32_t addr, float* vec_ptr, uint32_t v
         if (addr == UINT32_MAX) {
             return true;
         }
-        DPRINT << " col [" << rowIdx << ", " << colIdx << "]: " << addr << " not in range" << ENDL();
+        // DPRINT << " col [" << rowIdx << ", " << colIdx << "]: " << addr << " not in range" << ENDL();
     } else {
         auto val = vec_ptr[addr - vec_chunk_offset];
         *result = val;
 
-        DPRINT << " col [" << rowIdx << ", " << colIdx << "] = " << val << ENDL();
+        // DPRINT << " col [" << rowIdx << ", " << colIdx << "] = " << val << " from " << addr << ENDL();
     }
 
     return false;
@@ -95,9 +95,7 @@ static inline void unpacker_collect(
 
     for (uint32_t v = 0; v < vec_chunks; ++v) {
         if (load_vecs) {
-            for (uint32_t vc = 0; vc < chunk_batch_size; ++vc) {
-                cb_wait_front(cb_vec, 1);
-            }
+            cb_wait_front(cb_vec, chunk_batch_size);
         }
         float* vec_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_vec));
 
@@ -111,9 +109,7 @@ static inline void unpacker_collect(
             tile_collect_ptr += 1024;
         }
         if (unload_vecs) {
-            for (uint32_t vc = 0; vc < chunk_batch_size; ++vc) {
-                cb_pop_front(cb_vec, 1);
-            }
+            cb_pop_front(cb_vec, chunk_batch_size);
         }
     }
 #endif

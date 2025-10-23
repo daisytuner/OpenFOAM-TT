@@ -57,7 +57,6 @@ void tt_launch_ellpack_matVecOp(
 
     size_t vector_size = vector_page_size * 2;
 
-    std::cout << "Reaching before buf creation TF32" << std::endl;
     // c0 output (vector)
     // c1 input (mat - ellpack data)
     // c2 input (mat - ellpack addr)
@@ -69,13 +68,11 @@ void tt_launch_ellpack_matVecOp(
         tt_metal::CircularBufferConfig(
             ell_tile_page_size * input_tile_count,
             {
-                {CBIndex::c_1, DataFormat::Float32},
+                {CBIndex::c_1, data_format},
             }
         )
         .set_page_size(CBIndex::c_1, ell_tile_page_size)
     );
-
-    std::cout << "Reaching after buf creation TF32" << std::endl;
 
     tt_metal::CreateCircularBuffer(
         program,
@@ -83,7 +80,7 @@ void tt_launch_ellpack_matVecOp(
         tt_metal::CircularBufferConfig(
             ell_tile_page_size * input_tile_count,
             {
-                {CBIndex::c_4, DataFormat::Float32},
+                {CBIndex::c_4, data_format},
             }
         )
         .set_page_size(CBIndex::c_4, ell_tile_page_size)
@@ -95,7 +92,10 @@ void tt_launch_ellpack_matVecOp(
         tt_metal::CircularBufferConfig(
             ell_tile_page_size * input_tile_count,
             {
-                {CBIndex::c_2, tt::DataFormat::UInt32}
+                {CBIndex::c_2, tt::DataFormat::Float32} // we MUST lie, because only then will tt-runtime unlock TF32 support (the host runtime maps the "dest" type, which is used for DST and SrcA/SrcB regs, Tf32 cannot be manually set, but must be chosed as Dest type to not loose precision)
+                // tensix driver will use the dest type as is for unpack byte size. And will use it as is for SrcA/SrcB input type (which if FP32 will expect FP16 and therefore misinterpret the unpacked data)
+                // CBs throw, if we try to use them with TF32 explicitly, because there is a switch case that does not define a byte-size
+                // default mapping will either map FP16 as dest type (by default) or FP32 (if UnpackToDestFp32 is set. No other effects on the host side)
             }
         )
         .set_page_size(CBIndex::c_2, ell_tile_page_size));
@@ -131,7 +131,7 @@ void tt_launch_ellpack_matVecOp(
     tt_metal::TensorAccessorArgs(d_inVec).append_to(rd_compile_args, rd_common_args);
     auto kernel_rd_0 = tt_metal::CreateKernel(
         program,
-        kernel_dir / "ellpack" / "mat_vec_reader_naive.cpp",
+        kernel_dir / "ellpack" / (0? "mat_vec_reader_collection.cpp" : "mat_vec_reader_naive.cpp"),
         used_cores,
         tt_metal::ReaderDataMovementConfig(
             rd_compile_args
@@ -160,14 +160,12 @@ void tt_launch_ellpack_matVecOp(
         tt_metal::ComputeConfig {
             .math_fidelity = MathFidelity::HiFi4,
             .fp32_dest_acc_en = true,
-            .dst_full_sync_en = false,
-            .unpack_to_dest_mode = unpack_modes,
-            .math_approx_mode = false,
+            // .dst_full_sync_en = false,
+            // .unpack_to_dest_mode = unpack_modes,
+            // .math_approx_mode = false,
             .compile_args = {},
         }
     );
-
-    std::cout << "Reaching after kernel creation TF32" << std::endl;
 
     rd_common_args.insert(
         rd_common_args.begin(),
@@ -176,6 +174,7 @@ void tt_launch_ellpack_matVecOp(
             tt_meta.d_ellpack_addrs_->address(),
             d_inVec.address(),
             vec_chunks_total,
+            1, // vec_chunk_batch_size
         }
     );
 
@@ -270,13 +269,7 @@ void tt_launch_ellpack_matVecOp(
         }
     }
 
-    std::cout << "Reaching before launch TF32" << std::endl;
-
-    tt_metal::detail::CompileProgram(device, program);
-
     tt_metal::EnqueueProgram(device->command_queue(0), program, false);
-
-    std::cout << "Reaching after launch TF32" << std::endl;
 }
 
 }   // namespace tt::daisy::foam

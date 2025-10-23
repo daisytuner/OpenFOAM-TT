@@ -915,19 +915,16 @@ void copy_ldu_to_ellpack(
         }
     }
 
-    if (addr_buf) { // fill with DontCare entries to allow  terminating list of values per line
-        for (auto i = 0; i < cells; ++i) {
-            for (auto j = col_counts[i]; j < aligned_cols; ++j) {
-                auto tile_face_off = offset_into_tiled_mat(i, j, aligned_cols);
-                auto natural_off = i * aligned_cols + j;
-                dat_buf[tiled_dat? tile_face_off : natural_off] = 0.0f; // so we can run it through tile-wide mat-mul
+    // fill with DontCare entries to allow  terminating list of values per line
+    for (auto i = 0; i < tt::round_up(cells, 32); ++i) {
+        auto relevant_cols = i > cells? 0 : col_counts[i];
+        for (auto j = relevant_cols; j < aligned_cols; ++j) {
+            auto tile_face_off = offset_into_tiled_mat(i, j, aligned_cols);
+            auto natural_off = i * aligned_cols + j;
+            dat_buf[tiled_dat? tile_face_off : natural_off] = 0.0f; // so we can run it through tile-wide mat-mul
+            if (addr_buf) {
                 addr_buf[tiled_addr? tile_face_off : natural_off] = UINT32_MAX;
             }
-        }
-        for (auto i = cells; i < tt::round_up(cells, 32); ++i) { // clear the padding rows too
-            auto tile_face_off = offset_into_tiled_mat(i, 0, aligned_cols);
-            auto natural_off = i * aligned_cols;
-            addr_buf[tiled_addr? tile_face_off : natural_off] = UINT32_MAX;
         }
     }
 
@@ -938,13 +935,26 @@ void copy_ldu_to_ellpack(
     printf("ellpack mat %u x %u (max cols %u, avg cols %.2f):\n", cells, cells, max_cols, tt_meta.ellpack_avg_cols_);
     #if TT_DEBUG > 1
     auto print_addrs = addr_buf ? addr_buf : tt_meta.ellpack_addr_;
-    for (uint32_t i = 0; i < static_cast<uint32_t>(cells); ++i) {
-        printf("  %u: ", i);
-        for (uint32_t j = 0; j < col_counts[i]; ++j) {
+    for (uint32_t i = 0; i < tt::round_up(cells, 32u); ++i) {
+        uint32_t relevant_cols = 0;
+        if (static_cast<int32_t>(i) < cells) {
+            printf("  %u: ", i);
+            relevant_cols = col_counts[i];
+            for (uint32_t j = 0; j < relevant_cols; ++j) {
+                auto tile_face_off = offset_into_tiled_mat(i, j, aligned_cols);
+                auto natural_off = i * aligned_cols + j;
+            
+                printf("%4u:%8.5f ", print_addrs[tiled_addr? tile_face_off : natural_off], dat_buf[tiled_dat? tile_face_off : natural_off]);
+            }
+        }
+        for (uint32_t j = relevant_cols; j < aligned_cols; ++j) {
             auto tile_face_off = offset_into_tiled_mat(i, j, aligned_cols);
             auto natural_off = i * aligned_cols + j;
-        
-            printf("%3u:%6.3f ", print_addrs[tiled_addr? tile_face_off : natural_off], dat_buf[tiled_dat? tile_face_off : natural_off]);
+            auto val = dat_buf[tiled_dat? tile_face_off : natural_off];
+            auto addr = print_addrs[tiled_addr? tile_face_off : natural_off];
+            if (val != 0.0f || addr != UINT32_MAX) {
+                printf("badpad: %d: %4u:%8.5f ", j, addr, val);
+            }
         }
         printf("\n");
     }

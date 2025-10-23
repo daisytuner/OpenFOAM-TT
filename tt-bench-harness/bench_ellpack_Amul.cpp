@@ -27,6 +27,8 @@
 #include "tmp.H"
 #include "ref_Amul.hpp"
 
+#include "cavity-mesh.hpp"
+
 using namespace tt::daisy;
 using namespace tt::daisy::foam;
 

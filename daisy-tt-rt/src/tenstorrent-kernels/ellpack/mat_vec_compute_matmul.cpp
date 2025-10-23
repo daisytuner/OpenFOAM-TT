@@ -47,17 +47,19 @@ void MAIN {
     // binary_op_init_common(cb_dat, cb_dat, cb_collect);  // Unpack, Math, Pack
     // add_tiles_init(cb_dat, cb_dat);
 
-    mm_init(cb_dat, cb_collect, cb_res, 0);
+    mm_init(cb_dat, cb_collect, cb_res, 1);
 
     UNPACK(DPRINT << "ellpack matVec up: " << batches << " batch (" << tiles_per_batch << " tiles/batch), " << num_tiles << " tiles total, " << vec_chunks << "/" << vec_chunk_batch_size << " vec chunks" << ENDL());
 
     uint32_t tile = 0;
     for (uint32_t b = 0; b < batches; ++b) {
         DeviceZoneScopedN("Batch");
-        uint32_t end_tile_in_batch = std::min(num_tiles, tile + tiles_per_batch);            
+        uint32_t end_tile_in_batch = std::min(num_tiles, tile + tiles_per_batch);
+
+        tile_regs_acquire();
 
         {
-            DeviceZoneScopedN("WaitForCbTiles");
+            UNPACK(DeviceZoneScopedN("WaitForCbTiles"));
             cb_wait_front(cb_dat, tiles_per_batch);
             cb_wait_front(cb_addr, tiles_per_batch);
             cb_wait_front(cb_collect, tiles_per_batch);
@@ -79,34 +81,50 @@ void MAIN {
 
         // UNPACK(float* dat_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_dat)));
         // UNPACK(float* col_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_collect)));
-        // UNPACK(dat_ptr += 16*16*2);
-        // UNPACK(col_ptr += 16*16*2);
+        // // UNPACK(dat_ptr += 16*16*2);
+        // // UNPACK(col_ptr += 16*16*2);
         // for (int f = 0; f < 4; ++f) {
         //     for (int n = 0; n < 16; ++n) {
         //         UNPACK(DPRINT << " [" << n << "] ");
         //         for (int m = 0; m < 16; ++m) {
         //             UNPACK(auto dat_val = *dat_ptr++);
+        //             UNPACK(DPRINT << dat_val << " ");
+        //         }
+        //         UNPACK(DPRINT << ENDL());
+        //     }
+        //     UNPACK(DPRINT << "---" << ENDL());
+        // }
+        // UNPACK(DPRINT << "###" << ENDL());
+        // for (int f = 0; f < 4; ++f) {
+        //     for (int n = 0; n < 16; ++n) {
+        //         UNPACK(DPRINT << " [" << n << "] ");
+        //         for (int m = 0; m < 16; ++m) {
         //             UNPACK(auto col_val = *col_ptr++);
-        //             UNPACK(DPRINT << dat_val << "," << col_val << " ");
+        //             UNPACK(DPRINT << col_val << " ");
         //         }
         //         UNPACK(DPRINT << ENDL());
         //     }
         //     UNPACK(DPRINT << "---" << ENDL());
         // }
 
-        tile_regs_acquire();
-
         auto tiles = end_tile_in_batch - tile;
+        MATH(DPRINT << "Matmul " << tiles << " tiles" << ENDL());
+
         {
             MATH(DeviceZoneScopedN("Matmul"));
+            UNPACK(DeviceZoneScopedN("Matmul"));
             for (uint32_t i = 0; i < tiles; ++i) {
-                matmul_tiles(cb_dat, cb_collect, i, i, i, 0);
+                matmul_tiles(cb_dat, cb_collect, i, i, i, 1);
             }
         }
 
+        tile_regs_commit();
+
+        // MATH(dat_ptr += 16*16*2);
+        // MATH(col_ptr += 16*16*2);
+
         tile_regs_wait();
 
-        tile_regs_commit();
         cb_pop_front(cb_collect, tiles_per_batch);
         cb_pop_front(cb_dat, tiles_per_batch);
         cb_pop_front(cb_addr, tiles_per_batch);

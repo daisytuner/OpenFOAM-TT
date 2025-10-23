@@ -12,6 +12,7 @@ void kernel_main() {
     uint32_t ell_addr_base_addr = get_common_arg_val<uint32_t>(1);
     uint32_t inVec_base_addr = get_common_arg_val<uint32_t>(2);
     uint32_t vec_chunks = get_common_arg_val<uint32_t>(3);
+    uint32_t vec_chunk_batch_size = get_common_arg_val<uint32_t>(4);
 
     uint32_t first_tile_offset = get_arg_val<uint32_t>(0);
     uint32_t num_tiles = get_arg_val<uint32_t>(1); // how many tiles to read from the matrix
@@ -26,7 +27,7 @@ void kernel_main() {
     constexpr uint32_t mat_page_size = get_tile_size(cb_dat);
     constexpr uint32_t vec_page_size = 1024;
 
-    constexpr auto ell_val_args = TensorAccessorArgs<0, 4>();
+    constexpr auto ell_val_args = TensorAccessorArgs<0, 5>();
     const auto ell_val_buf = TensorAccessor(ell_val_args, ell_val_base_addr, mat_page_size);
 
     constexpr auto ell_addr_args = TensorAccessorArgs<ell_val_args.next_compile_time_args_offset(), ell_val_args.next_common_runtime_args_offset()>();
@@ -51,10 +52,6 @@ void kernel_main() {
         auto addr_wr_addr = get_write_ptr(cb_addr);
         for (uint32_t i = 0; i < tiles_per_batch; ++i, ++tile) {
             noc_async_read_page(tile, ell_val_buf, val_wr_addr);
-            // float* val_ptr = reinterpret_cast<float*>(val_wr_addr);
-            // for (int j = 0; j < 1024; ++j) {
-            //     *val_ptr++ = 2.0f;
-            // }
             val_wr_addr += mat_page_size;
             noc_async_read_page(tile, ell_addr_buf, addr_wr_addr);
             addr_wr_addr += mat_page_size;
