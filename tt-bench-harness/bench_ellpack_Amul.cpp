@@ -29,6 +29,10 @@
 
 #include "cavity-mesh.hpp"
 
+#ifndef ELLPACK_HW_IMPL
+#define ELLPACK_HW_IMPL EllpackHwImpl::FPU
+#endif
+
 using namespace tt::daisy;
 using namespace tt::daisy::foam;
 
@@ -100,7 +104,8 @@ int main() {
 
     BufferPool buffer_pool(device);
 
-    EllpackHwImpl impl = EllpackHwImpl::FPU;
+    EllpackHwImpl impl = ELLPACK_HW_IMPL;
+    std::cout << "Selected ellpack kernel impl: " << static_cast<int>(impl) << std::endl;
 
     // copying starts
 
@@ -199,7 +204,8 @@ int main() {
         tt_meta_a,
         *d_inVec.buffer,
         *d_resWarmup.buffer,
-        kernel_dir
+        kernel_dir,
+        impl
     );
 
     tt::tt_metal::Finish(device->command_queue(0));
@@ -228,7 +234,8 @@ int main() {
         tt_meta_a,
         *d_inVec.buffer,
         *d_resVec.buffer,
-        kernel_dir
+        kernel_dir,
+        impl
     );
 
     tt::tt_metal::Finish(device->command_queue(0));
