@@ -282,7 +282,10 @@ int main() {
 
     // Foam::Info << "Result: " << result << Foam::endl;
 
-    if (!Foam::daisy::matches(result, expected, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
+    auto atol = impl == EllpackHwImpl::FPU ? Foam::daisy::DEFAULT_TF32_MATCHER_ATOL : Foam::daisy::DEFAULT_SP_MATCHER_ATOL;
+    auto rtol = impl == EllpackHwImpl::FPU ? Foam::daisy::DEFAULT_TF32_MATCHER_RTOL : Foam::daisy::DEFAULT_SP_MATCHER_RTOL;
+
+    if (!Foam::daisy::matches(result, expected, rtol, atol)) {
         Foam::SeriousError << "FAIL Expected: " << expected << Foam::endl;
         Foam::Info << "Result: " << result << Foam::endl;
     } else {

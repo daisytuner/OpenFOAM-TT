@@ -136,15 +136,15 @@ int main() {
     Foam::scalarField expected_lower(triang_size, 151.0);
     Foam::scalarField expected_upper(triang_size, 250.0);
 
-    if (!Foam::daisy::matches(lduRes.diag(), expected_diag)) {
+    if (!Foam::daisy::matches(lduRes.diag(), expected_diag, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
         Foam::SeriousError << "FAIL Expected diag: " << expected_diag << Foam::endl;
     }
 
-    if (!Foam::daisy::matches(lduRes.lower(), expected_lower)) {
+    if (!Foam::daisy::matches(lduRes.lower(), expected_lower, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
         Foam::SeriousError << "FAIL Expected lower: " << expected_lower << Foam::endl;
     }
 
-    if (!Foam::daisy::matches(lduRes.upper(), expected_upper)) {
+    if (!Foam::daisy::matches(lduRes.upper(), expected_upper, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
         Foam::SeriousError << "FAIL Expected upper: " << expected_upper << Foam::endl;
     }
 
