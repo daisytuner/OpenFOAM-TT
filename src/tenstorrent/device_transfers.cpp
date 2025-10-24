@@ -1,7 +1,6 @@
 #include "device_transfers.hpp"
 #include "ReusableTtBuffer.hpp"
 #include "buffer_pool.hpp"
-#include "kernel_launcher.hpp"
 #include "lduAddressing.H"
 #include "ldu_meta_cache.hpp"
 #include "messageStream.H"
@@ -802,6 +801,8 @@ void copy_ldu_to_ellpack(
     tt_meta.cell_count = cells;
 
     uint32_t aligned_cols = 32;
+    constexpr bool tiled_dat = true;
+    constexpr bool tiled_addr = false;
 
     auto allocEntries = tt::round_up(cells, 32)*aligned_cols;
 
@@ -864,9 +865,11 @@ void copy_ldu_to_ellpack(
                 auto row_addr = upperAddr[i];
                 auto next_col = get_next_col(row_addr);
 
-                dat_buf[row_addr * aligned_cols + next_col] = lower[i];
+                auto tile_face_off = offset_into_tiled_mat(row_addr, next_col, aligned_cols);
+                auto natural_off = row_addr * aligned_cols + next_col;
+                dat_buf[tiled_dat? tile_face_off : natural_off] = lower[i];
                 if (addr_buf) {
-                    addr_buf[row_addr * aligned_cols + next_col] = col_addr;
+                    addr_buf[tiled_addr? tile_face_off : natural_off] = col_addr;
                 }
             }
         }
@@ -878,9 +881,11 @@ void copy_ldu_to_ellpack(
             auto val = diag[i];
             if (val != 0.0f) {
                 auto next_col = get_next_col(i);
-                dat_buf[i * aligned_cols + next_col] = val;
+                auto tile_face_off = offset_into_tiled_mat(i, next_col, aligned_cols);
+                auto natural_off = i * aligned_cols + next_col;
+                dat_buf[tiled_dat? tile_face_off : natural_off] = val;
                 if (addr_buf) {
-                    addr_buf[i * aligned_cols + next_col] = i;
+                    addr_buf[tiled_addr? tile_face_off : natural_off] = i;
                 }
             }
         }
@@ -899,23 +904,26 @@ void copy_ldu_to_ellpack(
                 auto col_addr = upperAddr[i];
                 auto next_col = get_next_col(row_addr);;
 
-                dat_buf[row_addr * aligned_cols + next_col] = upper[i];
+                auto tile_face_off = offset_into_tiled_mat(row_addr, next_col, aligned_cols);
+                auto natural_off = row_addr * aligned_cols + next_col;
+                dat_buf[tiled_dat? tile_face_off : natural_off] = upper[i];
                 if (addr_buf) {
-                    addr_buf[row_addr * aligned_cols + next_col] = col_addr;
+                    addr_buf[tiled_addr? tile_face_off : natural_off] = col_addr;
                 }
             }
         }
     }
 
-    if (addr_buf) { // fill with DontCare entries to allow  terminating list of values per line
-        for (auto i = 0; i < cells; ++i) {
-            for (auto j = col_counts[i]; j < aligned_cols; ++j) {
-                addr_buf[i*aligned_cols + j] = UINT32_MAX;
-                dat_buf[i*aligned_cols + j] = 0.0f; // so we can run it through tile-wide mat-mul
+    // fill with DontCare entries to allow  terminating list of values per line
+    for (auto i = 0; i < tt::round_up(cells, 32); ++i) {
+        auto relevant_cols = i >= cells? 0 : col_counts[i];
+        for (auto j = relevant_cols; j < aligned_cols; ++j) {
+            auto tile_face_off = offset_into_tiled_mat(i, j, aligned_cols);
+            auto natural_off = i * aligned_cols + j;
+            dat_buf[tiled_dat? tile_face_off : natural_off] = 0.0f; // so we can run it through tile-wide mat-mul
+            if (addr_buf) {
+                addr_buf[tiled_addr? tile_face_off : natural_off] = UINT32_MAX;
             }
-        }
-        for (auto i = cells; i < tt::round_up(cells, 32); ++i) { // clear the padding rows too
-            addr_buf[i*aligned_cols + 0] = UINT32_MAX;
         }
     }
 
@@ -926,12 +934,28 @@ void copy_ldu_to_ellpack(
     printf("ellpack mat %u x %u (max cols %u, avg cols %.2f):\n", cells, cells, max_cols, tt_meta.ellpack_avg_cols_);
     #if TT_DEBUG > 1
     auto print_addrs = addr_buf ? addr_buf : tt_meta.ellpack_addr_;
-    for (uint32_t i = 0; i < static_cast<uint32_t>(cells); ++i) {
-        printf("  %u: ", i);
-        for (uint32_t j = 0; j < col_counts[i]; ++j) {
-            printf("%3u:%6.3f ", print_addrs[i*aligned_cols + j], dat_buf[i*aligned_cols + j]);
+    for (uint32_t i = 0; i < tt::round_up(cells, 32u); ++i) {
+        uint32_t relevant_cols = 0;
+        if (static_cast<int32_t>(i) < cells) {
+            printf("  %u: ", i);
+            relevant_cols = col_counts[i];
+            for (uint32_t j = 0; j < relevant_cols; ++j) {
+                auto tile_face_off = offset_into_tiled_mat(i, j, aligned_cols);
+                auto natural_off = i * aligned_cols + j;
+            
+                printf("%4u:%8.5f ", print_addrs[tiled_addr? tile_face_off : natural_off], dat_buf[tiled_dat? tile_face_off : natural_off]);
+            }
+            printf("\n");
         }
-        printf("\n");
+        for (uint32_t j = relevant_cols; j < aligned_cols; ++j) {
+            auto tile_face_off = offset_into_tiled_mat(i, j, aligned_cols);
+            auto natural_off = i * aligned_cols + j;
+            auto val = dat_buf[tiled_dat? tile_face_off : natural_off];
+            auto addr = print_addrs[tiled_addr? tile_face_off : natural_off];
+            if (val != 0.0f || addr != UINT32_MAX) {
+                printf("badpad: [%d,%d]: %4u:%8.5f\n", i,j, addr, val);
+            }
+        }
     }
     #endif
     #endif
@@ -955,6 +979,7 @@ void copy_ldu_to_ellpack(
         tt_meta.ellpack_addr_on_device_ = true;
     }
 
+    tt_meta.ellpack_dat_tiled_faced_ = tiled_dat;
     delete[] dat_buf;
     delete[] col_counts;
 }

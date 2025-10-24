@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include <tt-metalium/host_api.hpp>
+#include "tt-metalium/tt_metal_profiler.hpp"
 
 #include "dense_matBinOp.hpp"
 #include "dense_matMul.hpp"
@@ -21,6 +22,8 @@
 #include "ttLduData.hpp"
 #include "Field.H"
 #include "tmp.H"
+
+#include "ref_Amul.hpp"
 
 using namespace tt::daisy;
 using namespace tt::daisy::foam;
@@ -208,6 +211,7 @@ int main(int argc, char* argv[]) {
     );
 
     tt::tt_metal::Finish(device->command_queue(0));
+    tt::tt_metal::detail::ReadDeviceProfilerResults(device);
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata3 = {
@@ -286,7 +290,21 @@ int main(int argc, char* argv[]) {
     #endif
 
 
-    Foam::Info << "Result: " << result << Foam::endl;
+    Foam::scalarField expected(cells);
+
+    refAmul(lduA, expected, inVec);
+
+    // Foam::Info << "Result: " << result << Foam::endl;
+
+    if (!Foam::daisy::matches(result, expected, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
+        Foam::SeriousError << "FAIL Expected: " << expected << Foam::endl;
+        Foam::Info << "Result: " << result << Foam::endl;
+    } else {
+        Foam::Info << "PASS" << Foam::endl;
+        // Foam::Info << "Result: " << result << Foam::endl;
+        // Foam::Info << "Expected: " << expected << Foam::endl;
+        // Foam::Info << "Mat: " << lduA << Foam::endl;
+    }
 
     tt::tt_metal::CloseDevice(device);
 

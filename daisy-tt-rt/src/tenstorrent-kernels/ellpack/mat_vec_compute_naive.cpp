@@ -9,72 +9,78 @@
 #include "compute_kernel_api/tile_move_copy.h"
 #include <unistd.h>
 #include <tools/profiler/kernel_profiler.hpp>
+#include "mat_vec_compute_parts.hpp"
 
-using std::uint32_t;
+
+#define HW_MODE_NONE 0
+#define HW_MODE_FPU 1
+#define HW_MODE_SFPU 2
+
+#ifndef HW_MODE
+#define HW_MODE HW_MODE_FPU
+#endif
 
 namespace NAMESPACE {
 
-void collect_for_mul_tile(uint32_t* addr_ptr, float* collect_ptr, float* vec_ptr, uint32_t vec_chunk_offset, uint32_t vecs_per_chunk) {
-    const uint32_t vec_chunk_end = vec_chunk_offset + vecs_per_chunk;
 
-    for (int rowIdx = 0; rowIdx < 32; ++rowIdx) { // row and col of ellpack dat/addr. Transposed for collect
-        uint32_t* addr_row = addr_ptr + rowIdx * 32;
-        float* collect_col = collect_ptr + rowIdx;
-
-        for (int colIdx = 0; colIdx < 32; ++colIdx) {
-            float* collect = collect_col + colIdx * 32;
-
-            uint32_t adr = addr_row[colIdx];
-
-            if (adr < vec_chunk_offset || adr >= vec_chunk_end) {
-                if (adr == UINT32_MAX) {
-                    break;
-                }
-                // DPRINT << " col [" << colIdx << ", " << rowIdx << "]: " << adr << " not in range" << ENDL();
-            } else {
-                auto val = vec_ptr[adr - vec_chunk_offset];
-                *collect = val;
-                
-                // DPRINT << " col [" << colIdx << ", " << rowIdx << "] = " << val << ENDL();
-                
-            }
-        }
-    }
-}
 
 void compute_mat_mul(float* dat_ptr, uint32_t* addr_ptr, float* collect_ptr, float* res_ptr) {
+    
+    constexpr uint32_t NEXT_ROW_OFFSET = (FACE_LAYOUT == 1) ? 16 : 32;
+    constexpr uint32_t NEXT_FACE_ROW_OFFSET = (FACE_LAYOUT == 1) ? (16*16 + 16) : 32;
+    constexpr uint32_t NEXT_FACE_COL_OFFSET = (FACE_LAYOUT == 1) ? (16*16 - 15) : 1;
 
+    float* collect_row = collect_ptr;
+    float* dat_row = dat_ptr;
     for (int idx = 0; idx < 32; ++idx) { // row and col of result of matmul
-        float* collect_col = collect_ptr + idx;
+
         uint32_t* addr_row = addr_ptr + 32 * idx;
-        float* dat_row = dat_ptr + 32 * idx;
+
         float sum = 0.0f;
+        float* dat_entry = dat_row;
+        float* collect_entry = collect_row;
         for (int k = 0; k < 32; ++k) {
+            bool face_left = k < 16;
             uint32_t adr = addr_row[k];
             if (adr != UINT32_MAX) {
-                float mat_in = dat_row[k];
-                float vec_in = collect_col[k * 32];
+                float mat_in = *dat_entry;
+                float vec_in = *collect_entry;
                 float elem_res = sum + mat_in * vec_in;
 
                 // DPRINT << "  [" << idx << "," << k << "]: " << sum << " + "  << mat_in << " * " << vec_in << "  => " << elem_res << ENDL();
 
                 sum = elem_res;
+                if (k == 15) {
+                    collect_entry += NEXT_FACE_COL_OFFSET;
+                    dat_entry += NEXT_FACE_COL_OFFSET;
+                } else {
+                    collect_entry += 1;
+                    dat_entry += 1;
+                }
             } else {
                 break; // early abort, because right now it's left-aligned
             }
         }
         res_ptr[idx] = sum;
+
+        if (idx == 15) {
+            collect_row += NEXT_FACE_ROW_OFFSET;
+            dat_row += NEXT_FACE_ROW_OFFSET;
+        } else {
+            collect_row += NEXT_ROW_OFFSET;
+            dat_row += NEXT_ROW_OFFSET;
+        }
     }
 }
 
 void MAIN {
     uint32_t vec_chunks = get_common_arg_val<uint32_t>(0);
-    // uint32_t cells = get_common_arg_val<uint32_t>(3);
+    uint32_t vec_chunk_batch_size = get_common_arg_val<uint32_t>(1);
+    bool stream_vec = get_common_arg_val<uint32_t>(2) != 0;
 
     uint32_t batches = get_arg_val<uint32_t>(0);
     uint32_t tiles_per_batch = get_arg_val<uint32_t>(1);
     uint32_t num_tiles = get_arg_val<uint32_t>(2);
-
 
     constexpr uint8_t cb_res = 0;
     constexpr uint8_t cb_dat = 1;
@@ -84,14 +90,13 @@ void MAIN {
 
     constexpr uint32_t vec_page_size = 1024;
     constexpr uint32_t vecs_per_page = vec_page_size / 4;
-    constexpr uint32_t vecs_per_chunk = vecs_per_page;
+    uint32_t vecs_per_chunk = vecs_per_page * vec_chunk_batch_size;
     constexpr uint32_t vecs_per_mat_tile = 32;
-    constexpr uint32_t tiles_per_result_page = vecs_per_chunk / 32;
 
     binary_op_init_common(cb_dat, cb_dat, cb_collect);  // Unpack, Math, Pack
     add_tiles_init(cb_dat, cb_dat);
 
-    UNPACK(DPRINT << "ellpack matVec up: " << batches << " batch (" << tiles_per_batch << " tiles/batch), " << num_tiles << " tiles total, " << vec_chunks << " vec chunks" << ENDL());
+    UNPACK(DPRINT << "ellpack matVec up: " << batches << " batch (" << tiles_per_batch << " tiles/batch), " << num_tiles << " tiles total, " << vec_chunks << "/" << vec_chunk_batch_size << " vec chunks" << ENDL());
 
     uint32_t tile = 0;
     for (uint32_t b = 0; b < batches; ++b) {
@@ -107,30 +112,17 @@ void MAIN {
             cb_wait_front(cb_collect, tiles_per_batch);
         }
 
-#ifdef TRISC_UNPACK
-        {
-            UNPACK(uint32_t* addr_ptr = reinterpret_cast<uint32_t*>(CB_RD_PTR(cb_addr)));
-            UNPACK(float* collect_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_collect)));
-            DeviceZoneScopedN("Collect");
-
-            for (uint32_t v = 0; v < vec_chunks; ++v) {
-                cb_wait_front(cb_vec, 1);
-                UNPACK(float* vec_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_vec)));
-
-                UNPACK(uint32_t* tile_addr_ptr = addr_ptr);
-                UNPACK(float* tile_collect_ptr = collect_ptr);
-                for (uint32_t i = tile; i < end_tile_in_batch; ++i) {
-                    float* dat_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_dat));
-                    UNPACK(DPRINT << "Collecting for tile " << i+1 << "/" << tiles_per_batch << ", v" << v << ENDL());
-                    UNPACK(collect_for_mul_tile(tile_addr_ptr, tile_collect_ptr, vec_ptr, v * vecs_per_chunk, vecs_per_chunk));
-
-                    UNPACK(tile_addr_ptr += 1024);
-                    UNPACK(tile_collect_ptr += 1024);
-                }
-                cb_pop_front(cb_vec, 1);
-            }
-        }
-#endif
+        unpacker_collect(
+            cb_addr,
+            cb_collect,
+            cb_vec,
+            vec_chunks,
+            vecs_per_chunk,
+            tile, end_tile_in_batch,
+            vec_chunk_batch_size,
+            stream_vec || (b == 0),
+            stream_vec || (b == (batches - 1))
+        );
 
         UNPACK(DPRINT << "Unpack done" << ENDL());
 
@@ -208,6 +200,7 @@ void MAIN {
 
         
         tile_regs_release();
+        tile = end_tile_in_batch;
     }
 
     // DPRINT << "Ellpack Compute done" << ENDL();

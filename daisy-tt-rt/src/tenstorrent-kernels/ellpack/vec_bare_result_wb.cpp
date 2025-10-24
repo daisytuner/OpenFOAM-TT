@@ -8,22 +8,25 @@
 void kernel_main() {
 
     uint32_t dst_addr = get_common_arg_val<uint32_t>(0);
+    uint32_t batch_size = get_common_arg_val<uint32_t>(1);
 
-    uint32_t first_tile_offset = get_arg_val<uint32_t>(0);
-    uint32_t num_tiles = get_arg_val<uint32_t>(1);
+    uint32_t first_batch_offset = get_arg_val<uint32_t>(0);
+    uint32_t num_batches = get_arg_val<uint32_t>(1);
+    uint32_t first_tile_offset = get_arg_val<uint32_t>(2);
+    uint32_t num_tiles = get_arg_val<uint32_t>(3);
 
     constexpr uint32_t cb_out = 0;
 
     constexpr uint32_t page_size = 1024;
     constexpr uint32_t vecs_per_page = page_size / 4;
 
-    constexpr auto dest_args = TensorAccessorArgs<0, 1>();
+    constexpr auto dest_args = TensorAccessorArgs<0, 2>();
     const auto dest = TensorAccessor(dest_args, dst_addr, page_size);
 
-    DPRINT << "Ellpack Wb up ( " << first_tile_offset << ".+" << num_tiles << " pages, " << vecs_per_page << " vals/page)" << ENDL();
+    DPRINT << "Ellpack Wb up ( " << first_batch_offset << ".+" << num_batches << " pages, " << vecs_per_page << " vals/page)" << ENDL();
 
-    uint32_t end_tile = first_tile_offset + num_tiles;
-    for (uint32_t tile = first_tile_offset; tile < end_tile; ++tile) {
+    uint32_t end_tile = first_batch_offset + num_batches;
+    for (uint32_t tile = first_batch_offset; tile < end_tile; ++tile) {
         DeviceZoneScopedN("Pulling Tiles");
         cb_wait_front(cb_out, 1);
 

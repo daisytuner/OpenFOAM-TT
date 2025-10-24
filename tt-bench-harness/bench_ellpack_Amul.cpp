@@ -27,6 +27,12 @@
 #include "tmp.H"
 #include "ref_Amul.hpp"
 
+#include "cavity-mesh.hpp"
+
+#ifndef ELLPACK_HW_IMPL
+#define ELLPACK_HW_IMPL EllpackHwImpl::FPU
+#endif
+
 using namespace tt::daisy;
 using namespace tt::daisy::foam;
 
@@ -94,10 +100,12 @@ int main() {
 //    Foam::Info << "Input: " << inVec << Foam::endl;
 
     auto tt_meta_a = get_tt_meta(&lduA, ldu_tt_meta_map);
-    auto tile_size = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
     auto cells_aligned = tt::round_up(cells, tt::constants::TILE_WIDTH);
 
     BufferPool buffer_pool(device);
+
+    EllpackHwImpl impl = ELLPACK_HW_IMPL;
+    std::cout << "Selected ellpack kernel impl: " << static_cast<int>(impl) << std::endl;
 
     // copying starts
 
@@ -122,9 +130,10 @@ int main() {
     tt::tt_metal::Finish(device->command_queue(0));
 
     #ifdef ENABLE_DAISY_RTL
+        auto [dram_bytes_rd, dram_bytes_wr, mul_flops, add_flops, mat_h2d_bytes, vec_transfer_bytes] = calculate_ellpack_matVec_metrics(tt_meta_a, impl);    
         __daisy_instrumentation_exit(region_id1);
         __daisy_instrumentation_increment(region_id1, "flop", 0);
-        __daisy_instrumentation_increment(region_id1, "dram_bytes", 1);
+        __daisy_instrumentation_increment(region_id1, "dram_bytes", mat_h2d_bytes);
         __daisy_instrumentation_finalize(region_id1);
     #endif
 
@@ -149,7 +158,7 @@ int main() {
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id2);
         __daisy_instrumentation_increment(region_id2, "flop", 0);
-        __daisy_instrumentation_increment(region_id2, "dram_bytes", 1);
+        __daisy_instrumentation_increment(region_id2, "dram_bytes", vec_transfer_bytes);
         __daisy_instrumentation_finalize(region_id2);
     #endif
 
@@ -195,7 +204,8 @@ int main() {
         tt_meta_a,
         *d_inVec.buffer,
         *d_resWarmup.buffer,
-        kernel_dir
+        kernel_dir,
+        impl
     );
 
     tt::tt_metal::Finish(device->command_queue(0));
@@ -224,33 +234,20 @@ int main() {
         tt_meta_a,
         *d_inVec.buffer,
         *d_resVec.buffer,
-        kernel_dir
+        kernel_dir,
+        impl
     );
 
     tt::tt_metal::Finish(device->command_queue(0));
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id3);
-        uint64_t num_tiles = (lduA.diag().size() + tt::constants::TILE_WIDTH - 1) / tt::constants::TILE_WIDTH;
-        uint64_t batch_tiles = 8;
-        uint64_t ell_tile_page_size = 4096;
-        uint64_t vec_page_size = 1024;
-        uint64_t vec_entries_per_chunk = vec_page_size / 4u;
-        uint64_t vec_tile_h_per_chunk = vec_entries_per_chunk / 32u;
-        uint64_t vec_chunks_total = (num_tiles + vec_tile_h_per_chunk -1) / vec_tile_h_per_chunk;
-        uint64_t batches = (num_tiles + batch_tiles - 1) / batch_tiles;
-        uint64_t nnz = lduA.diag().size() + lduA.lower().size() + lduA.upper().size();
-        uint64_t reads =  num_tiles * 2 * ell_tile_page_size
-                         + batches * vec_chunks_total * vec_entries_per_chunk * sizeof(float);
-        uint64_t writes = vec_chunks_total * vec_entries_per_chunk * sizeof(float);
-        uint64_t bytes = reads + writes;
-        uint64_t flops = 2 * nnz;
-        __daisy_instrumentation_increment(region_id3, "flop", flops);
-        __daisy_instrumentation_increment(region_id3, "dram_bytes", bytes);
+        __daisy_instrumentation_increment(region_id3, "flop", mul_flops + add_flops);
+        __daisy_instrumentation_increment(region_id3, "dram_bytes", dram_bytes_rd + dram_bytes_wr);
         __daisy_instrumentation_finalize(region_id3);
     #endif
 
-     tt::tt_metal::detail::ReadDeviceProfilerResults(device);
+    tt::tt_metal::detail::ReadDeviceProfilerResults(device);
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata4 = {
@@ -274,7 +271,7 @@ int main() {
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id4);
         __daisy_instrumentation_increment(region_id4, "flop", 0);
-        __daisy_instrumentation_increment(region_id4, "dram_bytes", 1);
+        __daisy_instrumentation_increment(region_id4, "dram_bytes", vec_transfer_bytes);
         __daisy_instrumentation_finalize(region_id4);
     #endif
 
@@ -283,9 +280,16 @@ int main() {
 
     refAmul(lduA, expected, inVec);
 
-    if (!Foam::daisy::matches(result, expected)) {
+    // Foam::Info << "Result: " << result << Foam::endl;
+
+    auto atol = impl == EllpackHwImpl::FPU ? Foam::daisy::DEFAULT_TF32_MATCHER_ATOL : Foam::daisy::DEFAULT_SP_MATCHER_ATOL;
+    auto rtol = impl == EllpackHwImpl::FPU ? Foam::daisy::DEFAULT_TF32_MATCHER_RTOL : Foam::daisy::DEFAULT_SP_MATCHER_RTOL;
+
+    if (!Foam::daisy::matches(result, expected, rtol, atol)) {
         Foam::SeriousError << "FAIL Expected: " << expected << Foam::endl;
         Foam::Info << "Result: " << result << Foam::endl;
+    } else {
+        Foam::Info << "PASS" << Foam::endl;
     }
 
     tt::tt_metal::CloseDevice(device);

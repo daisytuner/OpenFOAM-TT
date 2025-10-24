@@ -12,6 +12,7 @@ void kernel_main() {
     uint32_t ell_addr_base_addr = get_common_arg_val<uint32_t>(1);
     uint32_t inVec_base_addr = get_common_arg_val<uint32_t>(2);
     uint32_t vec_chunks = get_common_arg_val<uint32_t>(3);
+    uint32_t vec_chunk_batch_size = get_common_arg_val<uint32_t>(4);
 
     uint32_t first_tile_offset = get_arg_val<uint32_t>(0);
     uint32_t num_tiles = get_arg_val<uint32_t>(1); // how many tiles to read from the matrix
@@ -26,7 +27,7 @@ void kernel_main() {
     constexpr uint32_t mat_page_size = get_tile_size(cb_dat);
     constexpr uint32_t vec_page_size = 1024;
 
-    constexpr auto ell_val_args = TensorAccessorArgs<0, 4>();
+    constexpr auto ell_val_args = TensorAccessorArgs<0, 5>();
     const auto ell_val_buf = TensorAccessor(ell_val_args, ell_val_base_addr, mat_page_size);
 
     constexpr auto ell_addr_args = TensorAccessorArgs<ell_val_args.next_compile_time_args_offset(), ell_val_args.next_common_runtime_args_offset()>();
@@ -63,6 +64,12 @@ void kernel_main() {
             noc_async_read_barrier();
             if (vec_chunk == 0) { // we let the batch reads run concurrent with the first vecChunk, so mark them as available now
                 DeviceZoneScopedN("PushingTiles");
+                // float* dat_ptr = reinterpret_cast<float*>(get_write_ptr(cb_dat));
+                // for (int d = 0; d < 16; ++d) {
+                //     for (int e = 0; e < 16; ++e) {
+                //         DPRINT << " dat[" << d << "," << e << "] = " << dat_ptr[d*16+e] << ENDL();
+                //     }
+                // }
                 // float* vecf_ptr = reinterpret_cast<float*>(vec_ptr);
                 // DPRINT << "vec" << vec_chunk << ENDL();
                 // for (int i = 0; i < 32; ++i) {

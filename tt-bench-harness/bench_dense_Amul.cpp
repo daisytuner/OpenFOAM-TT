@@ -185,7 +185,7 @@ int main() {
 
     refAmul(lduA, expected, inVec);
 
-    if (!Foam::daisy::matches(result, expected)) {
+    if (!Foam::daisy::matches(result, expected, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
         Foam::SeriousError << "FAIL Expected: " << expected << Foam::endl;
         Foam::Info << "Result: " << result << Foam::endl;
     }
