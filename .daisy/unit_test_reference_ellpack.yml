@@ -40,6 +40,7 @@ steps:
     # Rename libOpenFOAM.so to libOpenFOAM.instrumented.so to avoid conflicts
     mv libOpenFOAM.so libOpenFOAM.instrumented.so
     cp tt-bench-harness/tt_bench_ellpack_Amul.out tt-bench-harness/tt_bench_ellpack_Amul.instrumented.out
+    cp tt-bench-harness/tt_bench_ellpack_Amul_no_hw.out tt-bench-harness/tt_bench_ellpack_Amul_no_hw.instrumented.out
 
     # Step 2: Compiler non-instrumented binaries
     cmake -G Ninja -DENABLE_TT=ON -DENABLE_DAISY_RTL=OFF -DTT_IMPL=TT_IMPL_ELLPACK -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
