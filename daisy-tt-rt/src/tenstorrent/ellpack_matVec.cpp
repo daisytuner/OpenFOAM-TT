@@ -1,10 +1,9 @@
 #include "ellpack_matVec.hpp"
-#include "ReusableTtBuffer.hpp"
 #include "hostdevcommon/kernel_structs.h"
 #include "tt-metalium/buffer.hpp"
 #include "tt-metalium/tt_backend_api_types.hpp"
 
-#include <memory>
+#include <cstdint>
 #include <tt-metalium/host_api.hpp>
 #include <tt-metalium/work_split.hpp>
 #include <filesystem>
@@ -16,15 +15,60 @@ namespace tt::daisy {
 
 #define TT_DEBUG 1
 
+std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t> calculate_ellpack_matVec_metrics(
+    const tt::daisy::tt_ldu_meta& tt_meta,
+    EllpackHwImpl hwImpl
+) {
+    if (!tt_meta.ellpack_addr_ || tt_meta.cell_count == 0) {
+        throw std::runtime_error("tt_ldu_meta does not have ellpack_addr_ set");
+    }
+
+    uint32_t vector_page_size = 1024u;
+    uint32_t ell_tile_page_size = tt_metal::detail::TileSize(tt::DataFormat::Float32);
+    uint32_t ell_tiles_total = (tt_meta.cell_count + 31u) / 32u;
+
+    uint32_t batch_size = hwImpl == EllpackHwImpl::FPU? 4u : 8u;
+    auto batches_total = (ell_tiles_total + batch_size - 1) / batch_size;
+
+    uint64_t dram_bytes_rd = batches_total * ell_tiles_total * 32 * sizeof(float) + ell_tiles_total * ell_tile_page_size;
+    uint64_t dram_bytes_wr = hwImpl == EllpackHwImpl::FPU ?
+        ell_tiles_total * 32 * sizeof(float) // multiples of 32 floats in result
+        : batches_total * vector_page_size; // multiples of 1024 bytes in result
+
+    // flops calculated:
+    uint64_t mul_flops = hwImpl == EllpackHwImpl::FPU?
+        ell_tiles_total * 32 * 32 * 32
+        : tt_meta.ellpack_avg_cols_ * tt_meta.cell_count;
+    uint64_t add_flops = hwImpl == EllpackHwImpl::FPU?
+        ell_tiles_total * (32 * 32 * 32 -1)
+        : std::max(tt_meta.ellpack_avg_cols_-1, 0.0f) * tt_meta.cell_count;
+    
+
+    uint64_t ellpack_mat_bytes = ell_tiles_total * ell_tile_page_size;
+    uint64_t bare_vector_size = ell_tiles_total * 32 * sizeof(float);
+
+
+    
+    return {
+        dram_bytes_rd,
+        dram_bytes_wr,
+        mul_flops,
+        add_flops,
+        ellpack_mat_bytes,
+        bare_vector_size
+    };
+}
+
 void tt_launch_ellpack_matVecOp(
     tt::tt_metal::IDevice* device,
     tt::daisy::tt_ldu_meta& tt_meta,
     tt::tt_metal::Buffer& d_inVec,
     tt::tt_metal::Buffer& d_resVec,
-    const std::filesystem::path& kernel_dir
+    const std::filesystem::path& kernel_dir,
+    EllpackHwImpl hwImpl
 ) {
 
-    constexpr bool diag_wb = true;
+    const bool diag_wb = hwImpl == EllpackHwImpl::FPU;
 
     tt::tt_metal::Program program;
     // assume 1 tile wide ellpack (in allocation)

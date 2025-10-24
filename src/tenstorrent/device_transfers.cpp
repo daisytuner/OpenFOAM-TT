@@ -1,7 +1,6 @@
 #include "device_transfers.hpp"
 #include "ReusableTtBuffer.hpp"
 #include "buffer_pool.hpp"
-#include "kernel_launcher.hpp"
 #include "lduAddressing.H"
 #include "ldu_meta_cache.hpp"
 #include "messageStream.H"
@@ -917,7 +916,7 @@ void copy_ldu_to_ellpack(
 
     // fill with DontCare entries to allow  terminating list of values per line
     for (auto i = 0; i < tt::round_up(cells, 32); ++i) {
-        auto relevant_cols = i > cells? 0 : col_counts[i];
+        auto relevant_cols = i >= cells? 0 : col_counts[i];
         for (auto j = relevant_cols; j < aligned_cols; ++j) {
             auto tile_face_off = offset_into_tiled_mat(i, j, aligned_cols);
             auto natural_off = i * aligned_cols + j;
@@ -946,6 +945,7 @@ void copy_ldu_to_ellpack(
             
                 printf("%4u:%8.5f ", print_addrs[tiled_addr? tile_face_off : natural_off], dat_buf[tiled_dat? tile_face_off : natural_off]);
             }
+            printf("\n");
         }
         for (uint32_t j = relevant_cols; j < aligned_cols; ++j) {
             auto tile_face_off = offset_into_tiled_mat(i, j, aligned_cols);
@@ -953,10 +953,9 @@ void copy_ldu_to_ellpack(
             auto val = dat_buf[tiled_dat? tile_face_off : natural_off];
             auto addr = print_addrs[tiled_addr? tile_face_off : natural_off];
             if (val != 0.0f || addr != UINT32_MAX) {
-                printf("badpad: %d: %4u:%8.5f ", j, addr, val);
+                printf("badpad: [%d,%d]: %4u:%8.5f\n", i,j, addr, val);
             }
         }
-        printf("\n");
     }
     #endif
     #endif
