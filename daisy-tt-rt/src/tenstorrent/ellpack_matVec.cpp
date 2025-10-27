@@ -13,7 +13,7 @@
 
 namespace tt::daisy {
 
-#define TT_DEBUG 1
+#define TT_DEBUG 0
 
 std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t> calculate_ellpack_matVec_metrics(
     const tt::daisy::tt_ldu_meta& tt_meta,
