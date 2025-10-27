@@ -23,7 +23,7 @@
 
 namespace tt::daisy::foam {
 
-#define TT_DEBUG 1
+#define TT_DEBUG 0
 
 uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght) {
     auto tile_row = row / tt::constants::TILE_HEIGHT;

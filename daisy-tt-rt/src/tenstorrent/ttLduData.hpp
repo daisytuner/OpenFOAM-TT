@@ -52,6 +52,7 @@ struct tt_ldu_meta {
     float ellpack_avg_cols_ = 0.0f;
     
 
+    ~tt_ldu_meta();
 };
 
 template<typename result> result& get_tt_meta(const void* key, std::unordered_map<const void*, result>& map) {
