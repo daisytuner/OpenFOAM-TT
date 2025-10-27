@@ -109,8 +109,8 @@ steps:
         PARMETIS_TYPE: none
         ZOLTAN_TYPE: none #ThirdParty
         PATH: $PATH:$WM_PROJECT_DIR/wmake
-        LD_LIBRARY_PATH: /workspace/build:/usr/lib/x86_64-linux-gnu:/usr/local/lib:/usr/local/lib64:/usr/local/papi/lib:/usr/local/cuda-12.8/lib64:$WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib:$WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib/dummy
-        LIBRARY_PATH: /usr/local/lib
+        LD_LIBRARY_PATH: /workspace/build:$WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib:$WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib/dummy:$LD_LIBRARY_PATH
+        LIBRARY_PATH: $LIBRARY_PATH:/usr/local/lib
 
     cavity:
       command: $WM_PROJECT_DIR/bin/foamRun -case $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity
@@ -157,8 +157,8 @@ steps:
         PARMETIS_TYPE: none
         ZOLTAN_TYPE: none #ThirdParty
         PATH: $PATH:$WM_PROJECT_DIR/wmake
-        LD_LIBRARY_PATH: /usr/lib/x86_64-linux-gnu:/usr/local/lib:/usr/local/lib64:/usr/local/papi/lib:/usr/local/cuda-12.8/lib64:$WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib:$WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib/dummy
-        LIBRARY_PATH: /usr/local/lib
+        LD_LIBRARY_PATH: $WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib:$WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib/dummy:$LD_LIBRARY_PATH
+        LIBRARY_PATH: $LIBRARY_PATH:/usr/local/lib
 
     comparison-cavity:
       command: /workspace/venv/bin/python /workspace/tests/reference_tests/compare_results.py --case_folder $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity-TT --reference_folder $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity --tolerance 1e-6
