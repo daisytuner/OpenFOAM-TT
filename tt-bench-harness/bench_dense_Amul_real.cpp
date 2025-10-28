@@ -229,8 +229,8 @@ int main(int argc, char* argv[]) {
         .sdfg_name = "__daisy_instrumentation_test_0",
         .sdfg_file = "/tmp/DOCC/0000-0000/123456789/sdfg_0.json",
         .element_id = 10,
-        .loopnest_index = 0,
         .element_type = "map",
+        .loopnest_index = 0,
         .target_type = "TENSTORRENT",
         .region_uuid = "tt_launch_dense_matMul"
     };
