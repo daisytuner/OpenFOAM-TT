@@ -46,12 +46,14 @@ steps:
     cp tt-bench-harness/tt_bench_ellpack_Amul.out tt-bench-harness/tt_bench_ellpack_Amul.instrumented.out
     cp tt-bench-harness/tt_bench_ellpack_Amul_no_hw.out tt-bench-harness/tt_bench_ellpack_Amul_no_hw.instrumented.out
 
-    ls ..
+    mkdir -p /tmp/DOCC/000000/123456789
     cp ../tt-bench-harness/sdfg_0.json /tmp/DOCC/000000/123456789/sdfg_0.json
 
     # Step 2: Compiler non-instrumented binaries
     cmake -G Ninja -DENABLE_TT=ON -DENABLE_DAISY_RTL=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     ninja
+
+    nvidia-smi
 
     # CLI runners will automatically measure application performance with non-instrumented binaries
     # and then run with instrumented binaries for coverage data collection
