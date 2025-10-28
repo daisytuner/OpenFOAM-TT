@@ -53,8 +53,6 @@ steps:
     cmake -G Ninja -DENABLE_TT=ON -DENABLE_DAISY_RTL=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     ninja
 
-    nvidia-smi
-
     # CLI runners will automatically measure application performance with non-instrumented binaries
     # and then run with instrumented binaries for coverage data collection
 
