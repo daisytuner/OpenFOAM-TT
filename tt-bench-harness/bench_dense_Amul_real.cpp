@@ -230,8 +230,8 @@ int main(int argc, char* argv[]) {
         .sdfg_file = "/tmp/DOCC/0000-0000/123456789/sdfg_0.json",
         .element_id = 10,
         .element_type = "map",
-        .loopnest_index = 0,
         .target_type = "TENSTORRENT",
+        .loopnest_index = 0,
         .region_uuid = "tt_launch_dense_matMul"
     };
     unsigned long long region_id3 = __daisy_instrumentation_init(&metadata3, __DAISY_EVENT_SET_NONE);
