@@ -141,17 +141,16 @@ int main(int argc, char* argv[]) {
 
 
      #ifdef ENABLE_DAISY_RTL
-    __daisy_metadata_t metadata1 = {.file_name = "instrumentation_test.c",
-        .sdfg_name = "__daisy_instrumentation_test_0",
-        .sdfg_file = "/tmp/DOCC/0000-0000/123456789/sdfg_0.json",
-        .element_id = 10,
-        .loopnest_index = -1,
+    __daisy_metadata_t metadata1 = {
         .file_name = "bench_dense_Amul_real.cpp",
         .function_name = "copy_ldu_to_dense",
         .line_begin = 154,
         .line_end = 158,
         .column_begin = 0,
         .column_end = 0,
+        .sdfg_name = "__daisy_instrumentation_test_0",
+        .sdfg_file = "/tmp/DOCC/0000-0000/123456789/sdfg_0.json",
+        .element_id = 10,
         .element_type = "h2d_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "copy_ldu_to_dense"
@@ -175,16 +174,15 @@ int main(int argc, char* argv[]) {
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata2 = {
-        .sdfg_name = "__daisy_instrumentation_test_0",
-        .sdfg_file = "/tmp/DOCC/0000-0000/123456789/sdfg_0.json",
-        .element_id = 10,
-        .loopnest_index = -1,
         .file_name = "bench_dense_Amul_real.cpp",
         .function_name = "copy_scalarfield",
         .line_begin = 178,
         .line_end = 182,
         .column_begin = 0,
         .column_end = 0,
+        .sdfg_name = "__daisy_instrumentation_test_0",
+        .sdfg_file = "/tmp/DOCC/0000-0000/123456789/sdfg_0.json",
+        .element_id = 10,
         .element_type = "h2d_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "copy_scalarfield"
@@ -222,16 +220,16 @@ int main(int argc, char* argv[]) {
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata3 = {
-        .sdfg_name = "__daisy_instrumentation_test_0",
-        .sdfg_file = "/tmp/DOCC/0000-0000/123456789/sdfg_0.json",
-        .element_id = 10,
-        .loopnest_index = 0,
         .file_name = "bench_ldu_Amul_real.cpp",
         .function_name = "tt_launch_dense_matMul",
         .line_begin = 218,
         .line_end = 235,
         .column_begin = 0,
         .column_end = 0,
+        .sdfg_name = "__daisy_instrumentation_test_0",
+        .sdfg_file = "/tmp/DOCC/0000-0000/123456789/sdfg_0.json",
+        .element_id = 10,
+        .loopnest_index = 0,
         .element_type = "map",
         .target_type = "TENSTORRENT",
         .region_uuid = "tt_launch_dense_matMul"
@@ -277,16 +275,15 @@ int main(int argc, char* argv[]) {
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata4 = {
-        .sdfg_name = "__daisy_instrumentation_test_0",
-        .sdfg_file = "/tmp/DOCC/0000-0000/123456789/sdfg_0.json",
-        .element_id = 10,
-        .loopnest_index = 0,
         .file_name = "bench_dense_Amul_real.cpp",
         .function_name = "copy_scalarField_from_device_dense_mat",
         .line_begin = 267,
         .line_end = 169,
         .column_begin = 0,
         .column_end = 0,
+        .sdfg_name = "__daisy_instrumentation_test_0",
+        .sdfg_file = "/tmp/DOCC/0000-0000/123456789/sdfg_0.json",
+        .element_id = 10,
         .element_type = "d2h_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "copy_scalarField_from_device_dense_mat"
