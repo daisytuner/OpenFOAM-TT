@@ -48,6 +48,9 @@ steps:
 
     mkdir -p /tmp/DOCC/000000/123456789
     cp ../tt-bench-harness/sdfg_0.json /tmp/DOCC/000000/123456789/sdfg_0.json
+    cp ../tt-bench-harness/sdfg_0.json /tmp/DOCC/000000/123456789/sdfg_1.json
+    cp ../tt-bench-harness/sdfg_0.json /tmp/DOCC/000000/123456789/sdfg_2.json
+    cp ../tt-bench-harness/sdfg_0.json /tmp/DOCC/000000/123456789/sdfg_3.json
 
     # Step 2: Compiler non-instrumented binaries
     cmake -G Ninja -DENABLE_TT=ON -DENABLE_DAISY_RTL=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
