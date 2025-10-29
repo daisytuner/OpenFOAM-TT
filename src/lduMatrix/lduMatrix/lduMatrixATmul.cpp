@@ -342,7 +342,7 @@ void Foam::lduMatrix::sumA
         sumAPtr[lPtr[face]] += upperPtr[face];
     }
 
-    #ifndef ENABLE_TT
+    #ifndef ENABLE_TT_SUMA
         #ifdef ENABLE_DAISY_RTL
                 __daisy_instrumentation_exit(region_id);
                 __daisy_instrumentation_finalize(region_id);

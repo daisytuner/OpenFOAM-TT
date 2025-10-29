@@ -18,7 +18,10 @@
 #include "tt_impls.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits.h>
+#include <memory>
+#include <sys/types.h>
 #include <tuple>
 
 namespace tt::daisy::foam {
@@ -69,6 +72,8 @@ ReusableTtBuffer& allocate_field_buffer(BufferPool& bufferPool, uint32_t num_ele
     #endif
 }
 
+static std::vector<uint8_t> unaligned_device_buf(tt_block_size, 0);
+
 ReusableTtBuffer& copy_scalarField_to_device_bare(BufferPool& bufferPool, const Foam::scalarField& field) {
     auto* device = bufferPool.device_;
 
@@ -76,13 +81,32 @@ ReusableTtBuffer& copy_scalarField_to_device_bare(BufferPool& bufferPool, const 
 
     auto& buffer = bufferPool.allocateBuffer(bytes, tt_block_size);
 
+    auto safe_read_bytes = tt::round_down(bytes, tt_block_size);
+    auto left_bytes = bytes - safe_read_bytes;
+
     tt::tt_metal::EnqueueWriteSubBuffer(
         device->command_queue(0),
         buffer.buffer,
         field.cdata(),
-        {0, tt::round_up(bytes, tt_block_size)},
+        {0, safe_read_bytes},
         false
     );
+
+    if (safe_read_bytes < bytes) {
+
+        uint8_t* temp = unaligned_device_buf.data();
+    
+        memcpy(temp, field.cdata()+(safe_read_bytes/sizeof(float)), left_bytes);
+
+        tt::tt_metal::EnqueueWriteSubBuffer(
+            device->command_queue(0),
+            buffer.buffer,
+            temp,
+            {safe_read_bytes, tt_block_size},
+            false
+        );
+
+    }
 
     return buffer;
 }
