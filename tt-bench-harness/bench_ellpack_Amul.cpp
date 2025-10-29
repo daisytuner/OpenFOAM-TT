@@ -118,7 +118,7 @@ int main() {
         .line_end = 153,
         .column_begin = 0,
         .column_end = 0,
-        .element_type = "h2d_transfers",
+        .element_type = "h2d_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "foam_ldu_to_ellpack_copy"
     };
@@ -145,7 +145,7 @@ int main() {
         .line_end = 180,
         .column_begin = 0,
         .column_end = 0,
-        .element_type = "h2d_transfers",
+        .element_type = "h2d_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "scalarField_copy"
     };
@@ -257,7 +257,7 @@ int main() {
         .line_end = 296,
         .column_begin = 0,
         .column_end = 0,
-        .element_type = "d2h_transfers",
+        .element_type = "d2h_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "scalarField_from_device_bare"
     };
