@@ -2,7 +2,8 @@ on:
   push:
     branches:
       - main
-      - performance-runs
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
 
 parameters:
   container: daisytuner/x64-tenstorrent:0.63.0-latest
@@ -27,12 +28,17 @@ steps:
     # Install OpenFOAM
     ./Allwmake -j128
 
-    # Build driven cavity example
-    cd ${WM_PROJECT_DIR}/tutorials/incompressibleFluid/cavity
+    # Build motorcycle example
+    cd ${WM_PROJECT_DIR}/tutorials/incompressibleFluid/motorBikeSteady
+    cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/geometry/
+    ${FOAM_APPBIN}/surfaceFeatures
     ${FOAM_APPBIN}/blockMesh
+    ${FOAM_APPBIN}/snappyHexMesh -overwrite >> /dev/null
+    ${FOAM_APPBIN}/patchSummary
+    ${FOAM_APPBIN}/potentialFoam
     cd ${WM_PROJECT_DIR}
 
-    cp -r $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity-TT
+    cp -r $WM_PROJECT_DIR/tutorials/incompressibleFluid/motorBikeSteady $WM_PROJECT_DIR/tutorials/incompressibleFluid/motorBikeSteady-TT
 
     # Build tests with CMake and Ninja
 
@@ -63,8 +69,8 @@ steps:
     # and then run with instrumented binaries for coverage data collection
 
   run:
-    cavity-TT:
-      command: $WM_PROJECT_DIR/bin/foamRun -case $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity-TT
+    motorBikeSteady-TT:
+      command: $WM_PROJECT_DIR/bin/foamRun -case $WM_PROJECT_DIR/tutorials/incompressibleFluid/motorBikeSteady-TT >> /dev/null
       env:
         TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
         FOAM_APP: "$WM_PROJECT_DIR/applications"
@@ -111,8 +117,8 @@ steps:
         LD_LIBRARY_PATH: /workspace/build:$WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib:$WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib/dummy:$LD_LIBRARY_PATH
         LIBRARY_PATH: $LIBRARY_PATH:/usr/local/lib
 
-    cavity:
-      command: $WM_PROJECT_DIR/bin/foamRun -case $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity
+    motorBikeSteady:
+      command: $WM_PROJECT_DIR/bin/foamRun -case $WM_PROJECT_DIR/tutorials/incompressibleFluid/motorBikeSteady >> /dev/null
       env:
         TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
         FOAM_APP: "$WM_PROJECT_DIR/applications"
@@ -159,6 +165,6 @@ steps:
         LD_LIBRARY_PATH: $WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib:$WM_PROJECT_DIR/platforms/linux64GccSPInt32Opt/lib/dummy:$LD_LIBRARY_PATH
         LIBRARY_PATH: $LIBRARY_PATH:/usr/local/lib
 
-    comparison-cavity:
-      command: /workspace/venv/bin/python /workspace/tests/reference_tests/compare_results.py --case_folder $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity-TT --reference_folder $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity --tolerance 1e-6
+    comparison-motorBikeSteady:
+      command: /workspace/venv/bin/python /workspace/tests/reference_tests/compare_results.py --case_folder $WM_PROJECT_DIR/tutorials/incompressibleFluid/motorBikeSteady-TT --reference_folder $WM_PROJECT_DIR/tutorials/incompressibleFluid/motorBikeSteady --tolerance 1e-6
       WM_PROJECT_DIR: "/workspace/3rdParty/OpenFOAM-dev"
