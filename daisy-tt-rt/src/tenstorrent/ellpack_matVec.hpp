@@ -23,7 +23,7 @@ void tt_launch_ellpack_matVecOp(
 
 std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t> calculate_ellpack_matVec_metrics(
     const tt::daisy::tt_ldu_meta& tt_meta,
-    EllpackHwImpl hwImpl
+    EllpackHwImpl hwImpl = EllpackHwImpl::None
 );
 
 }   // namespace tt::daisy::foam

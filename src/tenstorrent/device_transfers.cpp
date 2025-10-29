@@ -780,15 +780,18 @@ void copy_ldu_contents_to_device(BufferPool& k,tt_ldu_meta& tt_meta, const Foam:
     tt_meta.contents_on_device_ = true;
 }
 
-tt_ldu_meta& ensure_lduMat_on_device_as_ldu(BufferPool& k, const Foam::lduMatrix* lduMat, bool reserve_all_parts) {
+std::tuple<tt_ldu_meta&, bool, bool> ensure_lduMat_on_device_as_ldu(BufferPool& k, const Foam::lduMatrix* lduMat, bool reserve_all_parts) {
 
     auto& tt_meta = get_tt_meta(lduMat, ldu_tt_meta_map);
 
+    bool uploaded_contents = false;
+    bool uploaded_addrs = false;
     if (!tt_meta.addrs_on_device_) {
         #ifdef TRACY_ENABLE
         ZoneScopedN("TT Meta ldu copy addrs");
         #endif
         copy_ldu_addrs_to_device(k, tt_meta, lduMat);
+        uploaded_addrs = true;
     } else {
         #ifdef TRACY_ENABLE
         ZoneScopedN("TT Meta ldu reuse addrs");
@@ -802,13 +805,14 @@ tt_ldu_meta& ensure_lduMat_on_device_as_ldu(BufferPool& k, const Foam::lduMatrix
         ZoneScopedN("TT Meta ldu copy contents");
         #endif
         copy_ldu_contents_to_device(k, tt_meta, lduMat, reserve_all_parts);
+        uploaded_contents = true;
     } else {
         #ifdef TRACY_ENABLE
         ZoneScopedN("TT Meta ldu reuse contents");
         #endif
     }
 
-    return tt_meta;
+    return {tt_meta, uploaded_contents, uploaded_addrs};
 }
 
 void copy_ldu_to_ellpack(
@@ -1008,7 +1012,7 @@ void copy_ldu_to_ellpack(
     delete[] col_counts;
 }
 
-tt_ldu_meta& ensure_lduMat_on_device(
+std::tuple<tt_ldu_meta&, bool, bool> ensure_lduMat_on_device(
     BufferPool& k,
     const Foam::lduMatrix* lduMat,
     bool is_expand
@@ -1023,20 +1027,23 @@ tt_ldu_meta& ensure_lduMat_on_device(
         auto& tt_meta = get_tt_meta(lduMat, ldu_tt_meta_map);
 
         if (!tt_meta.dense_on_device_) {
-            copy_ldu_to_dense(k.device_, tt_meta, lduMat);
+             copy_ldu_to_dense(k.device_, tt_meta, lduMat);
+             return {tt_meta, true, true};
         }
 
-        return tt_meta;
+        return {tt_meta, false, false};
 
     #elif TT_IMPL == TT_IMPL_ELLPACK
 
         auto& tt_meta = get_tt_meta(lduMat, ldu_tt_meta_map);
 
         if (!tt_meta.ellpack_on_device_ || !tt_meta.ellpack_addr_on_device_) {
+            bool need_mesh = !tt_meta.ellpack_addr_on_device_;
             copy_ldu_to_ellpack(k, tt_meta, lduMat);
+            return {tt_meta, true, need_mesh};
         }
 
-        return tt_meta;
+        return {tt_meta, false, false};
 
     #else 
 
@@ -1091,7 +1098,7 @@ std::tuple<tt_ldu_meta&, ReusableTtBuffer&, ReusableTtBuffer&> prepare_Amul_inpu
     const Foam::scalarField& Apsi
 ) {
 
-    auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(bufferPool, &lduMat);
+    auto [tt_meta, dummy_0, dummy_1] = tt::daisy::foam::ensure_lduMat_on_device(bufferPool, &lduMat);
 
     #if TT_IMPL == TT_IMPL_LDU
 

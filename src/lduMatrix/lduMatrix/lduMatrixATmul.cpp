@@ -41,6 +41,7 @@ Description
 #include "kernel_launcher.hpp"
 #include "ldu_meta_cache.hpp"
 #include "device_transfers.hpp"
+#include "ellpack_matVec.hpp"
 
 #define ENABLE_TT_AMUL
 
@@ -64,22 +65,6 @@ void Foam::lduMatrix::Amul
     scalar* __restrict__ ApsiPtr = Apsi.begin();
     const scalarField& psi = tpsi();
     scalarField* tt_result;
-    #ifdef ENABLE_DAISY_RTL
-    __daisy_metadata_t metadata = {
-        .file_name = "lduMatrixATmul.cpp",
-        .function_name = "Foam::lduMatrix::Amul",
-        .line_begin = 47,
-        .line_end = 211,
-        .column_begin = 0,
-        .column_end = 0,
-        #ifdef ENABLE_TT_AMUL
-        .target_type = "TENSTORRENT",
-        #else
-                .target_type = "SEQUENTIAL",
-        #endif
-        .region_uuid = "foam_lduMatrix_Amul"
-    };
-    #endif
     #ifdef ENABLE_TT_AMUL
         tt::daisy::foam::verify_interfaces_noop(interfaces);
         #ifdef VERIFY_TT
@@ -88,31 +73,83 @@ void Foam::lduMatrix::Amul
             tt_result = &Apsi;
         #endif
         auto& k = tt::daisy::foam::require_kernel_launcher();
-        auto [tt_meta, tt_psi, tt_Apsi] = tt::daisy::foam::prepare_Amul_inputs(k, *this, psi, Apsi);
+
+        #ifdef ENABLE_DAISY_RTL
+            __daisy_metadata_t metadata_h2d = {
+                .file_name = "lduMatrixATmul.cpp",
+                .function_name = "Foam::lduMatrix::Amul",
+                .line_begin = 92,
+                .line_end = 96,
+                .column_begin = 0,
+                .column_end = 0,
+                .element_type = "h2d_transfer",
+                .target_type = "TENSTORRENT",
+                .region_uuid = "foam_lduMatrix_Amul_h2d"
+            };
+            unsigned long long region_h2d = __daisy_instrumentation_init(&metadata_h2d, __DAISY_EVENT_SET_NONE);
+            __daisy_instrumentation_enter(region_h2d);
+        #endif
+
+        auto [tt_meta, h2d_dat, h2d_mesh] = tt::daisy::foam::ensure_lduMat_on_device(k, this);
+        auto & tt_psi = tt::daisy::foam::copy_scalarField_to_device(k, psi);
+        auto & tt_Apsi = k.allocateBuffer(tt_psi.buffer->size(), tt_psi.buffer->page_size());
+
+        #ifdef ENABLE_DAISY_RTL
+            auto [dram_bytes_rd, dram_bytes_wr, mul_flops, add_flops, mat_h2d_bytes, vec_transfer_bytes] = tt::daisy::calculate_ellpack_matVec_metrics(tt_meta);
+            __daisy_instrumentation_exit(region_h2d);
+            __daisy_instrumentation_increment(region_h2d, "pcie_bytes", (h2d_dat? mat_h2d_bytes : 0) + (h2d_mesh? mat_h2d_bytes : 0) + vec_transfer_bytes); // overestimate. mat may be reused (and addr also)
+            __daisy_instrumentation_finalize(region_h2d);
+        #endif
+
         // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
         #ifdef ENABLE_DAISY_RTL
-            unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_NONE);
-            __daisy_instrumentation_enter(region_id);
+            __daisy_metadata_t metadata_kernel = {
+                .file_name = "lduMatrixATmul.cpp",
+                .function_name = "Foam::lduMatrix::Amul",
+                .line_begin = 115,
+                .line_end = 117,
+                .column_begin = 0,
+                .column_end = 0,
+                .target_type = "TENSTORRENT",
+                .region_uuid = "foam_lduMatrix_Amul_kernel"
+            };
+            unsigned long long region_kernel = __daisy_instrumentation_init(&metadata_kernel, __DAISY_EVENT_SET_NONE);
+            __daisy_instrumentation_enter(region_kernel);
         #endif
 
         tt::daisy::foam::tt_compute_amul(k, tt_meta, tt_psi, tt_Apsi);
 
         #ifdef ENABLE_DAISY_RTL
-            __daisy_instrumentation_exit(region_id);
-            __daisy_instrumentation_increment(region_id, "flop", 4 * tt_meta.sparse_count);
-            uint32_t page_size = 1024;
-            uint32_t page_count_faces = (tt_meta.iface_map_start_ + page_size/4 + page_size/4) / (page_size / 4);
-            uint32_t page_count_offdiagonal = (tt_meta.upper_contents_start_+ tt_meta.sparse_count + page_size/4 -1) / (page_size / 4);
-            uint32_t page_count_diagonal = (tt_meta.cell_count + page_size/4 -1)/ (page_size / 4);
-            uint32_t reads = page_size* (page_count_faces + page_count_diagonal) * sizeof(float) + page_size * page_count_offdiagonal * sizeof(int);
-            uint32_t writes = page_size * page_count_diagonal * sizeof(float);
-            __daisy_instrumentation_increment(region_id, "dram_bytes", reads + writes);
-            __daisy_instrumentation_finalize(region_id);
+            __daisy_instrumentation_exit(region_kernel);
+            __daisy_instrumentation_increment(region_kernel, "flop", mul_flops + add_flops);
+            __daisy_instrumentation_increment(region_kernel, "dram_bytes", dram_bytes_rd + dram_bytes_wr);
+            __daisy_instrumentation_finalize(region_kernel);
+
+            __daisy_metadata_t metadata_d2h = {
+                .file_name = "lduMatrixATmul.cpp",
+                .function_name = "Foam::lduMatrix::Amul",
+                .line_begin = 140,
+                .line_end = 143,
+                .column_begin = 0,
+                .column_end = 0,
+                .element_type = "d2h_transfer",
+                .target_type = "TENSTORRENT",
+                .region_uuid = "foam_lduMatrix_Amul_dh2"
+            };
+            unsigned long long region_d2h = __daisy_instrumentation_init(&metadata_d2h, __DAISY_EVENT_SET_NONE);
+            __daisy_instrumentation_enter(region_d2h);
         #endif
+
         tt::daisy::foam::copy_scalarField_from_device(k, tt_Apsi, tt_result);
         k.freeBuffer(tt_Apsi);
         k.freeBuffer(tt_psi);
         // k.freeBuffer(tt_iface_contents);
+
+        #ifdef ENABLE_DAISY_RTL
+            __daisy_instrumentation_exit(region_d2h);
+            __daisy_instrumentation_increment(region_d2h, "pcie_bytes", vec_transfer_bytes);
+            __daisy_instrumentation_finalize(region_d2h);
+        #endif
     #endif
     #if !defined(ENABLE_TT_AMUL) || defined(VERIFY_TT)
     // Initialise the update of interfaced interfaces
@@ -126,6 +163,16 @@ void Foam::lduMatrix::Amul
     );
     #ifndef ENABLE_TT_AMUL
         #ifdef ENABLE_DAISY_RTL
+            __daisy_metadata_t metadata = {
+                .file_name = "lduMatrixATmul.cpp",
+                .function_name = "Foam::lduMatrix::Amul",
+                .line_begin = 47,
+                .line_end = 211,
+                .column_begin = 0,
+                .column_end = 0,
+                .target_type = "SEQUENTIAL",
+                .region_uuid = "foam_lduMatrix_Amul"
+            };
             unsigned long long region_id = __daisy_instrumentation_init(&metadata, __DAISY_EVENT_SET_CPU);
             __daisy_instrumentation_enter(region_id);
         #endif
@@ -406,7 +453,7 @@ void Foam::lduMatrix::residual
         .line_end = 604,
         .column_begin = 0,
         .column_end = 0,
-    #ifdef ENABLE_TT
+    #ifdef ENABLE_TT_RESIDUAL
         .target_type = "TENSTORRENT",
     #else
         .target_type = "SEQUENTIAL",

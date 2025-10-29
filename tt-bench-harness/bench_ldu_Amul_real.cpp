@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
     #endif
 
     // copying starts
-    auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(buffer_pool, &lduA);
+    auto [tt_meta, h2d_dat, h2d_mesh] = tt::daisy::foam::ensure_lduMat_on_device(buffer_pool, &lduA);
 
     tt::tt_metal::Finish(device->command_queue(0));
 

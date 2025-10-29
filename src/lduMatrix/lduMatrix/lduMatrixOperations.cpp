@@ -71,7 +71,7 @@ void Foam::lduMatrix::sumDiag()
 
         auto& k = tt::daisy::foam::require_kernel_launcher();
 
-        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device_as_ldu(k, this);
+        auto [tt_meta, h2d_dat, h2d_mesh] = tt::daisy::foam::ensure_lduMat_on_device_as_ldu(k, this);
 
         k.launch_sumDiag(
             tt_meta
@@ -134,7 +134,7 @@ void Foam::lduMatrix::negSumDiag()
 
         auto& k = tt::daisy::foam::require_kernel_launcher();
 
-        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device_as_ldu(k, this);
+        auto [tt_meta, h2d_dat, h2d_mesh] = tt::daisy::foam::ensure_lduMat_on_device_as_ldu(k, this);
 
         k.launch_negSumDiag(
             tt_meta
