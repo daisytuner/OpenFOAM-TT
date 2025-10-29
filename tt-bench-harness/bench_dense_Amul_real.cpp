@@ -148,6 +148,7 @@ int main(int argc, char* argv[]) {
         .line_end = 158,
         .column_begin = 0,
         .column_end = 0,
+        .element_type = "h2d_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "copy_ldu_to_dense"
     };
@@ -163,8 +164,7 @@ int main(int argc, char* argv[]) {
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id1);
-        __daisy_instrumentation_increment(region_id1, "flop", 0);
-        __daisy_instrumentation_increment(region_id1, "dram_bytes", 1);
+        __daisy_instrumentation_increment(region_id1, "pcie_bytes", 1);
         __daisy_instrumentation_finalize(region_id1);
     #endif
 
@@ -177,6 +177,7 @@ int main(int argc, char* argv[]) {
         .line_end = 182,
         .column_begin = 0,
         .column_end = 0,
+        .element_type = "h2d_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "copy_scalarfield"
     };
@@ -188,9 +189,7 @@ int main(int argc, char* argv[]) {
     tt::tt_metal::Finish(device->command_queue(0));
 
     #ifdef ENABLE_DAISY_RTL
-        __daisy_instrumentation_exit(region_id2);
-        __daisy_instrumentation_increment(region_id2, "flop", 0);
-        __daisy_instrumentation_increment(region_id2, "dram_bytes", 1);
+        __daisy_instrumentation_increment(region_id2, "pcie_bytes", 1);
         __daisy_instrumentation_finalize(region_id2);
     #endif
 
@@ -221,7 +220,9 @@ int main(int argc, char* argv[]) {
         .line_end = 235,
         .column_begin = 0,
         .column_end = 0,
+        .element_type = "map",
         .target_type = "TENSTORRENT",
+        .loopnest_index = 0,
         .region_uuid = "tt_launch_dense_matMul"
     };
     unsigned long long region_id3 = __daisy_instrumentation_init(&metadata3, __DAISY_EVENT_SET_NONE);
@@ -271,6 +272,7 @@ int main(int argc, char* argv[]) {
         .line_end = 169,
         .column_begin = 0,
         .column_end = 0,
+        .element_type = "d2h_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "copy_scalarField_from_device_dense_mat"
     };
@@ -284,8 +286,7 @@ int main(int argc, char* argv[]) {
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id4);
-        __daisy_instrumentation_increment(region_id4, "flop", 0);
-        __daisy_instrumentation_increment(region_id4, "dram_bytes", 1);
+        __daisy_instrumentation_increment(region_id4, "pcie_bytes", 1);
         __daisy_instrumentation_finalize(region_id4);
     #endif
 

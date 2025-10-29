@@ -118,6 +118,7 @@ int main() {
         .line_end = 153,
         .column_begin = 0,
         .column_end = 0,
+        .element_type = "h2d_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "foam_ldu_to_ellpack_copy"
     };
@@ -132,8 +133,7 @@ int main() {
     #ifdef ENABLE_DAISY_RTL
         auto [dram_bytes_rd, dram_bytes_wr, mul_flops, add_flops, mat_h2d_bytes, vec_transfer_bytes] = calculate_ellpack_matVec_metrics(tt_meta_a, impl);    
         __daisy_instrumentation_exit(region_id1);
-        __daisy_instrumentation_increment(region_id1, "flop", 0);
-        __daisy_instrumentation_increment(region_id1, "dram_bytes", mat_h2d_bytes);
+        __daisy_instrumentation_increment(region_id1, "pcie_bytes", mat_h2d_bytes);
         __daisy_instrumentation_finalize(region_id1);
     #endif
 
@@ -145,6 +145,7 @@ int main() {
         .line_end = 180,
         .column_begin = 0,
         .column_end = 0,
+        .element_type = "h2d_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "scalarField_copy"
     };
@@ -157,8 +158,7 @@ int main() {
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id2);
-        __daisy_instrumentation_increment(region_id2, "flop", 0);
-        __daisy_instrumentation_increment(region_id2, "dram_bytes", vec_transfer_bytes);
+        __daisy_instrumentation_increment(region_id2, "pcie_bytes", vec_transfer_bytes);
         __daisy_instrumentation_finalize(region_id2);
     #endif
 
@@ -257,6 +257,7 @@ int main() {
         .line_end = 296,
         .column_begin = 0,
         .column_end = 0,
+        .element_type = "d2h_transfer",
         .target_type = "TENSTORRENT",
         .region_uuid = "scalarField_from_device_bare"
     };
@@ -270,8 +271,7 @@ int main() {
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id4);
-        __daisy_instrumentation_increment(region_id4, "flop", 0);
-        __daisy_instrumentation_increment(region_id4, "dram_bytes", vec_transfer_bytes);
+        __daisy_instrumentation_increment(region_id4, "pcie_bytes", vec_transfer_bytes);
         __daisy_instrumentation_finalize(region_id4);
     #endif
 
