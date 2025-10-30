@@ -189,6 +189,7 @@ int main(int argc, char* argv[]) {
     tt::tt_metal::Finish(device->command_queue(0));
 
     #ifdef ENABLE_DAISY_RTL
+        __daisy_instrumentation_exit(region_id2);
         __daisy_instrumentation_increment(region_id2, "pcie_bytes", 1);
         __daisy_instrumentation_finalize(region_id2);
     #endif
