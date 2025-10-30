@@ -326,7 +326,7 @@ void Foam::lduMatrix::sumA
 
         auto& k = tt::daisy::foam::require_kernel_launcher();
 
-        auto tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this);
+        auto [tt_meta, h2d_dat, h2d_mesh] = tt::daisy::foam::ensure_lduMat_on_device(k, this);
 
         auto& tt_res = tt::daisy::foam::allocate_field_buffer(k, diag().size());
         // auto [tt_iface_contents, iface_count] = tt::daisy::foam::copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
@@ -472,7 +472,7 @@ void Foam::lduMatrix::residual
 
         auto& k = tt::daisy::foam::require_kernel_launcher();
 
-        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this);
+        auto [tt_meta, h2d_dat, h2d_addr] = tt::daisy::foam::ensure_lduMat_on_device(k, this);
 
         auto& tt_psi = tt::daisy::foam::copy_scalarField_to_device(k, psi);
         auto& tt_source = tt::daisy::foam::copy_scalarField_to_device(k, source);
