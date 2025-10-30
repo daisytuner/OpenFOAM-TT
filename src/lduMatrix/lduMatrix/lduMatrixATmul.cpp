@@ -95,9 +95,31 @@ void Foam::lduMatrix::Amul
         auto & tt_Apsi = k.allocateBuffer(tt_psi.buffer->size(), tt_psi.buffer->page_size());
 
         #ifdef ENABLE_DAISY_RTL
+            #if TT_IMPL == TT_IMPL_ELLPACK
             auto [dram_bytes_rd, dram_bytes_wr, mul_flops, add_flops, mat_h2d_bytes, vec_transfer_bytes] = tt::daisy::calculate_ellpack_matVec_metrics(tt_meta);
+            auto mat_transfer_bytes = (h2d_dat? mat_h2d_bytes : 0) + (h2d_mesh? mat_h2d_bytes : 0);
+            #elif TT_IMPL == TT_IMPL_LDU
+            auto mat_transfer_bytes = (h2d_dat ? tt_meta.d_data_->size() : 0)
+                                 + (h2d_mesh ? tt_meta.d_addrs_->size() : 0);
+            auto vec_transfer_bytes = psi.size() * sizeof(float);
+            auto mul_flops = tt_meta.cell_count * 32 * tt_meta.cell_count;
+            auto add_flops = 32 * tt_meta.cell_count;
+            auto dram_bytes_rd = mat_transfer_bytes + vec_transfer_bytes;
+            auto dram_bytes_wr = vec_transfer_bytes;
+            
+            #elif TT_IMPL == TT_IMPL_DENSE
+            auto mat_transfer_bytes = h2d_dat ? tt_meta.d_dense_->size() : 0;
+            auto vec_transfer_bytes = psi.size() * 32 * sizeof(float);
+            auto mul_flops = 2 * tt_meta.cell_count + 2* tt_meta.sparse_count;
+            auto add_flops = 2 * tt_meta.sparse_count;
+            auto dram_bytes_rd = mat_transfer_bytes + vec_transfer_bytes;
+            auto dram_bytes_wr = vec_transfer_bytes;
+            #else
+            #error Unknown TT IMPL TT_IMPL, cannot estimate instrumentation metrics
+            #endif
+            
             __daisy_instrumentation_exit(region_h2d);
-            __daisy_instrumentation_increment(region_h2d, "pcie_bytes", (h2d_dat? mat_h2d_bytes : 0) + (h2d_mesh? mat_h2d_bytes : 0) + vec_transfer_bytes); // overestimate. mat may be reused (and addr also)
+            __daisy_instrumentation_increment(region_h2d, "pcie_bytes", mat_transfer_bytes + vec_transfer_bytes); // overestimate. mat may be reused (and addr also)
             __daisy_instrumentation_finalize(region_h2d);
         #endif
 
