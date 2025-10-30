@@ -99,7 +99,7 @@ void copy_ldu_contents_to_device(
     bool reserve_all = false
 );
 
-tt_ldu_meta& ensure_lduMat_on_device_as_ldu(
+std::tuple<tt_ldu_meta&, bool, bool> ensure_lduMat_on_device_as_ldu(
     BufferPool& bufferPool,
     const class Foam::lduMatrix* lduMat,
     bool reserve_all_parts = false
@@ -117,7 +117,7 @@ void copy_ldu_to_ellpack(
     const Foam::lduMatrix* lduMat
 );
 
-tt_ldu_meta& ensure_lduMat_on_device(
+std::tuple<tt_ldu_meta&, bool, bool> ensure_lduMat_on_device(
     BufferPool& bufferPool,
     const class Foam::lduMatrix* lduMat,
     bool is_expand = false

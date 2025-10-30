@@ -113,13 +113,14 @@ int main() {
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata1 = {
         .file_name = "bench_ellpack_Amul.cpp",
-        .function_name = "foam_ldu_to_ellpack_copy",
+        .function_name = "foam_ldu_h2d_ellpack",
         .line_begin = 150,
         .line_end = 153,
         .column_begin = 0,
         .column_end = 0,
+        .element_type = "h2d_transfer",
         .target_type = "TENSTORRENT",
-        .region_uuid = "foam_ldu_to_ellpack_copy"
+        .region_uuid = "foam_ldu_h2d_ellpack"
     };
     unsigned long long region_id1 = __daisy_instrumentation_init(&metadata1, __DAISY_EVENT_SET_NONE);
     __daisy_instrumentation_enter(region_id1);
@@ -132,21 +133,21 @@ int main() {
     #ifdef ENABLE_DAISY_RTL
         auto [dram_bytes_rd, dram_bytes_wr, mul_flops, add_flops, mat_h2d_bytes, vec_transfer_bytes] = calculate_ellpack_matVec_metrics(tt_meta_a, impl);    
         __daisy_instrumentation_exit(region_id1);
-        __daisy_instrumentation_increment(region_id1, "flop", 0);
-        __daisy_instrumentation_increment(region_id1, "dram_bytes", mat_h2d_bytes);
+        __daisy_instrumentation_increment(region_id1, "pcie_bytes", 2*mat_h2d_bytes); // dat + addrs/mesh
         __daisy_instrumentation_finalize(region_id1);
     #endif
 
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata2 = {
         .file_name = "bench_ellpack_Amul.cpp",
-        .function_name = "scalarField_copy",
+        .function_name = "foam_scalarField_h2d_bare",
         .line_begin = 173,
         .line_end = 180,
         .column_begin = 0,
         .column_end = 0,
+        .element_type = "h2d_transfer",
         .target_type = "TENSTORRENT",
-        .region_uuid = "scalarField_copy"
+        .region_uuid = "foam_scalarField_h2d_bare"
     };
     unsigned long long region_id2 = __daisy_instrumentation_init(&metadata2, __DAISY_EVENT_SET_NONE);
     __daisy_instrumentation_enter(region_id2);
@@ -157,8 +158,7 @@ int main() {
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id2);
-        __daisy_instrumentation_increment(region_id2, "flop", 0);
-        __daisy_instrumentation_increment(region_id2, "dram_bytes", vec_transfer_bytes);
+        __daisy_instrumentation_increment(region_id2, "pcie_bytes", vec_transfer_bytes);
         __daisy_instrumentation_finalize(region_id2);
     #endif
 
@@ -252,13 +252,14 @@ int main() {
     #ifdef ENABLE_DAISY_RTL
     __daisy_metadata_t metadata4 = {
         .file_name = "bench_ellpack_Amul.cpp",
-        .function_name = "scalarField_from_device_bare",
+        .function_name = "foam_scalarField_d2h_bare",
         .line_begin = 295,
         .line_end = 296,
         .column_begin = 0,
         .column_end = 0,
+        .element_type = "d2h_transfer",
         .target_type = "TENSTORRENT",
-        .region_uuid = "scalarField_from_device_bare"
+        .region_uuid = "foam_scalarField_d2h_bare"
     };
     unsigned long long region_id4 = __daisy_instrumentation_init(&metadata4, __DAISY_EVENT_SET_NONE);
     __daisy_instrumentation_enter(region_id4);
@@ -270,8 +271,7 @@ int main() {
 
     #ifdef ENABLE_DAISY_RTL
         __daisy_instrumentation_exit(region_id4);
-        __daisy_instrumentation_increment(region_id4, "flop", 0);
-        __daisy_instrumentation_increment(region_id4, "dram_bytes", vec_transfer_bytes);
+        __daisy_instrumentation_increment(region_id4, "pcie_bytes", vec_transfer_bytes);
         __daisy_instrumentation_finalize(region_id4);
     #endif
 

@@ -71,7 +71,7 @@ void Foam::lduMatrix::sumDiag()
 
         auto& k = tt::daisy::foam::require_kernel_launcher();
 
-        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device_as_ldu(k, this);
+        auto [tt_meta, h2d_dat, h2d_mesh] = tt::daisy::foam::ensure_lduMat_on_device_as_ldu(k, this);
 
         k.launch_sumDiag(
             tt_meta
@@ -134,7 +134,7 @@ void Foam::lduMatrix::negSumDiag()
 
         auto& k = tt::daisy::foam::require_kernel_launcher();
 
-        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device_as_ldu(k, this);
+        auto [tt_meta, h2d_dat, h2d_mesh] = tt::daisy::foam::ensure_lduMat_on_device_as_ldu(k, this);
 
         k.launch_negSumDiag(
             tt_meta
@@ -279,7 +279,7 @@ void Foam::lduMatrix::negate()
 
         auto& k = tt::daisy::foam::require_kernel_launcher();
 
-        auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this);
+        auto [tt_meta, h2d_dat, h2d_mesh] = tt::daisy::foam::ensure_lduMat_on_device(k, this);
 
         tt::daisy::foam::tt_compute_negate(
             k,
@@ -425,8 +425,8 @@ void Foam::lduMatrix::operator+=(const lduMatrix& A)
 
             auto& k = tt::daisy::foam::require_kernel_launcher();
 
-            auto& tt_meta = ensure_lduMat_on_device(k, this, is_expand);
-            auto& a_tt_meta = ensure_lduMat_on_device(k, &A);
+            auto [tt_meta, h2d_dat, h2d_mesh] = ensure_lduMat_on_device(k, this, is_expand);
+            auto [a_tt_meta, h2d_dat_a, h2d_mesh_a] = ensure_lduMat_on_device(k, &A);
 
             tt::daisy::foam::tt_compute_matBinOp(
                 k,
@@ -655,8 +655,8 @@ void Foam::lduMatrix::operator-=(const lduMatrix& A)
 
             auto& k = tt::daisy::foam::require_kernel_launcher();
 
-            auto& tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, this, is_expand);
-            auto& a_tt_meta = tt::daisy::foam::ensure_lduMat_on_device(k, &A);
+            auto [tt_meta, h2d_dat, h2d_mesh] = tt::daisy::foam::ensure_lduMat_on_device(k, this, is_expand);
+            auto [a_tt_meta, h2d_dat_a, h2d_mesh_a] = tt::daisy::foam::ensure_lduMat_on_device(k, &A);
 
             tt::daisy::foam::tt_compute_matBinOp(
                 k,
