@@ -1,6 +1,6 @@
 # Test Case: lduMatrixATmul_Amul
 add_executable(lduMatrixATmul_Amul
-    lduMatrixATmul_Amul.cpp
+    lduMatrixATmul_Amul_real.cpp
 )
 target_link_libraries(lduMatrixATmul_Amul PUBLIC OpenFOAM::OpenFOAM z)
 target_compile_features(lduMatrixATmul_Amul PUBLIC cxx_std_20)
@@ -11,6 +11,22 @@ target_compile_definitions(lduMatrixATmul_Amul PRIVATE
     ${OPENFOAM_COMPILE_DEFINITIONS}
 )
 target_compile_options(lduMatrixATmul_Amul PRIVATE
+    ${OPENFOAM_COMPILE_OPTIONS}
+)
+
+# Test Case: lduMatrixATmul_Amul_test
+add_executable(lduMatrixATmul_Amul_test
+    lduMatrixATmul_Amul.cpp
+)
+target_link_libraries(lduMatrixATmul_Amul_test PUBLIC OpenFOAM::OpenFOAM z)
+target_compile_features(lduMatrixATmul_Amul_test PUBLIC cxx_std_20)
+target_include_directories(lduMatrixATmul_Amul_test PRIVATE
+    ${OPENFOAM_HEADERS}
+)
+target_compile_definitions(lduMatrixATmul_Amul_test PRIVATE
+    ${OPENFOAM_COMPILE_DEFINITIONS}
+)
+target_compile_options(lduMatrixATmul_Amul_test PRIVATE
     ${OPENFOAM_COMPILE_OPTIONS}
 )
 

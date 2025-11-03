@@ -6,13 +6,19 @@
 namespace tt::daisy {
 
 struct tt_ldu_meta {
+
+    // -------------- generic meta
+
+    uint32_t cell_count = 0; //TODO we use this for diag Count & size of the virtual matrix. But it can happen that the diag is not yet allocated and we could save work (but this is more special case that diag is virtual 0, but it still should exist)
+
+    // -------------- ldu meta
+
     bool contents_on_device_ = false;
     bool addrs_on_device_ = false;
 
     // matrix contents. They may change at some point. But also will not be changed on-device
     std::shared_ptr<tt::tt_metal::Buffer> d_data_ = nullptr;
 
-    uint32_t cell_count = 0; //TODO we use this for diag Count & size of the virtual matrix. But it can happen that the diag is not yet allocated and we could save work (but this is more special case that diag is virtual 0, but it still should exist)
     uint32_t lower_contents_start_ = 0; // if lower_contents_start_ == upper_contents_start_ than it is mirrored. It does not hurt to read them twice
     uint32_t sparse_count = 0;
     uint32_t upper_contents_start_ = 0;
@@ -32,6 +38,21 @@ struct tt_ldu_meta {
 
     std::shared_ptr<tt::tt_metal::Buffer> d_dense_ = nullptr;
 
+    // -------------- ellpack meta
+    bool ellpack_on_device_ = false;
+    bool ellpack_addr_on_device_ = false;
+
+    uint32_t ellpack_cols_ = 0;
+    bool ellpack_dat_tiled_faced_ = true;
+
+    uint32_t* ellpack_addr_ = nullptr;
+    std::shared_ptr<tt::tt_metal::Buffer> d_ellpack_vals_ = nullptr;
+    std::shared_ptr<tt::tt_metal::Buffer> d_ellpack_addrs_ = nullptr;
+
+    float ellpack_avg_cols_ = 0.0f;
+    
+
+    ~tt_ldu_meta();
 };
 
 template<typename result> result& get_tt_meta(const void* key, std::unordered_map<const void*, result>& map) {

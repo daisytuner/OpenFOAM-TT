@@ -1,4 +1,6 @@
 #include "dense_matNeg.hpp"
+#include "tt-metalium/base_types.hpp"
+#include "tt-metalium/circular_buffer_constants.h"
 #include "tt-metalium/core_coord.hpp"
 #include "tt-metalium/program.hpp"
 #include <cstdint>
@@ -6,6 +8,7 @@
 #include <tt-metalium/work_split.hpp>
 #include <tt-metalium/kernel_types.hpp>
 #include <tt-metalium/tensor_accessor_args.hpp>
+#include <vector>
 
 namespace tt::daisy {
 
@@ -27,8 +30,10 @@ void tt_launch_dense_matNeg(
     auto [num_cores, used_cores, core_group_1, core_group_2, work_per_core1, work_per_core2] =
         tt::tt_metal::split_work_to_cores(avail_cores, num_output_tiles_total);
 
+    #if TT_DEBUG > 0
     std::cout << "Using " << num_cores << " cores to process " << num_output_tiles_total << " tiles. ("
               << work_per_core1 << " on " << core_group_1.num_cores() << ", " << work_per_core2 << " on " << core_group_2.num_cores() << ")" << std::endl;
+    #endif
 
     int page_size = 4096;
     int buf_size = page_size * 2;
@@ -60,6 +65,7 @@ void tt_launch_dense_matNeg(
         tt::tt_metal::ComputeConfig {
             .math_fidelity = MathFidelity::HiFi4,
             .fp32_dest_acc_en = true,
+            .unpack_to_dest_mode = std::vector<UnpackToDestMode>(NUM_CIRCULAR_BUFFERS, UnpackToDestMode::UnpackToDestFp32),
             .compile_args = {},
         }
     );

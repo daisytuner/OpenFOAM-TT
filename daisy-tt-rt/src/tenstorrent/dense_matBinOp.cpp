@@ -2,6 +2,7 @@
 #include "tt-metalium/core_coord.hpp"
 #include "tt-metalium/program.hpp"
 #include <cstdint>
+#include <string>
 #include <tt-metalium/host_api.hpp>
 #include <tt-metalium/work_split.hpp>
 #include <tt-metalium/kernel_types.hpp>
@@ -15,7 +16,7 @@ void tt_launch_dense_matBinOp(
     tt::tt_metal::Buffer& d_b,
     tt::tt_metal::Buffer& d_dest,
     uint32_t mat_width,
-    std::string opSymbol,
+    MatBinOp opSymbol,
     std::filesystem::path kernel_dir
 ) {
     tt::tt_metal::Program program;
@@ -29,8 +30,10 @@ void tt_launch_dense_matBinOp(
     auto [num_cores, used_cores, core_group_1, core_group_2, work_per_core1, work_per_core2] =
         tt::tt_metal::split_work_to_cores(avail_cores, num_output_tiles_total);
 
+    #if TT_DEBUG > 0
     std::cout << "Using " << num_cores << " cores to process " << num_output_tiles_total << " tiles. ("
               << work_per_core1 << " on " << core_group_1.num_cores() << ", " << work_per_core2 << " on " << core_group_2.num_cores() << ")" << std::endl;
+    #endif
 
     int page_size = 4096;
     int buf_size = page_size * 2;
@@ -70,7 +73,7 @@ void tt_launch_dense_matBinOp(
             .fp32_dest_acc_en = true,
             // .math_approx_mode = false,
             .compile_args = {},
-            .defines = {{"KERNEL_OP", opSymbol}}
+            .defines = {{"KERNEL_OP", std::to_string(static_cast<int>(opSymbol))}}
         }
     );
 
@@ -87,8 +90,6 @@ void tt_launch_dense_matBinOp(
     auto a_addr = d_a.address();
     auto b_addr = d_b.address();
     auto dest_addr = d_dest.address();
-
-    uint32_t start_tile = 0;
 
     rd_common_args.insert(
         rd_common_args.begin(),
@@ -116,6 +117,8 @@ void tt_launch_dense_matBinOp(
         kernel_wr_0,
         wr_common_args
     );
+
+    uint32_t start_tile = 0;
 
     for (auto& range : used_cores.ranges()) {
 

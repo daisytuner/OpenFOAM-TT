@@ -2,11 +2,16 @@
 #include "ReusableTtBuffer.hpp"
 #include <tt-metalium/buffer.hpp>
 #include "buffer_pool.hpp"
+#include "dense_matMul.hpp"
+#include "dense_matBinOp.hpp"
+#include "dense_matNeg.hpp"
+#include "ellpack_matVec.hpp"
 #include "ttLduData.hpp"
 #include <cassert>
 #include <cstdlib>
 #include <stdexcept>
 #include <tt-metalium/host_api.hpp>
+#include "tt_impls.hpp"
 
 namespace tt::daisy::foam {
 
@@ -200,15 +205,15 @@ void KernelLauncher::init_suma_program() {
 
 void KernelLauncher::launch_suma(
     const tt_ldu_meta& lduMeta,
-    tt::tt_metal::Buffer& d_res,
-    tt::tt_metal::Buffer* d_iface_contents,
-    int iface_count
+    tt::tt_metal::Buffer& d_res
+    // tt::tt_metal::Buffer* d_iface_contents,
+    // int iface_count
 ) {
 
     assert(d_res.size() <= static_cast<uint32_t>(program_suma_.res_size_alloc));
     assert(lduMeta.d_data_->size() <= static_cast<uint32_t>(program_suma_.data_size_alloc));
     assert(lduMeta.d_addrs_->size() <= static_cast<uint32_t>(program_suma_.addr_size_alloc));
-    assert(!d_iface_contents || (d_iface_contents->size() <= static_cast<uint32_t>(program_suma_.iface_size_alloc)));
+    // assert(!d_iface_contents || (d_iface_contents->size() <= static_cast<uint32_t>(program_suma_.iface_size_alloc)));
     
     tt::tt_metal::SetRuntimeArgs(
         program_suma_.program,
@@ -224,8 +229,8 @@ void KernelLauncher::launch_suma(
             lduMeta.sparse_count,
             lduMeta.upper_contents_start_,
             d_res.address(),
-            d_iface_contents? d_iface_contents->address() : 0,
-            static_cast<uint32_t>(iface_count),
+            // d_iface_contents? d_iface_contents->address() : 0,
+            // static_cast<uint32_t>(iface_count),
         }
     );
 
@@ -269,10 +274,9 @@ void KernelLauncher::launch_residual(
     const tt_ldu_meta& lduMeta,
     tt::tt_metal::Buffer& d_psi,
     tt::tt_metal::Buffer& d_source,
-    tt::tt_metal::Buffer& d_res,
+    tt::tt_metal::Buffer& d_res
     // tt::tt_metal::Buffer& d_iface_contents,
-    // int iface_count,
-    const char cmpt
+    // int iface_count
 ) {
 
     assert(d_res.size() <= static_cast<uint32_t>(program_residual_.res_size_alloc));
@@ -528,6 +532,120 @@ void KernelLauncher::launch_matSubAssign(
     const tt_ldu_meta& lduAMeta
 ) {
     launch_matOpAssign(lduDestMeta, lduAMeta, program_matSubAssign_);
+}
+
+void tt_compute_amul(KernelLauncher& k, tt_ldu_meta& tt_meta, ReusableTtBuffer& tt_psi, ReusableTtBuffer& tt_Apsi) {
+    #if TT_IMPL == TT_IMPL_LDU
+        k.launch_amul(tt_meta, *tt_psi.buffer, *tt_Apsi.buffer, 0);
+    #elif TT_IMPL == TT_IMPL_DENSE
+        auto aligned_cells = tt::round_up(tt_meta.cell_count, 32);
+        tt_launch_dense_matMul(
+            k.device_,
+            *tt_meta.d_dense_,
+            *tt_psi.buffer,
+            *tt_Apsi.buffer,
+            aligned_cells,
+            32,
+            aligned_cells,
+            1,
+            false,
+            k.kernel_dir_
+        );
+    #elif TT_IMPL == TT_IMPL_ELLPACK
+        tt_launch_ellpack_matVecOp(k.device_, tt_meta, *tt_psi.buffer, *tt_Apsi.buffer, k.kernel_dir_);
+    #else
+        #error unknown TT IMPL TT_IMPL
+    #endif
+}
+
+void tt_compute_sumA(
+    KernelLauncher& k,
+    tt_ldu_meta& tt_meta,
+    ReusableTtBuffer& tt_res
+) {
+    #if TT_IMPL == TT_IMPL_LDU
+        k.launch_suma(tt_meta, *tt_res.buffer);
+    #elif TT_IMPL == TT_IMPL_DENSE
+        throw std::runtime_error("suma not implemented for dense mat");
+    #elif TT_IMPL == TT_IMPL_ELLPACK
+        throw std::runtime_error("suma not implemented for ellpack mat");
+    #else
+        #error unknown TT IMPL TT_IMPL
+    #endif
+}
+
+void tt_compute_residual(
+    KernelLauncher& k,
+    tt_ldu_meta& tt_meta,
+    ReusableTtBuffer& tt_psi,
+    ReusableTtBuffer& tt_source,
+    ReusableTtBuffer& tt_res
+) {
+    #if TT_IMPL == TT_IMPL_LDU
+        k.launch_residual(tt_meta, *tt_psi.buffer, *tt_source.buffer, *tt_res.buffer);
+    #elif TT_IMPL == TT_IMPL_DENSE
+        throw std::runtime_error("suma not implemented for dense mat");
+    #elif TT_IMPL == TT_IMPL_ELLPACK
+        throw std::runtime_error("suma not implemented for ellpack mat");
+    #else
+        #error unknown TT IMPL TT_IMPL
+    #endif
+}
+
+void tt_compute_negate(
+    KernelLauncher& k,
+    tt_ldu_meta& tt_meta
+) {
+    #if TT_IMPL == TT_IMPL_LDU
+        k.launch_negate(tt_meta);
+    #elif TT_IMPL == TT_IMPL_DENSE
+        tt_launch_dense_matNeg(
+            k.device_,
+            *tt_meta.d_dense_,
+            *tt_meta.d_dense_,
+            tt_meta.cell_count,
+            k.kernel_dir_
+        );
+    #elif TT_IMPL == TT_IMPL_ELLPACK
+        throw std::runtime_error("negate not implemented for ellpack mat");
+    #else
+        #error unknown TT IMPL TT_IMPL
+    #endif
+}
+
+void tt_compute_matBinOp(
+    KernelLauncher& k,
+    tt_ldu_meta& tt_meta_res,
+    const tt_ldu_meta& a_tt_meta,
+    const tt_ldu_meta& b_tt_meta,
+    MatBinOp opSymbol
+) {
+    #if TT_IMPL == TT_IMPL_LDU
+        if (&tt_meta_res != &a_tt_meta) {
+            throw std::runtime_error("for LDU matBinOp, the result mat must be the same as the first operand mat");
+        }
+        if (opSymbol == MatBinOp::ADD) {
+            k.launch_matAddAssign(tt_meta_res, b_tt_meta);
+        } else if (opSymbol == MatBinOp::SUB) {
+            k.launch_matSubAssign(tt_meta_res, b_tt_meta);
+        } else {
+            throw std::runtime_error("unsupported opSymbol " + std::to_string(static_cast<int>(opSymbol)));
+        }
+    #elif TT_IMPL == TT_IMPL_DENSE
+        tt_launch_dense_matBinOp(
+            k.device_,
+            *a_tt_meta.d_dense_,
+            *b_tt_meta.d_dense_,
+            *tt_meta_res.d_dense_,
+            a_tt_meta.cell_count,
+            opSymbol,
+            k.kernel_dir_
+        );
+    #elif TT_IMPL == TT_IMPL_ELLPACK
+        throw std::runtime_error("matBinOp not implemented for ellpack mat");
+    #else
+        #error unknown TT IMPL TT_IMPL
+    #endif
 }
 
 }  // namespace tt::daisy::foam

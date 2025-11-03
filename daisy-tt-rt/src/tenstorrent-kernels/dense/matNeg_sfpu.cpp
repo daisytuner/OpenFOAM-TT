@@ -17,6 +17,8 @@ void MAIN {
 
     unary_op_init_common(cb_a, cb_res);
 
+    copy_tile_init(cb_a);
+
     negative_tile_init();
 
     for (uint32_t i = 0; i < num_tiles; ++i) {

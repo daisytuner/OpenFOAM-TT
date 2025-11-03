@@ -52,7 +52,7 @@ int main() {
     lduA.upper() = 100.0;
     Foam::lduMatrix lduB(mesh);
     lduB.diag() = 2.0;
-    lduB.lower() = 1.0;
+    // lduB.lower() = 1.0;
     lduB.upper() = 150.0;
 
     Foam::lduMatrix lduRes(mesh);
@@ -118,7 +118,7 @@ int main() {
         *tt_meta_b.d_dense_,
         *tt_meta_res.d_dense_,
         cells,
-        "add",
+        MatBinOp::SUB,
         kernel_dir
     );
 
@@ -132,19 +132,19 @@ int main() {
 
     Foam::Info << "Result: " << lduRes << Foam::endl;
 
-    Foam::scalarField expected_diag(cells, 5.0);
-    Foam::scalarField expected_lower(triang_size, 2.0);
-    Foam::scalarField expected_upper(triang_size, 250.0);
+    Foam::scalarField expected_diag(cells, 1.0);
+    Foam::scalarField expected_lower(triang_size, -149.0);
+    Foam::scalarField expected_upper(triang_size, -50.0);
 
-    if (!Foam::daisy::matches(lduRes.diag(), expected_diag)) {
+    if (!Foam::daisy::matches(lduRes.diag(), expected_diag, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
         Foam::SeriousError << "FAIL Expected diag: " << expected_diag << Foam::endl;
     }
 
-    if (!Foam::daisy::matches(lduRes.lower(), expected_lower)) {
+    if (!Foam::daisy::matches(lduRes.lower(), expected_lower, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
         Foam::SeriousError << "FAIL Expected lower: " << expected_lower << Foam::endl;
     }
 
-    if (!Foam::daisy::matches(lduRes.upper(), expected_upper)) {
+    if (!Foam::daisy::matches(lduRes.upper(), expected_upper, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
         Foam::SeriousError << "FAIL Expected upper: " << expected_upper << Foam::endl;
     }
 

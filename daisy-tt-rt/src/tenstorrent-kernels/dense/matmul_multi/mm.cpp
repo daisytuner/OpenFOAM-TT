@@ -5,6 +5,7 @@
 #include <cstdint>
 #include "compute_kernel_api/tile_move_copy.h"
 #include "compute_kernel_api/matmul.h"
+#include <tools/profiler/kernel_profiler.hpp>
 
 using std::uint32_t;
 
@@ -53,13 +54,19 @@ void MAIN {
         // Make sure registers can be used for the output tile. This also sets the registers to zero.
         tile_regs_acquire();
         for (uint32_t kt = 0; kt < Kt; kt++) {
+            {
+            DeviceZoneScopedN("WaitForCbTiles");
             // Wait for the input tiles to be available in the input circular buffers.
             cb_wait_front(cb_in0, 1);
             cb_wait_front(cb_in1, 1);
+            }
 
             // Perform the matrix multiplication for the current tile.
             // NOTE: This function also accumulates the result into the destination tile.
+            {
+                DeviceZoneScopedN("Matmul");
             matmul_tiles(cb_in0, cb_in1, 0, 0, 0, false);
+            }
 
             // Mark the input tiles as used by popping them from the front of the circular buffers.
             cb_pop_front(cb_in0, 1);
@@ -71,11 +78,14 @@ void MAIN {
         tile_regs_wait();
 
         // Ensure the output circular buffer has space for the result tile.
+        {
+            DeviceZoneScopedN("Pack");
         cb_reserve_back(cb_out, 1);
         // Pack the result tile into the output circular buffer.
         pack_tile(0, cb_out);
         // Mark the output tile as ready so the writer can read it.
         cb_push_back(cb_out, 1);
+        }
 
         // We don't need the registers anymore, so we can release them and prepare for the next output tile.
         tile_regs_release();
