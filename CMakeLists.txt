@@ -79,8 +79,9 @@ if (ENABLE_DAISY_RTL)
 endif()
 if (ENABLE_DOCC_PLUGIN)
   list(APPEND OPENFOAM_COMPILE_OPTIONS
-    -mllvm -docc-plugins=libOpenFOAM_DOCCPlugin.so
+    -mllvm -docc-plugins=${CMAKE_CURRENT_BINARY_DIR}/plugin/libOpenFOAM_DOCCPlugin.so
   )
+  add_subdirectory(plugin)
 endif()
 
 set(OPENFOAM_COMPILE_DEFINITIONS
@@ -646,6 +647,10 @@ add_library(OpenFOAM SHARED
   ${OPENFOAM_SOURCES}
 )
 
+if (ENABLE_DOCC_PLUGIN)
+  add_dependencies(OpenFOAM OpenFOAM_DOCCPlugin)
+endif()
+
 add_library(OpenFOAM::OpenFOAM ALIAS OpenFOAM)
 
 target_link_libraries(OpenFOAM PUBLIC z)
@@ -674,7 +679,7 @@ if (ENABLE_TT)
   add_subdirectory(daisy-tt-rt)
 
   target_compile_definitions(OpenFOAM PUBLIC
-      ENABLE_TT
+    ENABLE_TT
   )
 
   if (VERIFY_TT)
