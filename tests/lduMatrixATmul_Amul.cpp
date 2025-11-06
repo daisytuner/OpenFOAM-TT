@@ -2,6 +2,27 @@
 #include "lduMatrix.H"
 #include "lduPrimitiveMesh.H"
 
+__attribute__((noinline))
+void kernel(Foam::label& nCells, Foam::lduMatrix& matrix, Foam::scalarField& vec, Foam::FieldField<Foam::Field, Foam::scalar>& interfaceBouCoeffs, Foam::lduInterfaceFieldPtrsList& interfaces, Foam::direction& cmpt, Foam::scalarField& result1, Foam::scalarField& result2) {
+    // Kernel 1
+    matrix.Amul(
+        result1,
+        vec,
+        interfaceBouCoeffs,
+        interfaces,
+        cmpt
+    );
+
+    // Kernel 2
+    matrix.Amul(
+        result2,
+        result1,
+        interfaceBouCoeffs,
+        interfaces,
+        cmpt
+    );
+}
+
 int main()
 {
     // Create a simple 3x3 mesh
@@ -34,25 +55,34 @@ int main()
 
     Foam::direction cmpt = Foam::direction(0);
 
-    // Kernel
+    Foam::scalarField result1(nCells, 0.0);
+    Foam::scalarField result2(nCells, 0.0);
 
-    Foam::scalarField result(nCells, 0.0);
-    matrix.Amul(
-        result,
-        vec,
-        Foam::FieldField<Foam::Field, Foam::scalar>(0),
-        Foam::lduInterfaceFieldPtrsList(0),
-        cmpt
-    );
+    Foam::FieldField<Foam::Field, Foam::scalar> interfaceBouCoeffs(0);
+    Foam::lduInterfaceFieldPtrsList interfaces(0);
 
-    // Check result
-    Foam::Info << "Amul: " << result << Foam::endl;
+    kernel(nCells, matrix, vec, interfaceBouCoeffs, interfaces, cmpt, result1, result2);
+
+    // Check result1
+    Foam::Info << "Amul: " << result1 << Foam::endl;
 
     for (size_t i = 0; i < nCells; ++i)
     {
-        if (result[i] != 8.0) {
-            Foam::Info << "Error: result[" << i << "] = " << result[i]
+        if (result1[i] != 8.0) {
+            Foam::Info << "Error: result1[" << i << "] = " << result1[i]
                        << ", expected 8.0" << Foam::endl;
+            return 1;
+        }
+    }
+
+    // Check result2
+    Foam::Info << "Amul: " << result2 << Foam::endl;
+
+    for (size_t i = 0; i < nCells; ++i)
+    {
+        if (result2[i] != 32.0) {
+            Foam::Info << "Error: result2[" << i << "] = " << result2[i]
+                       << ", expected 32.0" << Foam::endl;
             return 1;
         }
     }

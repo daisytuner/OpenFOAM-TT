@@ -53,8 +53,22 @@ ReusableTtBuffer& allocate_field_buffer_bare(BufferPool& bufferPool, uint32_t nu
     return bufferPool.allocateBuffer(bytes, tt_block_size);
 }
 
+ReusableTtBuffer& allocate_field_buffer_bare(BufferPool& bufferPool, const Foam::scalarField& field) {
+    size_t bytes = sizeof(float) * field.size();
+
+    return bufferPool.allocateBuffer(bytes, tt_block_size);
+}
+
 ReusableTtBuffer& allocate_field_buffer_1tile(BufferPool& bufferPool, uint32_t num_elements) {
     size_t tiles = (num_elements + 31) / 32;
+    size_t tileBytes = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
+    size_t bytes = tiles * tileBytes;
+
+    return bufferPool.allocateBuffer(bytes, tileBytes);
+}
+
+ReusableTtBuffer& allocate_field_buffer_1tile(BufferPool& bufferPool, const Foam::scalarField& field) {
+    size_t tiles = (field.size() + 31) / 32;
     size_t tileBytes = tt::tt_metal::detail::TileSize(tt::DataFormat::Float32);
     size_t bytes = tiles * tileBytes;
 
@@ -67,6 +81,16 @@ ReusableTtBuffer& allocate_field_buffer(BufferPool& bufferPool, uint32_t num_ele
         return allocate_field_buffer_bare(bufferPool, num_elements);
     #elif TT_IMPL == TT_IMPL_DENSE
         return allocate_field_buffer_1tile(bufferPool, num_elements);
+    #else
+        #error unsupported TT IMPL TT_IMPL
+    #endif
+}
+
+ReusableTtBuffer& allocate_field_buffer(BufferPool& bufferPool, const Foam::scalarField& field) {
+    #if TT_IMPL == TT_IMPL_LDU || TT_IMPL == TT_IMPL_ELLPACK
+        return allocate_field_buffer_bare(bufferPool, field);
+    #elif TT_IMPL == TT_IMPL_DENSE
+        return allocate_field_buffer_1tile(bufferPool, field);
     #else
         #error unsupported TT IMPL TT_IMPL
     #endif
@@ -1125,6 +1149,10 @@ std::tuple<tt_ldu_meta&, ReusableTtBuffer&, ReusableTtBuffer&> prepare_Amul_inpu
     #error Unknown TT IMPL TT_IMPL
 
     #endif
+}
+
+void clear_tmp_field(const Foam::tmp<Foam::scalarField>& tfield) {
+    tfield.clear();
 }
 
 }  // namespace tt::daisy::foam

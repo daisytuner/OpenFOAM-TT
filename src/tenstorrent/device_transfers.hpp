@@ -3,6 +3,7 @@
 #include "ReusableTtBuffer.hpp"
 #include "kernel_launcher.hpp"
 #include "lduAddressing.H"
+#include "tmp.H"
 #include "ttLduData.hpp"
 #include <Field.H>
 #include <scalarField.H>
@@ -18,14 +19,29 @@ ReusableTtBuffer& allocate_field_buffer(
     uint32_t num_elements
 );
 
+ReusableTtBuffer& allocate_field_buffer(
+    BufferPool& bufferPool,
+    const Foam::scalarField& field
+);
+
 ReusableTtBuffer& allocate_field_buffer_bare(
+    BufferPool& bufferPool,
+    uint32_t num_elements
+);
+
+ReusableTtBuffer& allocate_field_buffer_bare(
+    BufferPool& bufferPool,
+    const Foam::scalarField& field
+);
+
+ReusableTtBuffer& allocate_field_buffer_1tile(
     BufferPool& bufferPool,
     uint32_t num_elements
 );
 
 ReusableTtBuffer& allocate_field_buffer_1tile(
     BufferPool& bufferPool,
-    uint32_t num_elements
+    const Foam::scalarField& field
 );
 
 ReusableTtBuffer& copy_scalarField_to_device(
@@ -156,5 +172,7 @@ std::tuple<tt_ldu_meta&, ReusableTtBuffer&, ReusableTtBuffer&> prepare_Amul_inpu
     const Foam::scalarField& psi,
     const Foam::scalarField& Apsi
 );
+
+void clear_tmp_field(const Foam::tmp<Foam::scalarField>& tfield);
 
 }  // namespace tt::daisy::foam
