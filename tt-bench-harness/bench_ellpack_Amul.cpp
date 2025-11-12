@@ -109,171 +109,179 @@ int main() {
 
     // copying starts
 
+    for (int i = 0; i < 11; ++i) {
 
-    #ifdef ENABLE_DAISY_RTL
-    __daisy_metadata_t metadata1 = {
-        .file_name = "bench_ellpack_Amul.cpp",
-        .function_name = "foam_ldu_h2d_ellpack",
-        .line_begin = 150,
-        .line_end = 153,
-        .column_begin = 0,
-        .column_end = 0,
-        .element_type = "h2d_transfer",
-        .target_type = "TENSTORRENT",
-        .region_uuid = "foam_ldu_h2d_ellpack"
-    };
-    unsigned long long region_id1 = __daisy_instrumentation_init(&metadata1, __DAISY_EVENT_SET_NONE);
-    __daisy_instrumentation_enter(region_id1);
-    #endif
+        #ifdef ENABLE_DAISY_RTL
+        if (i>0){
+        __daisy_metadata_t metadata1 = {
+            .file_name = "bench_ellpack_Amul.cpp",
+            .function_name = "foam_ldu_h2d_ellpack",
+            .line_begin = 150,
+            .line_end = 153,
+            .column_begin = 0,
+            .column_end = 0,
+            .element_type = "h2d_transfer",
+            .target_type = "TENSTORRENT",
+            .region_uuid = "foam_ldu_h2d_ellpack"
+        };
+        unsigned long long region_id1 = __daisy_instrumentation_init(&metadata1, __DAISY_EVENT_SET_NONE);
+        __daisy_instrumentation_enter(region_id1);
+        }
+        #endif
 
-    tt::daisy::foam::copy_ldu_to_ellpack(buffer_pool, tt_meta_a, &lduA);
+        tt::daisy::foam::copy_ldu_to_ellpack(buffer_pool, tt_meta_a, &lduA);
 
-    tt::tt_metal::Finish(device->command_queue(0));
+        tt::tt_metal::Finish(device->command_queue(0));
 
-    #ifdef ENABLE_DAISY_RTL
-        auto [dram_bytes_rd, dram_bytes_wr, mul_flops, add_flops, mat_h2d_bytes, vec_transfer_bytes] = calculate_ellpack_matVec_metrics(tt_meta_a, impl);    
-        __daisy_instrumentation_exit(region_id1);
-        __daisy_instrumentation_increment(region_id1, "pcie_bytes", 2*mat_h2d_bytes); // dat + addrs/mesh
-        __daisy_instrumentation_finalize(region_id1);
-    #endif
+        #ifdef ENABLE_DAISY_RTL
+        if (i>0){
+            auto [dram_bytes_rd, dram_bytes_wr, mul_flops, add_flops, mat_h2d_bytes, vec_transfer_bytes] = calculate_ellpack_matVec_metrics(tt_meta_a, impl);
+            __daisy_instrumentation_exit(region_id1);
+            __daisy_instrumentation_increment(region_id1, "pcie_bytes", 2*mat_h2d_bytes); // dat + addrs/mesh
+            __daisy_instrumentation_finalize(region_id1);
+        }
+        #endif
 
-    #ifdef ENABLE_DAISY_RTL
-    __daisy_metadata_t metadata2 = {
-        .file_name = "bench_ellpack_Amul.cpp",
-        .function_name = "foam_scalarField_h2d_bare",
-        .line_begin = 173,
-        .line_end = 180,
-        .column_begin = 0,
-        .column_end = 0,
-        .element_type = "h2d_transfer",
-        .target_type = "TENSTORRENT",
-        .region_uuid = "foam_scalarField_h2d_bare"
-    };
-    unsigned long long region_id2 = __daisy_instrumentation_init(&metadata2, __DAISY_EVENT_SET_NONE);
-    __daisy_instrumentation_enter(region_id2);
-    #endif
-    auto& d_inVec = tt::daisy::foam::copy_scalarField_to_device_bare(buffer_pool, inVec);
+        #ifdef ENABLE_DAISY_RTL
+        if (i>0){
+        __daisy_metadata_t metadata2 = {
+            .file_name = "bench_ellpack_Amul.cpp",
+            .function_name = "foam_scalarField_h2d_bare",
+            .line_begin = 173,
+            .line_end = 180,
+            .column_begin = 0,
+            .column_end = 0,
+            .element_type = "h2d_transfer",
+            .target_type = "TENSTORRENT",
+            .region_uuid = "foam_scalarField_h2d_bare"
+        };
+        unsigned long long region_id2 = __daisy_instrumentation_init(&metadata2, __DAISY_EVENT_SET_NONE);
+        __daisy_instrumentation_enter(region_id2);
+        }
+        #endif
+        auto& d_inVec = tt::daisy::foam::copy_scalarField_to_device_bare(buffer_pool, inVec);
 
-    tt::tt_metal::Finish(device->command_queue(0));
+        tt::tt_metal::Finish(device->command_queue(0));
 
-    #ifdef ENABLE_DAISY_RTL
-        __daisy_instrumentation_exit(region_id2);
-        __daisy_instrumentation_increment(region_id2, "pcie_bytes", vec_transfer_bytes);
-        __daisy_instrumentation_finalize(region_id2);
-    #endif
+        #ifdef ENABLE_DAISY_RTL
+        if (i>0){
+            __daisy_instrumentation_exit(region_id2);
+            __daisy_instrumentation_increment(region_id2, "pcie_bytes", vec_transfer_bytes);
+            __daisy_instrumentation_finalize(region_id2);
+        }
+        #endif
 
 
-    auto& d_resWarmup = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());
-
-    auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());
-
-//    Foam::lduMatrix lduRes(mesh);
-//
-//    tt::daisy::foam::copy_ldu_from_ellpack(device, tt_meta_a, &lduRes.diag(), &lduRes.lower(), &lduRes.upper(), lduRes.lduAddr());
-//
-//    bool fail = false;
-//    if (!Foam::daisy::matches(lduA.diag(), lduRes.diag())) {
-//        Foam::SeriousError << "TT diag do not match!" << Foam::endl;
-//        Foam::Info << "org  Result: " << lduA.diag() << Foam::endl;
-//        Foam::Info << "new Result: " << lduRes.diag() << Foam::endl;
-//        fail = true;
-//    }
-//
-//    if (!Foam::daisy::matches(lduA.lower(), lduRes.lower())) {
-//        Foam::SeriousError << "TT lower do not match!" << Foam::endl;
-//        Foam::Info << "org  Result: " << lduA.lower() << Foam::endl;
-//        Foam::Info << "new Result: " << lduRes.lower() << Foam::endl;
-//        fail = true;
-//    }
-//
-//    if (!Foam::daisy::matches(lduA.upper(), lduRes.upper())) {
-//        Foam::SeriousError << "TT upper do not match!" << Foam::endl;
-//        Foam::Info << "org  Result: " << lduA.upper() << Foam::endl;
-//        Foam::Info << "new Result: " << lduRes.upper() << Foam::endl;
-//        fail = true;
-//    }
-//
-//    if (fail) {
-//        throw new std::runtime_error("TT copy_ldu_to_dense / copy_ldu_from_dense results do not match!");
-//    }
+        auto& d_resWarmup = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());
     
-    // WARMUP
+        auto& d_resVec = buffer_pool.allocateBuffer(d_inVec.buffer->size(), d_inVec.buffer->page_size());
 
-    tt_launch_ellpack_matVecOp(
-        device,
-        tt_meta_a,
-        *d_inVec.buffer,
-        *d_resWarmup.buffer,
-        kernel_dir,
-        impl
-    );
+//        Foam::lduMatrix lduRes(mesh);
+//    
+//        tt::daisy::foam::copy_ldu_from_ellpack(device, tt_meta_a, &lduRes.diag(), &lduRes.lower(), &lduRes.upper(), lduRes.lduAddr());
+//    
+//        bool fail = false;
+//        if (!Foam::daisy::matches(lduA.diag(), lduRes.diag())) {
+//            Foam::SeriousError << "TT diag do not match!" << Foam::endl;
+//            Foam::Info << "org  Result: " << lduA.diag() << Foam::endl;
+//            Foam::Info << "new Result: " << lduRes.diag() << Foam::endl;
+//            fail = true;
+//        }
+//    
+//        if (!Foam::daisy::matches(lduA.lower(), lduRes.lower())) {
+//            Foam::SeriousError << "TT lower do not match!" << Foam::endl;
+//            Foam::Info << "org  Result: " << lduA.lower() << Foam::endl;
+//            Foam::Info << "new Result: " << lduRes.lower() << Foam::endl;
+//            fail = true;
+//        }
+//    
+//        if (!Foam::daisy::matches(lduA.upper(), lduRes.upper())) {
+//            Foam::SeriousError << "TT upper do not match!" << Foam::endl;
+//            Foam::Info << "org  Result: " << lduA.upper() << Foam::endl;
+//            Foam::Info << "new Result: " << lduRes.upper() << Foam::endl;
+//            fail = true;
+//        }
+//    
+//        if (fail) {
+//            throw new std::runtime_error("TT copy_ldu_to_dense / copy_ldu_from_dense results do not match!");
+//        }
 
-    tt::tt_metal::Finish(device->command_queue(0));
+        tt::tt_metal::Finish(device->command_queue(0));
 
-    tt::tt_metal::detail::ReadDeviceProfilerResults(device);
+        tt::tt_metal::detail::ReadDeviceProfilerResults(device);
 
-    // Actual Measurement of Kernel
+        // Actual Measurement of Kernel
 
-    #ifdef ENABLE_DAISY_RTL
-    __daisy_metadata_t metadata3 = {
-        .file_name = "bench_ellpack_Amul.cpp",
-        .function_name = "foam_ellpack_Amul_kernel",
-        .line_begin = 193,
-        .line_end = 218,
-        .column_begin = 0,
-        .column_end = 0,
-        .target_type = "TENSTORRENT",
-        .region_uuid = "foam_ellpack_Amul_kernel"
-    };
-    unsigned long long region_id3 = __daisy_instrumentation_init(&metadata3, __DAISY_EVENT_SET_NONE);
-    __daisy_instrumentation_enter(region_id3);
-    #endif
+        #ifdef ENABLE_DAISY_RTL
+        if (i>0){
+        __daisy_metadata_t metadata3 = {
+            .file_name = "bench_ellpack_Amul.cpp",
+            .function_name = "foam_ellpack_Amul_kernel",
+            .line_begin = 193,
+            .line_end = 218,
+            .column_begin = 0,
+            .column_end = 0,
+            .target_type = "TENSTORRENT",
+            .region_uuid = "foam_ellpack_Amul_kernel"
+        };
+        unsigned long long region_id3 = __daisy_instrumentation_init(&metadata3, __DAISY_EVENT_SET_NONE);
+        __daisy_instrumentation_enter(region_id3);
+        }
+        #endif
 
-    tt_launch_ellpack_matVecOp(
-        device,
-        tt_meta_a,
-        *d_inVec.buffer,
-        *d_resVec.buffer,
-        kernel_dir,
-        impl
-    );
+        tt_launch_ellpack_matVecOp(
+            device,
+            tt_meta_a,
+            *d_inVec.buffer,
+            *d_resVec.buffer,
+            kernel_dir,
+            impl
+        );
 
-    tt::tt_metal::Finish(device->command_queue(0));
+        tt::tt_metal::Finish(device->command_queue(0));
 
-    #ifdef ENABLE_DAISY_RTL
-        __daisy_instrumentation_exit(region_id3);
-        __daisy_instrumentation_increment(region_id3, "flop", mul_flops + add_flops);
-        __daisy_instrumentation_increment(region_id3, "dram_bytes", dram_bytes_rd + dram_bytes_wr);
-        __daisy_instrumentation_finalize(region_id3);
-    #endif
+        #ifdef ENABLE_DAISY_RTL
+        if (i>0){
+            __daisy_instrumentation_exit(region_id3);
+            __daisy_instrumentation_increment(region_id3, "flop", mul_flops + add_flops);
+            __daisy_instrumentation_increment(region_id3, "dram_bytes", dram_bytes_rd + dram_bytes_wr);
+            __daisy_instrumentation_finalize(region_id3);
+        }
+        #endif
 
-    tt::tt_metal::detail::ReadDeviceProfilerResults(device);
+        tt::tt_metal::detail::ReadDeviceProfilerResults(device);
 
-    #ifdef ENABLE_DAISY_RTL
-    __daisy_metadata_t metadata4 = {
-        .file_name = "bench_ellpack_Amul.cpp",
-        .function_name = "foam_scalarField_d2h_bare",
-        .line_begin = 295,
-        .line_end = 296,
-        .column_begin = 0,
-        .column_end = 0,
-        .element_type = "d2h_transfer",
-        .target_type = "TENSTORRENT",
-        .region_uuid = "foam_scalarField_d2h_bare"
-    };
-    unsigned long long region_id4 = __daisy_instrumentation_init(&metadata4, __DAISY_EVENT_SET_NONE);
-    __daisy_instrumentation_enter(region_id4);
-    #endif
+        #ifdef ENABLE_DAISY_RTL
+        if (i>0){
+        __daisy_metadata_t metadata4 = {
+            .file_name = "bench_ellpack_Amul.cpp",
+            .function_name = "foam_scalarField_d2h_bare",
+            .line_begin = 295,
+            .line_end = 296,
+            .column_begin = 0,
+            .column_end = 0,
+            .element_type = "d2h_transfer",
+            .target_type = "TENSTORRENT",
+            .region_uuid = "foam_scalarField_d2h_bare"
+        };
+        unsigned long long region_id4 = __daisy_instrumentation_init(&metadata4, __DAISY_EVENT_SET_NONE);
+        __daisy_instrumentation_enter(region_id4);
+        }
+        #endif
 
-    tt::daisy::foam::copy_scalarField_from_device_bare(buffer_pool, d_resVec, &result);
+        tt::daisy::foam::copy_scalarField_from_device_bare(buffer_pool, d_resVec, &result);
 
-    tt::tt_metal::Finish(device->command_queue(0));
+        tt::tt_metal::Finish(device->command_queue(0));
 
-    #ifdef ENABLE_DAISY_RTL
-        __daisy_instrumentation_exit(region_id4);
-        __daisy_instrumentation_increment(region_id4, "pcie_bytes", vec_transfer_bytes);
-        __daisy_instrumentation_finalize(region_id4);
-    #endif
+        #ifdef ENABLE_DAISY_RTL
+        if (i>0){
+            __daisy_instrumentation_exit(region_id4);
+            __daisy_instrumentation_increment(region_id4, "pcie_bytes", vec_transfer_bytes);
+            __daisy_instrumentation_finalize(region_id4);
+        }
+        #endif
+
+    }
 
 
     Foam::scalarField expected(cells);
