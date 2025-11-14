@@ -8,7 +8,8 @@ parameters:
   container: daisytuner/x64-tenstorrent:0.63.0-latest
   timeout: 360
   partitions:
-    - chamomile
+    - zinnia-ci
+    - zinnia
 
 steps:
   build: |
