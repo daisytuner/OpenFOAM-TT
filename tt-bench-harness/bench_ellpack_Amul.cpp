@@ -235,7 +235,8 @@ int main() {
         *d_inVec.buffer,
         *d_resVec.buffer,
         kernel_dir,
-        impl
+        impl,
+        region_id3
     );
 
     tt::tt_metal::Finish(device->command_queue(0));

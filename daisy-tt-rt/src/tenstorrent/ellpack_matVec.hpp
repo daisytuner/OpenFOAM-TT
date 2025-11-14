@@ -18,7 +18,8 @@ void tt_launch_ellpack_matVecOp(
     tt::tt_metal::Buffer& d_inVec,
     tt::tt_metal::Buffer& d_resVec,
     const std::filesystem::path& kernel_dir = std::filesystem::current_path(),
-    EllpackHwImpl hwImpl = EllpackHwImpl::None
+    EllpackHwImpl hwImpl = EllpackHwImpl::None,
+    size_t region_id = 0 // 0 is invalid
 );
 
 std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t> calculate_ellpack_matVec_metrics(

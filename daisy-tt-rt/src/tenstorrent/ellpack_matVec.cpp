@@ -11,6 +11,10 @@
 #include <tt-metalium/tensor_accessor_args.hpp>
 #include <tt-metalium/tt_metal.hpp>
 
+#ifdef ENABLE_DAISY_RTL
+#include <daisy_rtl/daisy_rtl.h>
+#endif
+
 namespace tt::daisy {
 
 #define TT_DEBUG 0
@@ -65,7 +69,8 @@ void tt_launch_ellpack_matVecOp(
     tt::tt_metal::Buffer& d_inVec,
     tt::tt_metal::Buffer& d_resVec,
     const std::filesystem::path& kernel_dir,
-    EllpackHwImpl hwImpl
+    EllpackHwImpl hwImpl,
+    size_t region_id
 ) {
 
     const bool diag_wb = hwImpl == EllpackHwImpl::FPU;
@@ -89,6 +94,12 @@ void tt_launch_ellpack_matVecOp(
 
     auto [num_cores, used_cores, core_group_1, core_group_2, work_per_core1, work_per_core2] =
         tt::tt_metal::split_work_to_cores(avail_cores, batches_total);
+
+    #ifdef ENABLE_DAISY_RTL
+        if (region_id != 0) {
+            __daisy_instrumentation_increment(region_id, "tt_used_cores", num_cores);
+        }
+    #endif
 
     #if TT_DEBUG > 0
     std::cout << "Using " << num_cores << " cores to process " << batches_total << " batches, " << batch_size << " tiles each ("
