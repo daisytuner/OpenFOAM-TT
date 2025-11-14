@@ -72,6 +72,9 @@ void tt_launch_ellpack_matVecOp(
     EllpackHwImpl hwImpl,
     size_t region_id
 ) {
+    // static int invocation = 0;
+
+    // std::cout << "Launching Ellpack MatVec Op (invocation " << invocation++ << ") with hwImpl " << static_cast<int>(hwImpl) << std::endl;
 
     const bool diag_wb = hwImpl == EllpackHwImpl::FPU;
 
