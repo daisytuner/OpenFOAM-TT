@@ -227,6 +227,8 @@ int main() {
     };
     unsigned long long region_id3 = __daisy_instrumentation_init(&metadata3, __DAISY_EVENT_SET_NONE);
     __daisy_instrumentation_enter(region_id3);
+    #else
+    unsigned long long region_id3 = 0;
     #endif
 
     tt_launch_ellpack_matVecOp(
@@ -235,7 +237,8 @@ int main() {
         *d_inVec.buffer,
         *d_resVec.buffer,
         kernel_dir,
-        impl
+        impl,
+        region_id3
     );
 
     tt::tt_metal::Finish(device->command_queue(0));
