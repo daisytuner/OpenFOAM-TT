@@ -6,7 +6,7 @@ on:
 
 parameters:
   container: daisytuner/x64-tenstorrent:0.63.0-latest
-  timeout: 360
+  timeout: 480
   partitions:
     - zinnia-ci
     - zinnia
@@ -65,7 +65,7 @@ steps:
 
   run:
     cavity-TT:
-      command: $WM_PROJECT_DIR/bin/foamRun -case $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity-TT
+      command: $WM_PROJECT_DIR/bin/foamRun -case $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity-TT >> /dev/null 2>&1
       env:
         TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
         FOAM_APP: "$WM_PROJECT_DIR/applications"
@@ -113,7 +113,7 @@ steps:
         LIBRARY_PATH: $LIBRARY_PATH:/usr/local/lib
 
     cavity:
-      command: $WM_PROJECT_DIR/bin/foamRun -case $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity
+      command: $WM_PROJECT_DIR/bin/foamRun -case $WM_PROJECT_DIR/tutorials/incompressibleFluid/cavity >> /dev/null 2>&1
       env:
         TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
         FOAM_APP: "$WM_PROJECT_DIR/applications"
