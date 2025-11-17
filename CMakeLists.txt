@@ -76,6 +76,11 @@ if (ENABLE_DAISY_RTL)
     -larg_capture_io 
   )
 endif()
+list(APPEND OPENFOAM_COMPILE_OPTIONS
+  # -mllvm=-docc-lower-invoke 
+  -mllvm=-docc-no-inline-functions
+  -mllvm=-docc-disable-feature-dump
+)
 
 set(OPENFOAM_COMPILE_DEFINITIONS
   linux64
