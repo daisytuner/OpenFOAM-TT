@@ -2,12 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <cstdint>
-#include <algorithm>
 #include <compute_kernel_api/common.h>
 #include "compute_kernel_api/eltwise_binary.h"
 #include "compute_kernel_api/tile_move_copy.h"
-#include <unistd.h>
 #include <tools/profiler/kernel_profiler.hpp>
 #include "mat_vec_compute_parts.hpp"
 
@@ -106,7 +103,7 @@ void MAIN {
         tile_regs_acquire();
 
         {
-            DeviceZoneScopedN("WaitForCbTiles");
+            // DeviceZoneScopedN("WaitForCbTiles");
             cb_wait_front(cb_dat, tiles_per_batch);
             cb_wait_front(cb_addr, tiles_per_batch);
             cb_wait_front(cb_collect, tiles_per_batch);
@@ -129,20 +126,20 @@ void MAIN {
         float* collect_ptr, *dat_ptr;
         uint32_t* addr_ptr;
         {
-            DeviceZoneScopedN("GetTileCollect");
+            // DeviceZoneScopedN("GetTileCollect");
             // UNPACK((llk_unpack_get_tile<false, true>(cb_collect, 0, (uint32_t*)&collect_ptr)));
             // PACK(llk_pack_get_tile(cb_collect, 0, (uint32_t*)&collect_ptr));
             cb_get_tile(cb_collect, 0, &collect_ptr);
         }
 
         {
-            DeviceZoneScopedN("GetTileDat");
+            // DeviceZoneScopedN("GetTileDat");
             // UNPACK((llk_unpack_get_tile<false, true>(cb_dat, 0, (uint32_t*)&dat_ptr)));
             // PACK(llk_pack_get_tile(cb_dat, 0, (uint32_t*)&dat_ptr));
             cb_get_tile(cb_dat, 0, &dat_ptr);
         }
         {
-            DeviceZoneScopedN("GetTileAddr");
+            // DeviceZoneScopedN("GetTileAddr");
             // UNPACK((llk_unpack_get_tile<false, true>(cb_addr, 0, (uint32_t*)&addr_ptr)));
             // PACK(llk_pack_get_tile(cb_addr, 0, (uint32_t*)&addr_ptr));
             cb_get_tile(cb_addr, 0, &addr_ptr);
@@ -160,16 +157,19 @@ void MAIN {
 
         cb_reserve_back(cb_res, 1);
 #ifdef TRISC_PACK
-        PACK(float* wr_ptr = reinterpret_cast<float*>(CB_WR_PTR(cb_res)));
-        for (; tile < end_tile_in_batch; ++tile) {
-            PACK(DPRINT << " MatMul tile " << tile+1 << "/" << tiles_per_batch << ENDL());
+        {
+            DeviceZoneScopedN("MatMul");
+            PACK(float* wr_ptr = reinterpret_cast<float*>(CB_WR_PTR(cb_res)));
+            for (; tile < end_tile_in_batch; ++tile) {
+                PACK(DPRINT << " MatMul tile " << tile+1 << "/" << tiles_per_batch << ENDL());
 
-            PACK(compute_mat_mul(dat_ptr, addr_ptr, collect_ptr, wr_ptr));
+                PACK(compute_mat_mul(dat_ptr, addr_ptr, collect_ptr, wr_ptr));
 
-            PACK(dat_ptr += 1024); // in float, not bytes
-            PACK(addr_ptr += 1024);
-            PACK(collect_ptr += 1024);
-            PACK(wr_ptr += 32);
+                PACK(dat_ptr += 1024); // in float, not bytes
+                PACK(addr_ptr += 1024);
+                PACK(collect_ptr += 1024);
+                PACK(wr_ptr += 32);
+            }
         }
 #endif
 
@@ -183,7 +183,7 @@ void MAIN {
         // PACK(llk_pack_release_tile(cb_collect));
 //        cb_release_tile(cb_collect);
         {
-            DeviceZoneScopedN("ReleaseCollect");
+            // DeviceZoneScopedN("ReleaseCollect");
             // UNPACK(DPRINT << "Releasing collect" << ENDL());
             cb_pop_front(cb_collect, tiles_per_batch);
         }

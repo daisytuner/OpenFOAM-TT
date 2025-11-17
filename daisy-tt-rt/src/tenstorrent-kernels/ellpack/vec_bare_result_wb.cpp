@@ -27,21 +27,26 @@ void kernel_main() {
 
     uint32_t end_tile = first_batch_offset + num_batches;
     for (uint32_t tile = first_batch_offset; tile < end_tile; ++tile) {
-        DeviceZoneScopedN("Pulling Tiles");
-        cb_wait_front(cb_out, 1);
+        {
+            DeviceZoneScopedN("WaitingForTiles");
+            cb_wait_front(cb_out, 1);
+        }
 
         DPRINT << "Wb got chunk " << tile << ENDL();
 
-        noc_async_write_page(tile, dest, get_read_ptr(cb_out));
+        {
+            DeviceZoneScopedN("WbChunk");
+            noc_async_write_page(tile, dest, get_read_ptr(cb_out));
 
-        //  float* ptr_a = reinterpret_cast<float*>(get_read_ptr(cb_out));
+            //  float* ptr_a = reinterpret_cast<float*>(get_read_ptr(cb_out));
 
-        //  for (uint32_t x = 0; x < 32; ++x) {
-        //      auto val_a = *(ptr_a+x);
-        //      DPRINT << "[" << x << "]=" << val_a << ENDL();
-        //  }
+            //  for (uint32_t x = 0; x < 32; ++x) {
+            //      auto val_a = *(ptr_a+x);
+            //      DPRINT << "[" << x << "]=" << val_a << ENDL();
+            //  }
 
-        noc_async_writes_flushed(); // all reads from SRAM are done now
+            noc_async_writes_flushed(); // all reads from SRAM are done now
+        }
 
         cb_pop_front(cb_out, 1);
 
