@@ -24,6 +24,8 @@ steps:
     # Generate include files
     ./wmake/wmakeLnIncludeAll
 
+    export DOCC_CI=
+
     # Build tests with CMake and Ninja
     cd ../../
     mkdir build && cd build
