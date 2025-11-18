@@ -2,14 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <cstdint>
-#include <algorithm>
 #include <compute_kernel_api/common.h>
 #include <compute_kernel_api/eltwise_binary.h>
 #include <compute_kernel_api/tile_move_copy.h>
 #include <compute_kernel_api/matmul.h>
 #include <compute_kernel_api/pack.h>
-#include <unistd.h>
 #include <tools/profiler/kernel_profiler.hpp>
 #include "mat_vec_compute_parts.hpp"
 

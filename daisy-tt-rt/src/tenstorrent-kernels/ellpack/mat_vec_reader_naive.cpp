@@ -43,45 +43,51 @@ void kernel_main() {
     for (uint32_t tile = first_tile_offset; tile < end_tile;) {
         uint32_t end_tile_in_batch = std::min(num_tiles, tile + tiles_per_batch);
 
-        cb_reserve_back(cb_dat, tiles_per_batch); // only so we guarantee we can write_ptr + 4096 for each tile in there without buffer wrap-around
-        cb_reserve_back(cb_addr, tiles_per_batch);
-        cb_reserve_back(cb_collect, tiles_per_batch);
-
-
-        auto val_wr_addr = get_write_ptr(cb_dat);
-        auto addr_wr_addr = get_write_ptr(cb_addr);
-        for (uint32_t i = 0; i < tiles_per_batch; ++i, ++tile) {
-            noc_async_read_page(tile, ell_val_buf, val_wr_addr);
-            val_wr_addr += mat_page_size;
-            noc_async_read_page(tile, ell_addr_buf, addr_wr_addr);
-            addr_wr_addr += mat_page_size;
+        {
+            DeviceZoneScopedN("WaitingForCbSpace");
+            cb_reserve_back(cb_dat, tiles_per_batch); // only so we guarantee we can write_ptr + 4096 for each tile in there without buffer wrap-around
+            cb_reserve_back(cb_addr, tiles_per_batch);
+            cb_reserve_back(cb_collect, tiles_per_batch);
         }
 
-        for (uint32_t vec_chunk = 0; vec_chunk < vec_chunks; ++vec_chunk) { //TODO batch vec chunks (separately from tiles)
-            cb_reserve_back(cb_inVec, 1);
-            auto vec_ptr = get_write_ptr(cb_inVec);
-            noc_async_read_page(vec_chunk, vec_buf, vec_ptr);
-            noc_async_read_barrier();
-            if (vec_chunk == 0) { // we let the batch reads run concurrent with the first vecChunk, so mark them as available now
-                DeviceZoneScopedN("PushingTiles");
-                // float* dat_ptr = reinterpret_cast<float*>(get_write_ptr(cb_dat));
-                // for (int d = 0; d < 16; ++d) {
-                //     for (int e = 0; e < 16; ++e) {
-                //         DPRINT << " dat[" << d << "," << e << "] = " << dat_ptr[d*16+e] << ENDL();
-                //     }
-                // }
-                // float* vecf_ptr = reinterpret_cast<float*>(vec_ptr);
-                // DPRINT << "vec" << vec_chunk << ENDL();
-                // for (int i = 0; i < 32; ++i) {
-                //     DPRINT << "  ["<<i<<"]= " << vecf_ptr[i] << ENDL();
-                // }
-//                DPRINT << "a t" << tile << ":\n" << TileSlice(cb_dat, 0, SliceRange::h0_w0_32(), TSLICE_OUTPUT_CB, TSLICE_WR_PTR, true, true) << ENDL();
-//                DPRINT << "b t" << tile << ":\n" << TileSlice(cb_addr, 0, SliceRange::h0_w0_32(), TSLICE_OUTPUT_CB, TSLICE_WR_PTR, true, true) << ENDL();
-                cb_push_back(cb_dat, tiles_per_batch);
-                cb_push_back(cb_addr, tiles_per_batch);
-                cb_push_back(cb_collect, tiles_per_batch);
+
+        {
+            DeviceZoneScopedN("FetchingData");
+            auto val_wr_addr = get_write_ptr(cb_dat);
+            auto addr_wr_addr = get_write_ptr(cb_addr);
+            for (uint32_t i = 0; i < tiles_per_batch; ++i, ++tile) {
+                noc_async_read_page(tile, ell_val_buf, val_wr_addr);
+                val_wr_addr += mat_page_size;
+                noc_async_read_page(tile, ell_addr_buf, addr_wr_addr);
+                addr_wr_addr += mat_page_size;
             }
-            cb_push_back(cb_inVec, 1);
+
+            for (uint32_t vec_chunk = 0; vec_chunk < vec_chunks; ++vec_chunk) { //TODO batch vec chunks (separately from tiles)
+                cb_reserve_back(cb_inVec, 1);
+                auto vec_ptr = get_write_ptr(cb_inVec);
+                noc_async_read_page(vec_chunk, vec_buf, vec_ptr);
+                noc_async_read_barrier();
+                if (vec_chunk == 0) { // we let the batch reads run concurrent with the first vecChunk, so mark them as available now
+                    // DeviceZoneScopedN("PushingTiles");
+                    // float* dat_ptr = reinterpret_cast<float*>(get_write_ptr(cb_dat));
+                    // for (int d = 0; d < 16; ++d) {
+                    //     for (int e = 0; e < 16; ++e) {
+                    //         DPRINT << " dat[" << d << "," << e << "] = " << dat_ptr[d*16+e] << ENDL();
+                    //     }
+                    // }
+                    // float* vecf_ptr = reinterpret_cast<float*>(vec_ptr);
+                    // DPRINT << "vec" << vec_chunk << ENDL();
+                    // for (int i = 0; i < 32; ++i) {
+                    //     DPRINT << "  ["<<i<<"]= " << vecf_ptr[i] << ENDL();
+                    // }
+    //                DPRINT << "a t" << tile << ":\n" << TileSlice(cb_dat, 0, SliceRange::h0_w0_32(), TSLICE_OUTPUT_CB, TSLICE_WR_PTR, true, true) << ENDL();
+    //                DPRINT << "b t" << tile << ":\n" << TileSlice(cb_addr, 0, SliceRange::h0_w0_32(), TSLICE_OUTPUT_CB, TSLICE_WR_PTR, true, true) << ENDL();
+                    cb_push_back(cb_dat, tiles_per_batch);
+                    cb_push_back(cb_addr, tiles_per_batch);
+                    cb_push_back(cb_collect, tiles_per_batch);
+                }
+                cb_push_back(cb_inVec, 1);
+            }
         }
 
 

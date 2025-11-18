@@ -12,18 +12,21 @@ enum class EllpackHwImpl {
     SFPU = 2
 };
 
+constexpr EllpackHwImpl default_ellpack_hw_impl = EllpackHwImpl::None;
+
 void tt_launch_ellpack_matVecOp(
     tt::tt_metal::IDevice* device,
     tt::daisy::tt_ldu_meta& tt_meta,
     tt::tt_metal::Buffer& d_inVec,
     tt::tt_metal::Buffer& d_resVec,
     const std::filesystem::path& kernel_dir = std::filesystem::current_path(),
-    EllpackHwImpl hwImpl = EllpackHwImpl::None
+    EllpackHwImpl hwImpl = default_ellpack_hw_impl,
+    size_t region_id = 0 // 0 is invalid
 );
 
 std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t> calculate_ellpack_matVec_metrics(
     const tt::daisy::tt_ldu_meta& tt_meta,
-    EllpackHwImpl hwImpl = EllpackHwImpl::None
+    EllpackHwImpl hwImpl = default_ellpack_hw_impl
 );
 
 }   // namespace tt::daisy::foam
