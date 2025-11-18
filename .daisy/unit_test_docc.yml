@@ -25,7 +25,7 @@ steps:
     # Generate include files
     ./wmake/wmakeLnIncludeAll
 
-    export DOCC_CI=
+    export DOCC_CI=regions
 
     # Build tests with CMake and Ninja
     cd ../../
