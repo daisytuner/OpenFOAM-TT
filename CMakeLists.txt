@@ -6,7 +6,6 @@ set(OPENFOAM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/OpenFOAM-dev/src)
 set(OPENFOAM_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/OpenFOAM-dev/platforms/linux64GccSPInt32Opt/lib)
 
 option(ENABLE_DAISY_RTL "Enable Daisy instrumentation" OFF)
-option(ENABLE_DOCC_PLUGIN "Enables plugin with OpenFOAM kernels for docc" OFF)
 
 option(ENABLE_TT "Enable Manual Tenstorrent offloading" OFF)
 option(VERIFY_TT "Enable verification of Tenstorrent offloading results" ON)
@@ -77,12 +76,8 @@ if (ENABLE_DAISY_RTL)
     -larg_capture_io 
   )
 endif()
-if (ENABLE_DOCC_PLUGIN)
-  list(APPEND OPENFOAM_COMPILE_OPTIONS
-    -mllvm -docc-plugins=${CMAKE_CURRENT_BINARY_DIR}/plugin/libOpenFOAM_DOCCPlugin.so
-  )
-  add_subdirectory(plugin)
-endif()
+
+set(ENABLE_DOCC_PLUGIN OFF)
 
 # Check if compiler is docc / docc-cpp and add docc-specific flags
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -95,6 +90,11 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU
       -mllvm=-docc-no-inline-functions
       -mllvm=-docc-disable-feature-dump
     )
+    set(ENABLE_DOCC_PLUGIN ON)
+    list(APPEND OPENFOAM_COMPILE_OPTIONS
+      -mllvm -docc-plugins=${CMAKE_CURRENT_BINARY_DIR}/plugin/libOpenFOAM_DOCCPlugin.so
+    )
+    add_subdirectory(plugin)
   endif()
 endif()
 
