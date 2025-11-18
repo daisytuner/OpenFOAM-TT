@@ -76,11 +76,20 @@ if (ENABLE_DAISY_RTL)
     -larg_capture_io 
   )
 endif()
-list(APPEND OPENFOAM_COMPILE_OPTIONS
-  # -mllvm=-docc-lower-invoke 
-  -mllvm=-docc-no-inline-functions
-  -mllvm=-docc-disable-feature-dump
-)
+
+# Check if compiler is docc / docc-cpp and add docc-specific flags
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # Check if the compiler executable contains "docc"
+  get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
+  if(COMPILER_NAME MATCHES "docc")
+    message(STATUS "Detected docc compiler: ${CMAKE_CXX_COMPILER}")
+    list(APPEND OPENFOAM_COMPILE_OPTIONS
+      # -mllvm=-docc-lower-invoke 
+      -mllvm=-docc-no-inline-functions
+      -mllvm=-docc-disable-feature-dump
+    )
+  endif()
+endif()
 
 set(OPENFOAM_COMPILE_DEFINITIONS
   linux64
