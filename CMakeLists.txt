@@ -76,15 +76,11 @@ if (ENABLE_DAISY_RTL)
     -larg_capture_io 
   )
 endif()
-
-# Check if compiler is docc / docc-cpp and add docc-specific flags
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  # Check if the compiler executable contains "docc"
   get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
   if(COMPILER_NAME MATCHES "docc")
     message(STATUS "Detected docc compiler: ${CMAKE_CXX_COMPILER}")
     list(APPEND OPENFOAM_COMPILE_OPTIONS
-      # -mllvm=-docc-lower-invoke 
       -mllvm=-docc-no-inline-functions
       -mllvm=-docc-disable-feature-dump
     )
@@ -355,19 +351,11 @@ set(OPENFOAM_SOURCES
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/LUscalarMatrix/LUscalarMatrix.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/LUscalarMatrix/procLduMatrix.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/LUscalarMatrix/procLduInterface.C
-  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrix.C
-  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixOperations.C
-  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixATmul.C
-  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixUpdateMatrixInterfaces.C
-  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixSolver.C
-  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixSmoother.C
-  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrixPreconditioner.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/solvers/diagonalSolver/diagonalSolver.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/solvers/smoothSolver/smoothSolver.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/solvers/PCG/PCG.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/solvers/PBiCG/PBiCG.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/solvers/PBiCGStab/PBiCGStab.C
-  # ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/smoothers/symGaussSeidel/symGaussSeidelSmoother.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/smoothers/nonBlockingGaussSeidel/nonBlockingGaussSeidelSmoother.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/matrices/lduMatrix/smoothers/DIC/DICSmoother.C
@@ -636,6 +624,10 @@ set(OPENFOAM_SOURCES
   ${OPENFOAM_SRC_DIR}/OpenFOAM/geometry/splines/BSpline/BSpline.C
   ${OPENFOAM_SRC_DIR}/OpenFOAM/geometry/splines/CatmullRomSpline/CatmullRomSpline.C
 
+  ${OPENFOAM_PSTREAM_SOURCES}
+)
+# Override certain OpenFOAM source files with custom implementations
+set(OVERRIDEN_OPENFOAM_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrix.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixATmul.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixOperations.cpp
@@ -646,12 +638,22 @@ set(OPENFOAM_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.cpp
 
   ${CMAKE_CURRENT_SOURCE_DIR}/src/util/result_matchers.cpp
-
-  ${OPENFOAM_PSTREAM_SOURCES}
 )
+# DOCC: Lower invoke for custom OpenFOAM sources
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
+  if(COMPILER_NAME MATCHES "docc")
+  foreach(src IN LISTS OVERRIDEN_OPENFOAM_SOURCES)
+      set_property(SOURCE ${src} APPEND PROPERTY COMPILE_OPTIONS
+          -mllvm=-docc-lower-invoke
+      )
+  endforeach()
+  endif()
+endif()
 
 add_library(OpenFOAM SHARED
   ${OPENFOAM_SOURCES}
+  ${OVERRIDEN_OPENFOAM_SOURCES}
 )
 
 add_library(OpenFOAM::OpenFOAM ALIAS OpenFOAM)
