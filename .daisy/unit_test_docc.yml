@@ -6,6 +6,7 @@ on:
     types: [opened, reopened, synchronize, ready_for_review]
 
 parameters:
+  container: daisytuner/x64-tenstorrent:0.63.0-latest
   timeout: 120
   partitions:
     - zinnia-ci
