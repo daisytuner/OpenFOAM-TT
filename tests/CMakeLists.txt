@@ -1,3 +1,14 @@
+# Use OpenFOAM compile options as basis
+set(OPENFOAM_TEST_COMPILE_OPTIONS
+    ${OPENFOAM_COMPILE_OPTIONS}
+)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
+  if(COMPILER_NAME MATCHES "docc")
+    list(APPEND OPENFOAM_TEST_COMPILE_OPTIONS -mllvm=-docc-lower-invoke)
+  endif()
+endif()
+
 # Test Case: lduMatrixATmul_Amul
 add_executable(lduMatrixATmul_Amul
     lduMatrixATmul_Amul_real.cpp
@@ -11,7 +22,7 @@ target_compile_definitions(lduMatrixATmul_Amul PRIVATE
     ${OPENFOAM_COMPILE_DEFINITIONS}
 )
 target_compile_options(lduMatrixATmul_Amul PRIVATE
-    ${OPENFOAM_COMPILE_OPTIONS}
+    ${OPENFOAM_TEST_COMPILE_OPTIONS}
 )
 
 # Test Case: lduMatrixATmul_Amul_test
@@ -27,7 +38,7 @@ target_compile_definitions(lduMatrixATmul_Amul_test PRIVATE
     ${OPENFOAM_COMPILE_DEFINITIONS}
 )
 target_compile_options(lduMatrixATmul_Amul_test PRIVATE
-    ${OPENFOAM_COMPILE_OPTIONS}
+    ${OPENFOAM_TEST_COMPILE_OPTIONS}
 )
 
 # Test Case: lduMatrixATmul_SumA
@@ -43,7 +54,7 @@ target_compile_definitions(lduMatrixATmul_SumA PRIVATE
     ${OPENFOAM_COMPILE_DEFINITIONS}
 )
 target_compile_options(lduMatrixATmul_SumA PRIVATE
-    ${OPENFOAM_COMPILE_OPTIONS}
+    ${OPENFOAM_TEST_COMPILE_OPTIONS}
 )
 
 # Test Case: lduMatrixOperations_AddAssign_asymm
@@ -59,7 +70,7 @@ target_compile_definitions(lduMatrixOperations_AddAssign_asymm PRIVATE
     ${OPENFOAM_COMPILE_DEFINITIONS}
 )
 target_compile_options(lduMatrixOperations_AddAssign_asymm PRIVATE
-    ${OPENFOAM_COMPILE_OPTIONS}
+    ${OPENFOAM_TEST_COMPILE_OPTIONS}
 )
 
 # Test Case: lduMatrixOperations_AddAssign_symm_expand
@@ -75,7 +86,7 @@ target_compile_definitions(lduMatrixOperations_AddAssign_symm_expand PRIVATE
     ${OPENFOAM_COMPILE_DEFINITIONS}
 )
 target_compile_options(lduMatrixOperations_AddAssign_symm_expand PRIVATE
-    ${OPENFOAM_COMPILE_OPTIONS}
+    ${OPENFOAM_TEST_COMPILE_OPTIONS}
 )
 
 # Test Case: lduMatrixOperations_AddAssign_symm_initdiag
@@ -91,7 +102,7 @@ target_compile_definitions(lduMatrixOperations_AddAssign_symm_initdiag PRIVATE
     ${OPENFOAM_COMPILE_DEFINITIONS}
 )
 target_compile_options(lduMatrixOperations_AddAssign_symm_initdiag PRIVATE
-    ${OPENFOAM_COMPILE_OPTIONS}
+    ${OPENFOAM_TEST_COMPILE_OPTIONS}
 )
 
 # Test Case: lduMatrixOperations_AddAssign_symm_noinput
@@ -107,7 +118,7 @@ target_compile_definitions(lduMatrixOperations_AddAssign_symm_noinput PRIVATE
     ${OPENFOAM_COMPILE_DEFINITIONS}
 )
 target_compile_options(lduMatrixOperations_AddAssign_symm_noinput PRIVATE
-    ${OPENFOAM_COMPILE_OPTIONS}
+    ${OPENFOAM_TEST_COMPILE_OPTIONS}
 )
 
 # Test Case: lduMatrixOperations_AddAssign_symm
@@ -123,6 +134,6 @@ target_compile_definitions(lduMatrixOperations_AddAssign_symm PRIVATE
     ${OPENFOAM_COMPILE_DEFINITIONS}
 )
 target_compile_options(lduMatrixOperations_AddAssign_symm PRIVATE
-    ${OPENFOAM_COMPILE_OPTIONS}
+    ${OPENFOAM_TEST_COMPILE_OPTIONS}
 )
 
