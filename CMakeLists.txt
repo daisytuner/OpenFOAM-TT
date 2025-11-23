@@ -661,7 +661,6 @@ add_library(OpenFOAM SHARED
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
   if(COMPILER_NAME MATCHES "docc")
-    set(TT_IMPL "TT_IMPL_ELLPACK")
     add_subdirectory(daisy-tt-rt)
 
     target_sources(OpenFOAM PRIVATE

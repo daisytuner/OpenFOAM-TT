@@ -32,7 +32,7 @@ steps:
 
     # Build tests with CMake and Ninja
     mkdir build && cd build
-    cmake -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_COMPILER=docc -DCMAKE_CXX_COMPILER=docc-cpp ..
+    cmake -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTT_IMPL=TT_IMPL_ELLPACK -DCMAKE_C_COMPILER=docc -DCMAKE_CXX_COMPILER=docc-cpp ..
     ninja
 
   run:
