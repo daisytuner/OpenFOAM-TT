@@ -37,7 +37,7 @@ steps:
 
   run:
     lduMatrixATmul_Amul:
-      command: ./build/tests/lduMatrixATmul_Amul_test
+      command: ./build/tests/lduMatrixATmul_Amul 40 40
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
@@ -48,31 +48,7 @@ steps:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
         LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
         TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
-    lduMatrixOperations_AddAssign_symm_expand:
-      command: ./build/tests/lduMatrixOperations_AddAssign_symm_expand
-      env:
-        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
-        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
-        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
-    lduMatrixOperations_AddAssign_symm_initdiag:
-      command: ./build/tests/lduMatrixOperations_AddAssign_symm_initdiag
-      env:
-        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
-        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
-        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
-    lduMatrixOperations_AddAssign_symm_noinput:
-      command: ./build/tests/lduMatrixOperations_AddAssign_symm_noinput
-      env:
-        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
-        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
-        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
-    lduMatrixOperations_AddAssign_symm:
-      command: ./build/tests/lduMatrixOperations_AddAssign_symm
-      env:
-        WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
-        LD_LIBRARY_PATH: /workspace/build:$LD_LIBRARY_PATH
-        TT_FOAM_KERNEL_DIR: /workspace/daisy-tt-rt/src/tenstorrent-kernels
-    lduMatrixOperations_AddAssign_asymm:
+    lduMatrixOperations_AddAssign:
       command: ./build/tests/lduMatrixOperations_AddAssign_asymm
       env:
         WM_PROJECT_DIR: /workspace/3rdParty/OpenFOAM-dev
