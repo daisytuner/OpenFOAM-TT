@@ -26,13 +26,6 @@ steps:
     ./wmake/wmakeLnIncludeAll
     cd ../../
 
-    # Build DOCC plugin
-    cd plugin
-    mkdir build && cd build
-    cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
-    ninja
-    cd ../..
-
     export DOCC_CI=regions
 
     # Build tests with CMake and Ninja
