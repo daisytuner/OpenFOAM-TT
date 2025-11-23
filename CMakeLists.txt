@@ -657,10 +657,23 @@ add_library(OpenFOAM SHARED
   ${OVERRIDEN_OPENFOAM_SOURCES}
 )
 
-# DOCC: Build and link DOCC plugin before building OpenFOAM library
+# DOCC: Adds docc plugin with SPMV ellpack implementation for Tenstorrent offloading
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
   if(COMPILER_NAME MATCHES "docc")
+    set(TT_IMPL "TT_IMPL_ELLPACK")
+    add_subdirectory(daisy-tt-rt)
+
+    target_sources(OpenFOAM PRIVATE
+      ${TT_SOURCES}
+    )
+    target_link_libraries(OpenFOAM PUBLIC
+      OpenFOAM::daisy_tt_rt
+    )    
+    target_include_directories(OpenFOAM PUBLIC
+      src/tenstorrent
+    )
+
     add_subdirectory(plugin)
     add_dependencies(OpenFOAM OpenFOAM_DOCCPlugin)
   endif()
