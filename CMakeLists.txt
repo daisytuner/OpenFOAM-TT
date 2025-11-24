@@ -643,11 +643,12 @@ set(OVERRIDEN_OPENFOAM_SOURCES
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
   if(COMPILER_NAME MATCHES "docc")
-  foreach(src IN LISTS OVERRIDEN_OPENFOAM_SOURCES)
+    foreach(src IN LISTS OVERRIDEN_OPENFOAM_SOURCES)
       set_property(SOURCE ${src} APPEND PROPERTY COMPILE_OPTIONS
           -mllvm=-docc-lower-invoke
+          -mllvm=-docc-plugins=${CMAKE_CURRENT_BINARY_DIR}/plugin/libOpenFOAM_DOCCPlugin.so
       )
-  endforeach()
+    endforeach()
   endif()
 endif()
 
@@ -655,6 +656,27 @@ add_library(OpenFOAM SHARED
   ${OPENFOAM_SOURCES}
   ${OVERRIDEN_OPENFOAM_SOURCES}
 )
+
+# DOCC: Adds docc plugin with SPMV ellpack implementation for Tenstorrent offloading
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
+  if(COMPILER_NAME MATCHES "docc")
+    add_subdirectory(daisy-tt-rt)
+
+    target_sources(OpenFOAM PRIVATE
+      ${TT_SOURCES}
+    )
+    target_link_libraries(OpenFOAM PUBLIC
+      OpenFOAM::daisy_tt_rt
+    )    
+    target_include_directories(OpenFOAM PUBLIC
+      src/tenstorrent
+    )
+
+    add_subdirectory(plugin)
+    add_dependencies(OpenFOAM OpenFOAM_DOCCPlugin)
+  endif()
+endif()
 
 add_library(OpenFOAM::OpenFOAM ALIAS OpenFOAM)
 
@@ -684,7 +706,7 @@ if (ENABLE_TT)
   add_subdirectory(daisy-tt-rt)
 
   target_compile_definitions(OpenFOAM PUBLIC
-      ENABLE_TT
+    ENABLE_TT
   )
 
   if (VERIFY_TT)
