@@ -658,7 +658,10 @@ add_library(OpenFOAM::OpenFOAM ALIAS OpenFOAM)
 
 target_link_libraries(OpenFOAM PUBLIC z)
 target_compile_features(OpenFOAM PUBLIC cxx_std_20)
-target_link_options(OpenFOAM PRIVATE)
+target_link_options(OpenFOAM PRIVATE
+  -Wl,-mllvm=-docc-dump-glbl-cfg=cfg
+  -Wl,-mllvm=-docc-globalcfg-lib-entry-points=${DOCC_BIN_OBJ_DUMP_PATH}#../symDump.txt
+)
 
 target_include_directories(OpenFOAM PUBLIC
   ${OPENFOAM_HEADERS}
