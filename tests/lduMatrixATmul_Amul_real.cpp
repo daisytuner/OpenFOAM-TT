@@ -2,6 +2,7 @@
 #include "lduMatrix.H"
 #include "lduPrimitiveMesh.H"
 #include "IOstreams.H"
+#include "ldu_meta_cache.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -148,6 +149,8 @@ int main(int argc, char* argv[])
             }
         }
     }
+
+    tt::daisy::foam::ldu_tt_meta_map.clear();
 
     if (allCorrect) {
         Foam::Info << "All results correct!" << Foam::endl;
