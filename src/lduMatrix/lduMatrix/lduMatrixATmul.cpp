@@ -51,6 +51,22 @@ Description
 #endif
 #endif
 
+void Foam::lduMatrix::waxpby(const int n, const float alpha, const float * const x, 
+	    const float beta, const float * const y, 
+		     float * const w) const
+{  
+  if (alpha==1.0f) {
+    for (int i=0; i<n; i++) w[i] = x[i] + beta * y[i];
+  }
+  else if(beta==1.0f) {
+    for (int i=0; i<n; i++) w[i] = alpha * x[i] + y[i];
+  }
+  else {
+    for (int i=0; i<n; i++) w[i] = alpha * x[i] + beta * y[i];
+  }
+
+}
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 void Foam::lduMatrix::Amul

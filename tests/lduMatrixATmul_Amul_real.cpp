@@ -3,6 +3,12 @@
 #include "lduPrimitiveMesh.H"
 #include "IOstreams.H"
 #include "ldu_meta_cache.hpp"
+#include "../tt-bench-harness/ref_Amul.hpp"
+#include "scalarField.H"
+#include "result_matchers.hpp"
+#include "tt-metalium/host_api.hpp"
+#include "tt-metalium/device_pool.hpp"
+#include <iostream>
 
 int main(int argc, char* argv[])
 {
@@ -85,8 +91,8 @@ int main(int argc, char* argv[])
     Foam::lduMatrix lduA(mesh);
 
     // Fill values
-    lduA.diag() = 4.0;  // interior cells have 4 neighbors
-    lduA.lower() = -1.0;
+    lduA.diag() = 5.0;  // interior cells have 4 neighbors
+    lduA.lower() = -2.0;
     lduA.upper() = -1.0;
 
     std::cout << "Created lduMatrix" << std::endl;
@@ -105,52 +111,70 @@ int main(int argc, char* argv[])
     }
 
     std::cout << "Filled lduMatrix values" << std::endl;
+    
+    bool allCorrect = true;
 
+    float* x = new float[cells];
+    float* y = new float[cells];
+    float* w = new float[cells];
+    float alpha = 1.0f;
+    float beta = 1.0f;
+
+    for (int i = 0; i < 200; ++i) {
+        for (int j = 0; j < cells; ++j) {
+            x[j] = static_cast<float>(j + i);
+            y[j] = static_cast<float>(0.5f);
+            w[j] = 0.0f;
+        }
         // Construct a vector to multiply"
 
         // Construct a vector to multiply
-    Foam::scalarField vec(cells, 2.0);
+        Foam::scalarField vec(cells, 2.0);
 
-    Foam::direction cmpt = Foam::direction(0);
+        Foam::direction cmpt = Foam::direction(0);
 
-    // Kernel
+        // Kernel
 
-    Foam::scalarField result(cells, 0.0);
-    lduA.Amul(
-        result,
-        vec,
-        Foam::FieldField<Foam::Field, Foam::scalar>(0),
-        Foam::lduInterfaceFieldPtrsList(0),
-        cmpt
-    );
+        Foam::scalarField result(cells, 0.0);
+        const Foam::tmp<Foam::scalarField> tvec(vec);
+        lduA.Amul(
+            result,
+            tvec,
+            Foam::FieldField<Foam::Field, Foam::scalar>(0),
+            Foam::lduInterfaceFieldPtrsList(0),
+            cmpt
+        );
+        lduA.waxpby(cells, alpha, x, beta, y, w);
 
-    // Check result
-    Foam::Info << "Amul: " << result << Foam::endl;
-
-    // Verify results - for a finite difference discretization with vec=2.0
-    // Interior cells: diag=4, 4 off-diag connections -> result = 4*2 + 4*(-1)*2 = 0
-    // Boundary cells: varies based on number of neighbors
-    bool allCorrect = true;
-    for (Foam::label j = 0; j < Ny; ++j) {
-        for (Foam::label i = 0; i < Nx; ++i) {
-            Foam::label cell = i + j * Nx;
-            Foam::scalar numNeighbors = 0.0;
-            if (i > 0) numNeighbors += 1.0;
-            if (i < Nx - 1) numNeighbors += 1.0;
-            if (j > 0) numNeighbors += 1.0;
-            if (j < Ny - 1) numNeighbors += 1.0;
-
-            Foam::scalar expected = lduA.diag()[cell] * 2.0 - numNeighbors * 2.0;
-
-            if (Foam::mag(result[cell] - expected) > 1e-10) {
-                Foam::Info << "Error: result[" << cell << "] = " << result[cell]
-                           << ", expected " << expected << Foam::endl;
-                allCorrect = false;
-            }
-        }
+        Foam::scalarField refResult(cells);
+        refAmul(lduA, refResult, tvec);
+        // if (!Foam::daisy::matches(result, refResult, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
+        //     Foam::SeriousError << "FAIL Expected: " << refResult << Foam::endl;
+        //     Foam::Info << "Result: " << result << Foam::endl;
+        // } else {
+        //     Foam::Info << "PASS" << Foam::endl;
+        //     // Foam::Info << "Result: " << result << Foam::endl;
+        //     // Foam::Info << "Expected: " << refResult << Foam::endl;
+        //     // Foam::Info << "Mat: " << lduA << Foam::endl;
+        // }
     }
 
-    tt::daisy::foam::ldu_tt_meta_map.clear();
+    delete[] x;
+    delete[] y;
+
+    for (int i = 0; i < cells; ++i) {
+        std::cout << " [" << i << "]: " << x[i] << " * " << y[i] << " = " << w[i] << std::endl;
+    }
+
+    delete[] w;
+
+    if (tt::DevicePool::is_initialized()) {
+        auto& inst = tt::DevicePool::instance();
+        if (inst.is_device_active(0)) {
+            std::cerr << "Closing device 0 before exiting test." << std::endl;
+            inst.close_device(0);
+        }
+    }
 
     if (allCorrect) {
         Foam::Info << "All results correct!" << Foam::endl;

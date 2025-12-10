@@ -80,9 +80,10 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU
   get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
   if(COMPILER_NAME MATCHES "docc")
     message(STATUS "Detected docc compiler: ${CMAKE_CXX_COMPILER}")
-    list(APPEND OPENFOAM_COMPILE_OPTIONS
-      -mllvm=-docc-no-inline-functions
-      -mllvm=-docc-disable-feature-dump
+    list(APPEND OPENFOAM_COMPILE_OPTIONS  
+      -docc-no-inline-functions
+      -docc-disable-feature-dump
+#      -docc-tune=tenstorrent
     )
   endif()
 endif()
@@ -645,10 +646,12 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU
   if(COMPILER_NAME MATCHES "docc")
     foreach(src IN LISTS OVERRIDEN_OPENFOAM_SOURCES)
       set_property(SOURCE ${src} APPEND PROPERTY COMPILE_OPTIONS
-          -mllvm=-docc-lower-invoke
-          -mllvm=-docc-plugins=${CMAKE_CURRENT_BINARY_DIR}/plugin/libOpenFOAM_DOCCPlugin.so
+#          -mllvm=-docc-lower-invoke
+#          -mllvm=-docc-plugins=${CMAKE_CURRENT_BINARY_DIR}/plugin/libOpenFOAM_DOCCPlugin.so
       )
     endforeach()
+    set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixATmul.cpp APPEND PROPERTY COMPILE_OPTIONS
+        -docc-comp-opt=-g)
   endif()
 endif()
 
@@ -673,8 +676,15 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU
       src/tenstorrent
     )
 
-    add_subdirectory(plugin)
-    add_dependencies(OpenFOAM OpenFOAM_DOCCPlugin)
+    set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixATmul.cpp APPEND PROPERTY COMPILE_OPTIONS
+      -docc-tune=tenstorrent
+#      -docc-func-blacklist=.*sumA.*
+    )
+
+    target_compile_options(OpenFOAM PRIVATE -docc-dot-scheduled -docc-offloading-force-synchronous)
+
+    # add_subdirectory(plugin)
+    # add_dependencies(OpenFOAM OpenFOAM_DOCCPlugin)
   endif()
 endif()
 

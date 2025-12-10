@@ -27,6 +27,7 @@ target_compile_features(daisy_tt_rt PUBLIC cxx_std_20)
 
 target_compile_options(daisy_tt_rt PRIVATE
     -fPIC
+    -docc-noop
 )
 
 target_compile_definitions(daisy_tt_rt PUBLIC

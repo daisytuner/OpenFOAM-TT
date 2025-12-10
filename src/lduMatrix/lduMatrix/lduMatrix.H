@@ -652,6 +652,10 @@ public:
                 const direction cmpt
             ) const;
 
+            void waxpby(const int n, const float alpha, const float * const x, 
+	    const float beta, const float * const y, 
+		     float * const w) const;
+
             //- Matrix transpose multiplication with updated interfaces.
             void Tmul
             (
