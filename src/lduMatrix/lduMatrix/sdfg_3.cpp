@@ -292,7 +292,7 @@ bool _24 __attribute__((aligned(1)));
                         tt::tt_metal::TensorAccessorArgs(__daisy_tt__5).append_to(compile_args_k0, rt_common_args_k0);
                         tt::tt_metal::TensorAccessorArgs(__daisy_tt__6).append_to(compile_args_k0, rt_common_args_k0);
                         compile_args_k0.insert(compile_args_k0.end(), {});
-                        auto kernel_movRd_0_0 = tt::tt_metal::CreateKernel(tt_program, "/home/ramon/.cache/DOCC/lduMatrixATmul.cpp.o-449027/3572227899143367677/sdfg_3_tenstorrent_kernel_628.combined.cpp", all_cores, tt::tt_metal::ReaderDataMovementConfig(compile_args_k0, {}));
+                        auto kernel_movRd_0_0 = tt::tt_metal::CreateKernel(tt_program, "/home/ramon/git/OpenFOAM-TT/src/lduMatrix/lduMatrix/sdfg_3_tenstorrent_kernel_628.combined.cpp", all_cores, tt::tt_metal::ReaderDataMovementConfig(compile_args_k0, {}));
                         tt::tt_metal::SetCommonRuntimeArgs(tt_program, kernel_movRd_0_0, rt_common_args_k0);
 
                         uint32_t units_done = 0;
@@ -385,7 +385,7 @@ bool _24 __attribute__((aligned(1)));
                         tt::tt_metal::TensorAccessorArgs(__daisy_tt__5).append_to(compile_args_k0, rt_common_args_k0);
                         tt::tt_metal::TensorAccessorArgs(__daisy_tt__6).append_to(compile_args_k0, rt_common_args_k0);
                         compile_args_k0.insert(compile_args_k0.end(), {});
-                        auto kernel_movRd_0_0 = tt::tt_metal::CreateKernel(tt_program, "/home/ramon/.cache/DOCC/lduMatrixATmul.cpp.o-449027/3572227899143367677/sdfg_3_tenstorrent_kernel_657.combined.cpp", all_cores, tt::tt_metal::ReaderDataMovementConfig(compile_args_k0, {}));
+                        auto kernel_movRd_0_0 = tt::tt_metal::CreateKernel(tt_program, "/home/ramon/git/OpenFOAM-TT/src/lduMatrix/lduMatrix/sdfg_3_tenstorrent_kernel_657.combined.cpp", all_cores, tt::tt_metal::ReaderDataMovementConfig(compile_args_k0, {}));
                         tt::tt_metal::SetCommonRuntimeArgs(tt_program, kernel_movRd_0_0, rt_common_args_k0);
 
                         uint32_t units_done = 0;
