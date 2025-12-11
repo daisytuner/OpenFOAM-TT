@@ -637,6 +637,8 @@ set(OVERRIDEN_OPENFOAM_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixPreconditioner.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixUpdateMatrixInterfaces.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/smoothers/GaussSeidel/GaussSeidelSmoother.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/sdfg_2.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/sdfg_3.cpp
 
   ${CMAKE_CURRENT_SOURCE_DIR}/src/util/result_matchers.cpp
 )
@@ -660,28 +662,33 @@ add_library(OpenFOAM SHARED
   ${OVERRIDEN_OPENFOAM_SOURCES}
 )
 
+add_subdirectory(daisy-tt-rt)
+target_link_libraries(OpenFOAM PUBLIC
+    OpenFOAM::daisy_tt_rt
+)
+target_include_directories(OpenFOAM PUBLIC
+    /home/ramon/git/docc/sdfglib/rtl/include
+)
+
 # DOCC: Adds docc plugin with SPMV ellpack implementation for Tenstorrent offloading
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
   if(COMPILER_NAME MATCHES "docc")
-    add_subdirectory(daisy-tt-rt)
 
     target_sources(OpenFOAM PRIVATE
       ${TT_SOURCES}
     )
-    target_link_libraries(OpenFOAM PUBLIC
-      OpenFOAM::daisy_tt_rt
-    )    
     target_include_directories(OpenFOAM PUBLIC
       src/tenstorrent
     )
 
     set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/lduMatrix/lduMatrix/lduMatrixATmul.cpp APPEND PROPERTY COMPILE_OPTIONS
       -docc-tune=tenstorrent
-#      -docc-func-blacklist=.*sumA.*
     )
 
     target_compile_options(OpenFOAM PRIVATE -docc-dot-scheduled -docc-offloading-force-synchronous)
+
+    target_link_options(OpenFOAM PRIVATE -docc-link=single)
 
     # add_subdirectory(plugin)
     # add_dependencies(OpenFOAM OpenFOAM_DOCCPlugin)
@@ -696,6 +703,7 @@ target_link_options(OpenFOAM PRIVATE)
 
 target_include_directories(OpenFOAM PUBLIC
   ${OPENFOAM_HEADERS}
+  /home/ramon/git/docc/sdfglib/include
 )
 
 target_compile_options(OpenFOAM PRIVATE

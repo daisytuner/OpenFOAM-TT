@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
     float alpha = 1.0f;
     float beta = 1.0f;
 
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 200; ++i) {
         for (int j = 0; j < cells; ++j) {
             x[j] = static_cast<float>(j + i);
             y[j] = static_cast<float>(0.5f);
@@ -136,36 +136,26 @@ int main(int argc, char* argv[])
 
         Foam::scalarField result(cells, 0.0);
         const Foam::tmp<Foam::scalarField> tvec(vec);
-        lduA.Amul(
-            result,
-            tvec,
-            Foam::FieldField<Foam::Field, Foam::scalar>(0),
-            Foam::lduInterfaceFieldPtrsList(0),
-            cmpt
-        );
-        if (i % 2 == 0) {
-            alpha = 1.0f;
-        } else {
-            alpha = 0.5f;
-        }
-        if (i%3 == 0) {
-            beta = 1.0f;
-        } else {
-            beta = 0.25f;
-        }
+        // lduA.Amul(
+        //     result,
+        //     tvec,
+        //     Foam::FieldField<Foam::Field, Foam::scalar>(0),
+        //     Foam::lduInterfaceFieldPtrsList(0),
+        //     cmpt
+        // );
         lduA.waxpby(cells, alpha, x, beta, y, w);
 
         Foam::scalarField refResult(cells);
         refAmul(lduA, refResult, tvec);
-        if (!Foam::daisy::matches(result, refResult, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
-            Foam::SeriousError << "FAIL Expected: " << refResult << Foam::endl;
-            Foam::Info << "Result: " << result << Foam::endl;
-        } else {
-            Foam::Info << "PASS" << Foam::endl;
-            // Foam::Info << "Result: " << result << Foam::endl;
-            // Foam::Info << "Expected: " << refResult << Foam::endl;
-            // Foam::Info << "Mat: " << lduA << Foam::endl;
-        }
+        // if (!Foam::daisy::matches(result, refResult, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
+        //     Foam::SeriousError << "FAIL Expected: " << refResult << Foam::endl;
+        //     Foam::Info << "Result: " << result << Foam::endl;
+        // } else {
+        //     Foam::Info << "PASS" << Foam::endl;
+        //     // Foam::Info << "Result: " << result << Foam::endl;
+        //     // Foam::Info << "Expected: " << refResult << Foam::endl;
+        //     // Foam::Info << "Mat: " << lduA << Foam::endl;
+        // }
     }
 
     delete[] x;

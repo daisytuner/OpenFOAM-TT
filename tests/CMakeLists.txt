@@ -27,6 +27,24 @@ target_compile_options(lduMatrixATmul_Amul PRIVATE
     ${OPENFOAM_TEST_COMPILE_OPTIONS}
 )
 
+# Test Case: lduMatrixATmul_Amul_2
+add_executable(lduMatrixATmul_Amul_2
+    lduMatrixATmul_Amul_2.cpp
+    ../tt-bench-harness/ref_Amul.cpp
+)
+target_link_libraries(lduMatrixATmul_Amul_2 PUBLIC OpenFOAM::OpenFOAM z)
+target_compile_features(lduMatrixATmul_Amul_2 PUBLIC cxx_std_20)
+target_include_directories(lduMatrixATmul_Amul_2 PRIVATE
+    ${OPENFOAM_HEADERS}
+    $ENV{TT_METAL_HOME}/build/include
+)
+target_compile_definitions(lduMatrixATmul_Amul_2 PRIVATE
+    ${OPENFOAM_COMPILE_DEFINITIONS}
+)
+target_compile_options(lduMatrixATmul_Amul_2 PRIVATE
+    ${OPENFOAM_TEST_COMPILE_OPTIONS}
+)
+
 # Test Case: lduMatrixATmul_Amul_test
 add_executable(lduMatrixATmul_Amul_test
     lduMatrixATmul_Amul_test.cpp

@@ -1,7 +1,6 @@
 #include "SquareMatrix.H"
 #include "lduMatrix.H"
 #include "lduPrimitiveMesh.H"
-#include "ldu_meta_cache.hpp"
 
 __attribute__((noinline))
 void kernel(Foam::label& nCells, Foam::lduMatrix& matrix, Foam::scalarField& vec, Foam::FieldField<Foam::Field, Foam::scalar>& interfaceBouCoeffs, Foam::lduInterfaceFieldPtrsList& interfaces, Foam::direction& cmpt, Foam::scalarField& result1, Foam::scalarField& result2) {
@@ -87,8 +86,6 @@ int main()
             return 1;
         }
     }
-
-    tt::daisy::foam::ldu_tt_meta_map.clear();
 
     return 0;
 }

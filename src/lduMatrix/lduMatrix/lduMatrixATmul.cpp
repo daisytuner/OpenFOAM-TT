@@ -51,10 +51,14 @@ Description
 #endif
 #endif
 
+#include "sdfg_3.h"
+
 void Foam::lduMatrix::waxpby(const int n, const float alpha, const float * const x, 
 	    const float beta, const float * const y, 
 		     float * const w) const
 {  
+    sdfg_3_func(const_cast<Foam::lduMatrix*>(this), n, alpha, const_cast<float*>(x), beta, const_cast<float*>(y), w);
+    return;
   if (alpha==1.0f) {
     for (int i=0; i<n; i++) w[i] = x[i] + beta * y[i];
   }
@@ -67,6 +71,8 @@ void Foam::lduMatrix::waxpby(const int n, const float alpha, const float * const
 
 }
 
+#include "sdfg_2.h"
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 void Foam::lduMatrix::Amul
@@ -78,6 +84,9 @@ void Foam::lduMatrix::Amul
     const direction cmpt
 ) const
 {
+    sdfg_2_func(const_cast<Foam::lduMatrix*>(this), &Apsi, const_cast<tmp<scalarField>*>(&tpsi), const_cast<FieldField<Field, scalar>*>(&interfaceBouCoeffs), const_cast<lduInterfaceFieldPtrsList*>(&interfaces), cmpt);
+    return;
+
     scalar* __restrict__ ApsiPtr = Apsi.begin();
     const scalarField& psi = tpsi();
     scalarField* tt_result;
