@@ -2,7 +2,10 @@
 #include "lduMatrix.H"
 #include "lduPrimitiveMesh.H"
 #include "IOstreams.H"
-#include "ldu_meta_cache.hpp"
+#include "../tt-bench-harness/ref_Amul.hpp"
+#include "scalarField.H"
+#include "result_matchers.hpp"
+#include <iostream>
 
 int main(int argc, char* argv[])
 {
@@ -105,52 +108,47 @@ int main(int argc, char* argv[])
     }
 
     std::cout << "Filled lduMatrix values" << std::endl;
-
-        // Construct a vector to multiply"
-
-        // Construct a vector to multiply
-    Foam::scalarField vec(cells, 2.0);
-
-    Foam::direction cmpt = Foam::direction(0);
-
-    // Kernel
-
-    Foam::scalarField result(cells, 0.0);
-    lduA.Amul(
-        result,
-        vec,
-        Foam::FieldField<Foam::Field, Foam::scalar>(0),
-        Foam::lduInterfaceFieldPtrsList(0),
-        cmpt
-    );
-
-    // Check result
-    Foam::Info << "Amul: " << result << Foam::endl;
-
-    // Verify results - for a finite difference discretization with vec=2.0
-    // Interior cells: diag=4, 4 off-diag connections -> result = 4*2 + 4*(-1)*2 = 0
-    // Boundary cells: varies based on number of neighbors
+    
     bool allCorrect = true;
-    for (Foam::label j = 0; j < Ny; ++j) {
-        for (Foam::label i = 0; i < Nx; ++i) {
-            Foam::label cell = i + j * Nx;
-            Foam::scalar numNeighbors = 0.0;
-            if (i > 0) numNeighbors += 1.0;
-            if (i < Nx - 1) numNeighbors += 1.0;
-            if (j > 0) numNeighbors += 1.0;
-            if (j < Ny - 1) numNeighbors += 1.0;
 
-            Foam::scalar expected = lduA.diag()[cell] * 2.0 - numNeighbors * 2.0;
+    for (int i = 0; i < 1000; ++i) {
+        // Construct a vector to multiply
+        Foam::scalarField vec(cells, 2.0);
 
-            if (Foam::mag(result[cell] - expected) > 1e-10) {
-                Foam::Info << "Error: result[" << cell << "] = " << result[cell]
-                           << ", expected " << expected << Foam::endl;
-                allCorrect = false;
-            }
+        Foam::direction cmpt = Foam::direction(0);
+
+        // Kernel
+
+        Foam::scalarField result(cells, 0.0);
+        const Foam::tmp<Foam::scalarField> tvec(vec);
+        lduA.Amul(
+            result,
+            tvec,
+            Foam::FieldField<Foam::Field, Foam::scalar>(0),
+            Foam::lduInterfaceFieldPtrsList(0),
+            cmpt
+        );
+
+        Foam::scalarField refResult(cells);
+        refAmul(lduA, refResult, tvec);
+        if (!Foam::daisy::matches(result, refResult, Foam::daisy::DEFAULT_TF32_MATCHER_RTOL, Foam::daisy::DEFAULT_TF32_MATCHER_ATOL)) {
+            Foam::SeriousError << "FAIL Expected: " << refResult << Foam::endl;
+            Foam::Info << "Result: " << result << Foam::endl;
+        } else {
+            Foam::Info << "PASS" << Foam::endl;
+            // Foam::Info << "Result: " << result << Foam::endl;
+            // Foam::Info << "Expected: " << refResult << Foam::endl;
+            // Foam::Info << "Mat: " << lduA << Foam::endl;
         }
     }
 
-    tt::daisy::foam::ldu_tt_meta_map.clear();
+    // if (tt::DevicePool::is_initialized()) {
+    //     auto& inst = tt::DevicePool::instance();
+    //     if (inst.is_device_active(0)) {
+    //         std::cerr << "Closing device 0 before exiting test." << std::endl;
+    //         inst.close_device(0);
+    //     }
+    // }
 
     if (allCorrect) {
         Foam::Info << "All results correct!" << Foam::endl;

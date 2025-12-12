@@ -5,13 +5,14 @@ set(OPENFOAM_TEST_COMPILE_OPTIONS
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
   if(COMPILER_NAME MATCHES "docc")
-    list(APPEND OPENFOAM_TEST_COMPILE_OPTIONS -mllvm=-docc-lower-invoke)
+    list(APPEND OPENFOAM_TEST_COMPILE_OPTIONS -docc-noop)
   endif()
 endif()
 
 # Test Case: lduMatrixATmul_Amul
 add_executable(lduMatrixATmul_Amul
     lduMatrixATmul_Amul_real.cpp
+    ../tt-bench-harness/ref_Amul.cpp
 )
 target_link_libraries(lduMatrixATmul_Amul PUBLIC OpenFOAM::OpenFOAM z)
 target_compile_features(lduMatrixATmul_Amul PUBLIC cxx_std_20)
@@ -27,7 +28,7 @@ target_compile_options(lduMatrixATmul_Amul PRIVATE
 
 # Test Case: lduMatrixATmul_Amul_test
 add_executable(lduMatrixATmul_Amul_test
-    lduMatrixATmul_Amul.cpp
+    lduMatrixATmul_Amul_test.cpp
 )
 target_link_libraries(lduMatrixATmul_Amul_test PUBLIC OpenFOAM::OpenFOAM z)
 target_compile_features(lduMatrixATmul_Amul_test PUBLIC cxx_std_20)
