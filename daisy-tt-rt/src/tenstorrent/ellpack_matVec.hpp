@@ -25,6 +25,7 @@ void tt_launch_ellpack_matVecOp(
 );
 
 std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t> calculate_ellpack_matVec_metrics(
+    tt::tt_metal::IDevice* device,
     const tt::daisy::tt_ldu_meta& tt_meta,
     EllpackHwImpl hwImpl = default_ellpack_hw_impl
 );

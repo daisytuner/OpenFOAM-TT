@@ -272,9 +272,9 @@ void Foam::lduMatrix::negate()
                 tt_result_upper = new scalarField(addr.upperAddr().size());
             }
         #else
-            tt_result_diag = force_full ? diag() : diagPtr_;
-            tt_result_lower = force_full ? lower() : lowerPtr_;
-            tt_result_upper = force_full ? upper() : upperPtr_;
+            tt_result_diag = force_full ? &diag() : diagPtr_;
+            tt_result_lower = force_full ? &lower() : lowerPtr_;
+            tt_result_upper = force_full ? &upper() : upperPtr_;
         #endif
 
         auto& k = tt::daisy::foam::require_kernel_launcher();

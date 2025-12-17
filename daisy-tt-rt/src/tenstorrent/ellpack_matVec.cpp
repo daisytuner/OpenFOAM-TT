@@ -3,6 +3,7 @@
 #include "tt-metalium/buffer.hpp"
 #include "tt-metalium/tt_backend_api_types.hpp"
 
+#include <cmath>
 #include <cstdint>
 #include <tt-metalium/host_api.hpp>
 #include <tt-metalium/work_split.hpp>
@@ -20,6 +21,7 @@ namespace tt::daisy {
 #define TT_DEBUG 0
 
 std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t> calculate_ellpack_matVec_metrics(
+    tt::tt_metal::IDevice* device,
     const tt::daisy::tt_ldu_meta& tt_meta,
     EllpackHwImpl hwImpl
 ) {
@@ -27,17 +29,39 @@ std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t> calculate
         throw std::runtime_error("tt_ldu_meta does not have ellpack_addr_ set");
     }
 
-    uint32_t vector_page_size = 1024u;
     uint32_t ell_tile_page_size = tt_metal::detail::TileSize(tt::DataFormat::Float32);
     uint32_t ell_tiles_total = (tt_meta.cell_count + 31u) / 32u;
+    uint32_t tiles_in_batch = hwImpl == EllpackHwImpl::FPU? 4u : 8u;
 
-    uint32_t batch_size = hwImpl == EllpackHwImpl::FPU? 4u : 8u;
-    auto batches_total = (ell_tiles_total + batch_size - 1) / batch_size;
+    uint64_t dram_bytes_wr = ell_tiles_total * 32 * sizeof(float); // multiples of 32 floats in result
+    uint32_t vecs_per_page = vector_block_size/sizeof(float);
+    uint32_t vector_page_size = vector_block_size;
+    auto vec2page_shift = static_cast<uint32_t>(std::log2(vecs_per_page));
 
-    uint64_t dram_bytes_rd = batches_total * ell_tiles_total * 32 * sizeof(float) + ell_tiles_total * ell_tile_page_size;
-    uint64_t dram_bytes_wr = hwImpl == EllpackHwImpl::FPU ?
-        ell_tiles_total * 32 * sizeof(float) // multiples of 32 floats in result
-        : batches_total * vector_page_size; // multiples of 1024 bytes in result
+    auto avail_cores = device->compute_with_storage_grid_size();
+
+    auto [num_cores, used_cores, core_group_1, core_group_2, work_per_core1, work_per_core2] =
+        tt::tt_metal::split_work_to_cores(avail_cores, ell_tiles_total);
+
+    uint64_t dram_bytes_rd = ell_tile_page_size*2 * ell_tiles_total; // mat + addr
+
+    auto first_tile = 0u;
+    for (int c = 0; c < num_cores; ++c) {
+        auto tiles = c < core_group_1.num_cores() ? work_per_core1 : work_per_core2;
+        auto end_tile = first_tile + tiles;
+        for (uint32_t t = first_tile; t < end_tile; t += tiles_in_batch) {
+            auto last_t = std::min(end_tile, t + tiles_in_batch) -1;
+            auto in_batch = last_t + 1 - t;
+            auto first_vec = tt_meta.ellpack_first_col_per_tile_[t];
+            auto last_vec = tt_meta.ellpack_last_col_per_tile_[last_t];
+            auto first_vec_page = first_vec >> vec2page_shift;
+            auto last_vec_page = last_vec >> vec2page_shift;
+            auto vec_pages = last_vec_page - first_vec_page + 1;
+            dram_bytes_rd += vec_pages * vector_page_size;
+            // std::cout << " dram_rd " << vec_pages << " vpages for t" << t << "..+" << in_batch << " on c" << c << std::endl;
+        }
+        first_tile += tiles;
+    }
 
     // flops calculated:
     uint64_t mul_flops = hwImpl == EllpackHwImpl::FPU?
@@ -84,19 +108,22 @@ void tt_launch_ellpack_matVecOp(
     auto ell_tiles_total = (tt_meta.cell_count + 31u) / 32u;
     auto data_format = tt::DataFormat::Float32;
     uint32_t ell_tile_page_size = tt_metal::detail::TileSize(data_format);
-    int vector_page_size = 1024;
-    auto vec_entries_per_chunk = vector_page_size / 4u;
-    auto vec_tile_h_per_chunk = vec_entries_per_chunk / 32u;
-    auto vec_chunks_total = (ell_tiles_total + vec_tile_h_per_chunk -1) / vec_tile_h_per_chunk; // 1024 byte pages -> 256 floats -> 8 tiles for each vec-chunk
+    uint32_t vecs_per_page = vector_block_size/sizeof(float);
+    auto vec_page2tile_shift = 2u;
+    auto vec2page_shift = static_cast<uint32_t>(std::log2(vecs_per_page));
+    auto vecs_per_chunk = 1024u;
+    auto vec_chunk2page_shift = 3u;
+    auto vec_chunk_size = vecs_per_chunk * sizeof(float);
 
-    uint32_t batch_size = diag_wb? 4u : 8u;
+    uint32_t vector_page_size = vecs_per_page*sizeof(float);
+    uint32_t vec_per_tile = 32u;
 
-    auto batches_total = (ell_tiles_total + batch_size - 1) / batch_size;
+    uint32_t max_tile_batch_size = diag_wb? 4u : 8u;
 
     auto avail_cores = device->compute_with_storage_grid_size();
 
     auto [num_cores, used_cores, core_group_1, core_group_2, work_per_core1, work_per_core2] =
-        tt::tt_metal::split_work_to_cores(avail_cores, batches_total);
+        tt::tt_metal::split_work_to_cores(avail_cores, ell_tiles_total);
 
     #ifdef ENABLE_DAISY_RTL
         if (region_id != 0) {
@@ -105,15 +132,12 @@ void tt_launch_ellpack_matVecOp(
     #endif
 
     #if TT_DEBUG > 0
-    std::cout << "Using " << num_cores << " cores to process " << batches_total << " batches, " << batch_size << " tiles each ("
-              << work_per_core1 << " on " << core_group_1.num_cores() << ", " << work_per_core2 << " on " << core_group_2.num_cores() << "; " << vec_chunks_total << " vec chunks (" << vec_entries_per_chunk << " floats/chunk))" << std::endl;
+    std::cout << "Using " << num_cores << " cores to process " << ell_tiles_total << " tiles, " << max_tile_batch_size << " tiles max. per batch ("
+              << work_per_core1 << " on " << core_group_1.num_cores() << ", " << work_per_core2 << " on " << core_group_2.num_cores() << "; )" << std::endl;
     #endif
 
-    auto input_tile_count = batch_size * 2;
-    auto vector_chunk_count = 32u; // at least
+    auto input_tile_count = max_tile_batch_size * 2;
     auto result_page_count = 4;
-
-    size_t vector_size = vector_page_size * 2;
 
     // c0 output (vector)
     // c1 input (mat - ellpack data)
@@ -158,12 +182,12 @@ void tt_launch_ellpack_matVecOp(
         )
         .set_page_size(CBIndex::c_2, ell_tile_page_size));
 
-    auto res_buf_page_size = (diag_wb? tt_metal::detail::TileSize(data_format) : vector_page_size);
+    auto res_buf_page_size = (diag_wb? tt_metal::detail::TileSize(data_format) : (vec_per_tile * sizeof(float)));
     tt_metal::CreateCircularBuffer(
         program,
         used_cores,  // create on all cores
         tt_metal::CircularBufferConfig(
-            res_buf_page_size * result_page_count,
+            res_buf_page_size * max_tile_batch_size * 2,
             {
                 {CBIndex::c_0, data_format},
             }
@@ -175,12 +199,12 @@ void tt_launch_ellpack_matVecOp(
         program,
         used_cores,  // create on all cores
         tt_metal::CircularBufferConfig(
-            vector_page_size * vector_chunk_count,
+            vec_chunk_size * 2,
             {
                 {CBIndex::c_3, data_format}
             }
         )
-        .set_page_size(CBIndex::c_3, vector_page_size)
+        .set_page_size(CBIndex::c_3, vec_chunk_size)
     );
 
     std::vector<uint32_t> rd_compile_args, rd_common_args;
@@ -189,7 +213,7 @@ void tt_launch_ellpack_matVecOp(
     tt_metal::TensorAccessorArgs(d_inVec).append_to(rd_compile_args, rd_common_args);
     auto kernel_rd_0 = tt_metal::CreateKernel(
         program,
-        kernel_dir / "ellpack" / (0? "mat_vec_reader_collection.cpp" : "mat_vec_reader_naive.cpp"),
+        kernel_dir / "ellpack" / "mat_vec_reader_naive.cpp",
         used_cores,
         tt_metal::ReaderDataMovementConfig(
             rd_compile_args
@@ -197,10 +221,11 @@ void tt_launch_ellpack_matVecOp(
     );
 
     std::vector<uint32_t> wr_compile_args, wr_common_args;
+    wr_compile_args.push_back(diag_wb? 1u : 0u); // unpack_diag
     tt_metal::TensorAccessorArgs(d_resVec).append_to(wr_compile_args, wr_common_args);
     auto kernel_wr_0 = tt_metal::CreateKernel(
         program,
-        kernel_dir / "ellpack" / (diag_wb? "vec_diag_result_wb.cpp" : "vec_bare_result_wb.cpp"),
+        kernel_dir / "ellpack" / "vec32_result_wb.cpp", // depends on compile_time arg if it does diag's job
         used_cores,
         tt_metal::WriterDataMovementConfig(
             wr_compile_args
@@ -231,8 +256,10 @@ void tt_launch_ellpack_matVecOp(
             tt_meta.d_ellpack_vals_->address(),
             tt_meta.d_ellpack_addrs_->address(),
             d_inVec.address(),
-            vec_chunks_total,
-            1, // vec_chunk_batch_size
+            max_tile_batch_size,
+            vecs_per_page,
+            vec2page_shift,
+            vec_chunk2page_shift
         }
     );
 
@@ -246,9 +273,8 @@ void tt_launch_ellpack_matVecOp(
         program,
         kernel_comp_0,
         {
-            vec_chunks_total,
-            1, // vec_chunk_batch_size
-            1 // stream vec
+            max_tile_batch_size,
+            vecs_per_chunk,
         }
     );
 
@@ -256,7 +282,8 @@ void tt_launch_ellpack_matVecOp(
         wr_common_args.begin(),
         {
             d_resVec.address(),
-            batch_size,
+            vecs_per_page,
+            vec_page2tile_shift
         }
     );
 
@@ -267,26 +294,31 @@ void tt_launch_ellpack_matVecOp(
     );
 
 
-    uint32_t start_batch = 0;
+    uint32_t start_tile = 0;
     uint32_t end_tile = ell_tiles_total; // ex
 
     for (auto& range : used_cores.ranges()) {
 
         for (auto& core : range) {
-            uint32_t units;
+            uint32_t tiles;
             if (core_group_1.contains(core)) {
-                units = work_per_core1;
+                tiles = work_per_core1;
             } else if (core_group_2.contains(core)) {
-                units = work_per_core2;
+                tiles = work_per_core2;
             } else {
-                units = 0;
+                tiles = 0;
             }
 
-            auto tiles = units * batch_size;
-            auto start_tile = start_batch * batch_size;
             if (start_tile + tiles > end_tile) {
                 tiles = end_tile - start_tile;
             }
+
+            auto first_vec = tt_meta.ellpack_first_col_per_tile_[start_tile];
+            auto last_vec  = tt_meta.ellpack_last_col_per_tile_[start_tile + tiles -1];
+
+            #if TT_DEBUG >= 2
+            std::cout << " Core " << core.str() << ": tiles " << start_tile << "..+" << tiles << ", vec " << first_vec << ".." << last_vec << std::endl;
+            #endif
 
             tt::tt_metal::SetRuntimeArgs(
                 program,
@@ -295,8 +327,8 @@ void tt_launch_ellpack_matVecOp(
                 {
                     start_tile,
                     tiles,
-                    units,
-                    batch_size
+                    first_vec,
+                    last_vec
                 }
             );
 
@@ -305,9 +337,9 @@ void tt_launch_ellpack_matVecOp(
                 kernel_comp_0,
                 core,
                 {
-                    units,
-                    batch_size,
-                    tiles
+                    tiles,
+                    first_vec,
+                    last_vec
                 }
             );
 
@@ -316,14 +348,12 @@ void tt_launch_ellpack_matVecOp(
                 kernel_wr_0,
                 core,
                 {
-                    start_batch,
-                    units,
                     start_tile,
                     tiles,
                 }
             );
 
-            start_batch += units;
+            start_tile += tiles;
         }
     }
 

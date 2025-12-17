@@ -71,13 +71,13 @@ void compute_mat_mul(float* dat_ptr, uint32_t* addr_ptr, float* collect_ptr, flo
 }
 
 void MAIN {
-    uint32_t vec_chunks = get_common_arg_val<uint32_t>(0);
-    uint32_t vec_chunk_batch_size = get_common_arg_val<uint32_t>(1);
-    bool stream_vec = get_common_arg_val<uint32_t>(2) != 0;
+    uint32_t max_tile_batch_size = get_common_arg_val<uint32_t>(0);
+    uint32_t vecs_per_chunk = get_common_arg_val<uint32_t>(1);
+    bool stream_vec = 1;
 
-    uint32_t batches = get_arg_val<uint32_t>(0);
-    uint32_t tiles_per_batch = get_arg_val<uint32_t>(1);
-    uint32_t num_tiles = get_arg_val<uint32_t>(2);
+    uint32_t num_tiles = get_arg_val<uint32_t>(0);
+    uint32_t first_vec = get_arg_val<uint32_t>(1); // actual offset to 1 vec
+    uint32_t last_vec = get_arg_val<uint32_t>(2);
 
     constexpr uint8_t cb_res = 0;
     constexpr uint8_t cb_dat = 1;
@@ -85,41 +85,57 @@ void MAIN {
     constexpr uint8_t cb_vec = 3;
     constexpr uint8_t cb_collect = 4;
 
-    constexpr uint32_t vec_page_size = 1024;
-    constexpr uint32_t vecs_per_page = vec_page_size / 4;
-    uint32_t vecs_per_chunk = vecs_per_page * vec_chunk_batch_size;
-    constexpr uint32_t vecs_per_mat_tile = 32;
+    // This semaphore seems to be left floating and only resets with the entire card. Its needed in cb_get_tile / cb_release_tile (and must start with 0)
+    TTI_SEMINIT(1, 0, semaphore::t6_sem(semaphore::UNPACK_OPERAND_SYNC));
 
     binary_op_init_common(cb_dat, cb_dat, cb_collect);  // Unpack, Math, Pack
     add_tiles_init(cb_dat, cb_dat);
 
-    UNPACK(DPRINT << "ellpack matVec up: " << batches << " batch (" << tiles_per_batch << " tiles/batch), " << num_tiles << " tiles total, " << vec_chunks << "/" << vec_chunk_batch_size << " vec chunks" << ENDL());
-
-    uint32_t tile = 0;
-    for (uint32_t b = 0; b < batches; ++b) {
+    UNPACK(DPRINT << "ellpack matVec up: " << num_tiles << " tiles (in batches of " << max_tile_batch_size << "), " << first_vec << " .. " << last_vec << " in chunks of " << vecs_per_chunk << ENDL());
+    
+    for (uint32_t first_tile_in_batch = 0; first_tile_in_batch < num_tiles; first_tile_in_batch += max_tile_batch_size) {
         DeviceZoneScopedN("Batch");
-        uint32_t end_tile_in_batch = std::min(num_tiles, tile + tiles_per_batch);
+        uint32_t end_tile_in_batch = std::min(num_tiles, first_tile_in_batch + max_tile_batch_size);
 
         tile_regs_acquire();
 
         {
-            // DeviceZoneScopedN("WaitForCbTiles");
-            cb_wait_front(cb_dat, tiles_per_batch);
-            cb_wait_front(cb_addr, tiles_per_batch);
-            cb_wait_front(cb_collect, tiles_per_batch);
+            DeviceZoneScopedN("WaitForCbTiles");
+            cb_wait_front(cb_dat, max_tile_batch_size);
+            cb_wait_front(cb_addr, max_tile_batch_size);
+            cb_wait_front(cb_collect, max_tile_batch_size);
         }
+
+        // UNPACK({
+        //     DPRINT << " CheckU 0x" << HEX() << CB_RD_PTR(cb_dat) << DEC() << ENDL();
+        // float* dat_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_dat));
+        // for (int j = 0; j < 16; ++j) {
+        //     for (int i = 0; i < 16; ++i) {
+        //         DPRINT << " CheckU  [" << j << "," << i << "] = " << *(dat_ptr+(j*16 + i)) << ENDL();
+        //     }
+        // }
+        // });
 
         unpacker_collect(
             cb_addr,
             cb_collect,
             cb_vec,
-            vec_chunks,
             vecs_per_chunk,
-            tile, end_tile_in_batch,
-            vec_chunk_batch_size,
-            stream_vec || (b == 0),
-            stream_vec || (b == (batches - 1))
+            first_vec, last_vec,
+            first_tile_in_batch, end_tile_in_batch
         );
+
+        // UNPACK({
+        //     if (first_tile_in_batch == 0) {
+        //         float* collect_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_collect));
+        //         float* vec_ptr = reinterpret_cast<float*>(CB_RD_PTR(cb_vec));
+        //         for (uint32_t j = 0; j < 16; ++j) {
+        //             for (uint32_t i = 0; i < 6; ++i) {
+        //                 DPRINT << ", c[" << j << ", " << i << "] = " << collect_ptr[j*16+i] << ENDL();
+        //             }
+        //         }
+        //     }
+        // });
 
         UNPACK(DPRINT << "Unpack done" << ENDL());
 
@@ -155,15 +171,17 @@ void MAIN {
 
         // now we have assembled mat-tiles in cb_collect matching each tile in cb_dat for mat_mul, where the first line
 
-        cb_reserve_back(cb_res, 1);
-#ifdef TRISC_PACK
         {
             DeviceZoneScopedN("MatMul");
-            PACK(float* wr_ptr = reinterpret_cast<float*>(CB_WR_PTR(cb_res)));
-            for (; tile < end_tile_in_batch; ++tile) {
-                PACK(DPRINT << " MatMul tile " << tile+1 << "/" << tiles_per_batch << ENDL());
+            for (uint32_t t = first_tile_in_batch; t < end_tile_in_batch; ++t) {
+                cb_reserve_back(cb_res, 1);
+                PACK(float* wr_ptr = reinterpret_cast<float*>(CB_WR_PTR(cb_res)));
+                PACK(DPRINT << " MatMul tile " << t << ENDL());
 
                 PACK(compute_mat_mul(dat_ptr, addr_ptr, collect_ptr, wr_ptr));
+
+                // PACK(DPRINT << "Pushing result" << ENDL());
+                cb_push_back(cb_res, 1);
 
                 PACK(dat_ptr += 1024); // in float, not bytes
                 PACK(addr_ptr += 1024);
@@ -171,39 +189,27 @@ void MAIN {
                 PACK(wr_ptr += 32);
             }
         }
-#endif
 
         tile_regs_wait();
 
         tile_regs_commit();
 
-        PACK(DPRINT << "Pushing result" << ENDL());
-        cb_push_back(cb_res, 1);
-        // UNPACK((llk_unpack_release_tile<false, true>(cb_collect)));
-        // PACK(llk_pack_release_tile(cb_collect));
-//        cb_release_tile(cb_collect);
-        {
-            // DeviceZoneScopedN("ReleaseCollect");
-            // UNPACK(DPRINT << "Releasing collect" << ENDL());
-            cb_pop_front(cb_collect, tiles_per_batch);
-        }
+        cb_release_tile(cb_collect); // awkward. This will already block UNPACK until all 6 releases are done!
+        cb_pop_front(cb_collect, max_tile_batch_size);
 
-        // cb_release_tile(cb_dat);
-        // UNPACK(DPRINT << "Releasing dat" << ENDL());
-        cb_pop_front(cb_dat, tiles_per_batch);
+        cb_release_tile(cb_dat);
+        cb_pop_front(cb_dat, max_tile_batch_size);
 
-        // cb_release_tile(cb_addr);
-        // UNPACK((llk_unpack_release_tile<false, true>(cb_addr)));
-        // PACK(llk_pack_release_tile(cb_addr));
-        // UNPACK(DPRINT << "Releasing addr" << ENDL());
-        cb_pop_front(cb_addr, tiles_per_batch);
+        cb_release_tile(cb_addr);
+        cb_pop_front(cb_addr, max_tile_batch_size);
+
+        // this will also necessarily wait for matmul to complete before
 
         
         tile_regs_release();
-        tile = end_tile_in_batch;
     }
 
-    // DPRINT << "Ellpack Compute done" << ENDL();
+    DPRINT << "Ellpack Compute done" << ENDL();
 }
 
 }  // namespace NAMESPACE

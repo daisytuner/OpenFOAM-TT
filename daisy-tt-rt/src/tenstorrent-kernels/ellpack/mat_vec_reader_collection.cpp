@@ -74,6 +74,11 @@ static inline void collect_for_mul_tile(uint32_t* addr_ptr, float* collect_ptr, 
 }
 
 
+/**
+ * variant, where the collection happens in the read kernel.
+ * could be used with more dynamic fetching of vector parts without CBs in between.
+ * But spatially pipelined across multiple tensixs would win, in which case we would have all the T-cores for collection work.
+ */
 void kernel_main() {
     uint32_t ell_val_base_addr = get_common_arg_val<uint32_t>(0);
     uint32_t ell_addr_base_addr = get_common_arg_val<uint32_t>(1);

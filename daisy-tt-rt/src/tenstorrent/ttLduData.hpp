@@ -5,6 +5,9 @@
 
 namespace tt::daisy {
 
+constexpr uint32_t matrix_block_size = 1024;
+constexpr uint32_t vector_block_size = 512;
+
 struct tt_ldu_meta {
 
     // -------------- generic meta
@@ -46,6 +49,8 @@ struct tt_ldu_meta {
     bool ellpack_dat_tiled_faced_ = true;
 
     uint32_t* ellpack_addr_ = nullptr;
+    uint32_t* ellpack_first_col_per_tile_ = nullptr;
+    uint32_t* ellpack_last_col_per_tile_ = nullptr;
     std::shared_ptr<tt::tt_metal::Buffer> d_ellpack_vals_ = nullptr;
     std::shared_ptr<tt::tt_metal::Buffer> d_ellpack_addrs_ = nullptr;
 

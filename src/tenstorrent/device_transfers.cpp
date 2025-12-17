@@ -50,13 +50,11 @@ uint32_t offset_into_tiled_mat(uint32_t row, uint32_t col, uint32_t line_lenght)
 ReusableTtBuffer& allocate_field_buffer_bare(BufferPool& bufferPool, uint32_t num_elements) {
     size_t bytes = sizeof(float)*num_elements;
 
-    return bufferPool.allocateBuffer(bytes, tt_block_size);
+    return bufferPool.allocateBuffer(bytes, tt_vector_block_size);
 }
 
 ReusableTtBuffer& allocate_field_buffer_bare(BufferPool& bufferPool, const Foam::scalarField& field) {
-    size_t bytes = sizeof(float) * field.size();
-
-    return bufferPool.allocateBuffer(bytes, tt_block_size);
+    return allocate_field_buffer_bare(bufferPool, field.size());
 }
 
 ReusableTtBuffer& allocate_field_buffer_1tile(BufferPool& bufferPool, uint32_t num_elements) {
@@ -96,16 +94,16 @@ ReusableTtBuffer& allocate_field_buffer(BufferPool& bufferPool, const Foam::scal
     #endif
 }
 
-static std::vector<uint8_t> unaligned_device_buf(tt_block_size, 0);
+static std::vector<uint8_t> unaligned_device_buf(tt_vector_block_size, 0);
 
 ReusableTtBuffer& copy_scalarField_to_device_bare(BufferPool& bufferPool, const Foam::scalarField& field) {
     auto* device = bufferPool.device_;
 
     size_t bytes = sizeof(float)*field.size();
 
-    auto& buffer = bufferPool.allocateBuffer(bytes, tt_block_size);
+    auto& buffer = bufferPool.allocateBuffer(bytes, tt_vector_block_size);
 
-    auto safe_read_bytes = tt::round_down(bytes, tt_block_size);
+    auto safe_read_bytes = tt::round_down(bytes, tt_vector_block_size);
     auto left_bytes = bytes - safe_read_bytes;
 
     tt::tt_metal::EnqueueWriteSubBuffer(
@@ -126,7 +124,7 @@ ReusableTtBuffer& copy_scalarField_to_device_bare(BufferPool& bufferPool, const 
             device->command_queue(0),
             buffer.buffer,
             temp,
-            {safe_read_bytes, tt_block_size},
+            {safe_read_bytes, tt_vector_block_size},
             false
         );
 
@@ -246,7 +244,7 @@ void copy_scalarField_from_device_bare(
     auto* device = bufferPool.device_;
 
     size_t bytes = sizeof(float)*field->size();
-    size_t padded_bytes = tt::round_up(bytes, tt_block_size);
+    size_t padded_bytes = tt::round_up(bytes, tt_vector_block_size);
 
     float* data = nullptr;
     if (bytes == padded_bytes) {
@@ -331,7 +329,7 @@ std::pair<ReusableTtBuffer&, int> copy_interfaceCoeffs_to_device(
 
     if (used_iface_count) {
 
-        auto& buffer = bufferPool.allocateBuffer(total_size, tt_block_size);
+        auto& buffer = bufferPool.allocateBuffer(total_size, tt_vector_block_size);
 
         std::vector<uint32_t> interface_data(total_size / sizeof(uint32_t));
         size_t idx = 0;
@@ -640,7 +638,7 @@ void copy_ldu_addrs_to_device(BufferPool& k, tt_ldu_meta& tt_meta, const Foam::l
     auto* device = k.device_;
 
     tt_meta.sparse_count = lduMat->lduAddr().lowerAddr().size();
-    auto triangBytes = tt::round_up(sizeof(float)*tt_meta.sparse_count, tt_block_size);
+    auto triangBytes = tt::round_up(sizeof(float)*tt_meta.sparse_count, tt_vector_block_size);
     size_t interfaceBytesSum = 0;
     auto iface_count = lduMat->mesh().interfaces().size();
     std::vector<uint32_t> interface_start_offsets { static_cast<uint32_t>(iface_count) };
@@ -654,14 +652,14 @@ void copy_ldu_addrs_to_device(BufferPool& k, tt_ldu_meta& tt_meta, const Foam::l
             interface_start_offsets.push_back(interface_start_offsets.back() + 1);
         }
     }
-    auto interfaceMetaBytes = tt::round_up(interfaceBytesSum, tt_block_size);
+    auto interfaceMetaBytes = tt::round_up(interfaceBytesSum, tt_vector_block_size);
     size_t total_size = triangBytes + triangBytes + interfaceMetaBytes;
 
     if (!tt_meta.d_addrs_) {
         tt_meta.d_addrs_ = tt::tt_metal::CreateBuffer({
             .device = device,
             .size = total_size,
-            .page_size = tt_block_size,
+            .page_size = tt_vector_block_size,
             .buffer_type = tt::tt_metal::BufferType::DRAM
         });
     } else {
@@ -730,8 +728,8 @@ void copy_ldu_contents_to_device(BufferPool& k,tt_ldu_meta& tt_meta, const Foam:
     bool hasDiag = lduMat->hasDiag();
     tt_meta.diag_zero = !hasDiag;
     tt_meta.cell_count = lduMat->lduAddr().size();
-    auto diagBytes = tt::round_up(sizeof(float)*tt_meta.cell_count, tt_block_size);
-    size_t triang_bytes = tt::round_up(sizeof(float)*(lduMat->lduAddr().lowerAddr().size()), tt_block_size);
+    auto diagBytes = tt::round_up(sizeof(float)*tt_meta.cell_count, tt_vector_block_size);
+    size_t triang_bytes = tt::round_up(sizeof(float)*(lduMat->lduAddr().lowerAddr().size()), tt_vector_block_size);
     size_t lower_bytes, upper_bytes;
     bool hasLower = lduMat->hasLower();
     bool hasUpper = lduMat->hasUpper();
@@ -759,7 +757,7 @@ void copy_ldu_contents_to_device(BufferPool& k,tt_ldu_meta& tt_meta, const Foam:
         tt_meta.d_data_ = tt::tt_metal::CreateBuffer({
             .device = device,
             .size = total_size,
-            .page_size = tt_block_size,
+            .page_size = tt_vector_block_size,
             .buffer_type = tt::tt_metal::BufferType::DRAM
         });
     }
@@ -856,10 +854,27 @@ void copy_ldu_to_ellpack(
     constexpr bool tiled_dat = true;
     constexpr bool tiled_addr = false;
 
-    auto allocEntries = tt::round_up(cells, 32)*aligned_cols;
+    auto tile_count = tt::round_up(cells, 32u);
+    auto allocEntries = tile_count*aligned_cols;
 
     auto dat_buf = new float[allocEntries]; // currently in tiles, but without faces (32 elements per row then next row)
-    auto addr_buf = tt_meta.ellpack_addr_on_device_? nullptr : new uint32_t[allocEntries]; // should be cached per mesh, not matrix
+    uint32_t* addr_buf;
+    uint32_t* first_col_addr_per_tile;
+    uint32_t* last_col_addr_per_tile;
+
+    if (tt_meta.ellpack_addr_on_device_) {
+        addr_buf = nullptr;
+        first_col_addr_per_tile = nullptr;
+        last_col_addr_per_tile = nullptr;
+    } else {
+        addr_buf = new uint32_t[allocEntries];
+        first_col_addr_per_tile = tt_meta.ellpack_addr_on_device_? nullptr : new uint32_t[allocEntries]; // should be cached per mesh, not matrix
+        for (auto i = 0u; i < tile_count; ++i) {
+            first_col_addr_per_tile[i] = cells-1;
+        }
+        last_col_addr_per_tile = tt_meta.ellpack_addr_on_device_? nullptr : new uint32_t[tile_count]{};
+    }
+    
     auto col_counts = new uint32_t[cells];
     for (auto i = 0; i < cells; ++i) {
         col_counts[i] = 0;
@@ -904,6 +919,17 @@ void copy_ldu_to_ellpack(
         return target;
     };
 
+    auto save_addr_info = [&](uint32_t tile_face_off, uint32_t natural_off, uint32_t row_addr, uint32_t col_addr) {
+        addr_buf[tiled_addr? tile_face_off : natural_off] = col_addr;
+        auto tile_idx = row_addr / 32u;
+        if (first_col_addr_per_tile[tile_idx] > col_addr) {
+            first_col_addr_per_tile[tile_idx] = col_addr;
+        }
+        if (last_col_addr_per_tile[tile_idx] < col_addr) {
+            last_col_addr_per_tile[tile_idx] = col_addr;
+        }
+    };
+
     if (lduMat->hasLower() || lduMat->hasUpper()) { // need to do lower first, as any will be before diag in each row
         auto lowerAddr = lduMat->lduAddr().lowerAddr();
         auto upperAddr = lduMat->lduAddr().upperAddr();
@@ -914,14 +940,14 @@ void copy_ldu_to_ellpack(
             auto val = lower[i];
             if (val != 0.0f) {
                 auto col_addr = lowerAddr[i];
-                auto row_addr = upperAddr[i];
+                auto row_addr = static_cast<uint32_t>(upperAddr[i]);
                 auto next_col = get_next_col(row_addr);
 
                 auto tile_face_off = offset_into_tiled_mat(row_addr, next_col, aligned_cols);
                 auto natural_off = row_addr * aligned_cols + next_col;
                 dat_buf[tiled_dat? tile_face_off : natural_off] = lower[i];
                 if (addr_buf) {
-                    addr_buf[tiled_addr? tile_face_off : natural_off] = col_addr;
+                    save_addr_info(tile_face_off, natural_off, row_addr, col_addr);
                 }
             }
         }
@@ -937,7 +963,7 @@ void copy_ldu_to_ellpack(
                 auto natural_off = i * aligned_cols + next_col;
                 dat_buf[tiled_dat? tile_face_off : natural_off] = val;
                 if (addr_buf) {
-                    addr_buf[tiled_addr? tile_face_off : natural_off] = i;
+                    save_addr_info(tile_face_off, natural_off, i, i);
                 }
             }
         }
@@ -960,7 +986,7 @@ void copy_ldu_to_ellpack(
                 auto natural_off = row_addr * aligned_cols + next_col;
                 dat_buf[tiled_dat? tile_face_off : natural_off] = upper[i];
                 if (addr_buf) {
-                    addr_buf[tiled_addr? tile_face_off : natural_off] = col_addr;
+                    save_addr_info(tile_face_off, natural_off, row_addr, col_addr);
                 }
             }
         }
@@ -988,6 +1014,10 @@ void copy_ldu_to_ellpack(
     auto print_addrs = addr_buf ? addr_buf : tt_meta.ellpack_addr_;
     for (uint32_t i = 0; i < tt::round_up(cells, 32u); ++i) {
         uint32_t relevant_cols = 0;
+        if (i % 32 == 0) {
+            auto tile_idx = i/32;
+            printf("Tile %d: vecOffs %d..%d\n", tile_idx, first_col_addr_per_tile[tile_idx], last_col_addr_per_tile[tile_idx]);
+        }
         if (static_cast<int32_t>(i) < cells) {
             printf("  %u: ", i);
             relevant_cols = col_counts[i];
@@ -1028,6 +1058,8 @@ void copy_ldu_to_ellpack(
             false // source buffer lives on
         );
         tt_meta.ellpack_addr_ = addr_buf;
+        tt_meta.ellpack_first_col_per_tile_ = first_col_addr_per_tile;
+        tt_meta.ellpack_last_col_per_tile_ = last_col_addr_per_tile;
         tt_meta.ellpack_addr_on_device_ = true;
     }
 
@@ -1127,7 +1159,7 @@ std::tuple<tt_ldu_meta&, ReusableTtBuffer&, ReusableTtBuffer&> prepare_Amul_inpu
     #if TT_IMPL == TT_IMPL_LDU
 
     auto& tt_psi = tt::daisy::foam::copy_scalarField_to_device(bufferPool, psi);
-    auto& tt_Apsi = bufferPool.allocateBuffer(sizeof(float)*Apsi.size(), tt::daisy::foam::tt_block_size);
+    auto& tt_Apsi = bufferPool.allocateBuffer(sizeof(float)*Apsi.size(), tt::daisy::foam::tt_vector_block_size);
     return {tt_meta, tt_psi, tt_Apsi};
 
     #elif TT_IMPL == TT_IMPL_DENSE

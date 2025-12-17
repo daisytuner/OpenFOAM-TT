@@ -131,7 +131,7 @@ int main() {
     tt::tt_metal::Finish(device->command_queue(0));
 
     #ifdef ENABLE_DAISY_RTL
-        auto [dram_bytes_rd, dram_bytes_wr, mul_flops, add_flops, mat_h2d_bytes, vec_transfer_bytes] = calculate_ellpack_matVec_metrics(tt_meta_a, impl);    
+        auto [dram_bytes_rd, dram_bytes_wr, mul_flops, add_flops, mat_h2d_bytes, vec_transfer_bytes] = calculate_ellpack_matVec_metrics(device, tt_meta_a, impl);    
         __daisy_instrumentation_exit(region_id1);
         __daisy_instrumentation_increment(region_id1, "pcie_bytes", 2*mat_h2d_bytes); // dat + addrs/mesh
         __daisy_instrumentation_finalize(region_id1);

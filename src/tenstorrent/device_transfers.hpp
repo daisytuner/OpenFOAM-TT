@@ -9,10 +9,17 @@
 #include <scalarField.H>
 #include <FieldField.H>
 #include <lduInterfaceFieldPtrsList.H>
+#include "tt_impls.hpp"
 
 namespace tt::daisy::foam {
 
-constexpr size_t tt_block_size = 1024;
+#if TT_IMPL == TT_IMPL_LDU || TT_IMPL == TT_IMPL_DENSE
+    constexpr size_t tt_vector_block_size = 1024; // LDU was written with 1024 hardcoded.
+#elif TT_IMPL == TT_IMPL_ELLPACK
+    constexpr size_t tt_vector_block_size = vector_block_size;
+#else
+    #error unsupported TT IMPL TT_IMPL
+#endif
 
 ReusableTtBuffer& allocate_field_buffer(
     BufferPool& bufferPool,
