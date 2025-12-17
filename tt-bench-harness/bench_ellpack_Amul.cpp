@@ -8,10 +8,8 @@
 #include <tt-metalium/host_api.hpp>
 #include <unistd.h>
 
-#include "dense_matBinOp.hpp"
-#include "dense_matMul.hpp"
 #include "device_transfers.hpp"
-#include "ellpack_matVec.hpp"
+#include "ellpack_matVec_foam.hpp"
 #include "error.H"
 #include "lduMatrix.H"
 #include "lduPrimitiveMesh.H"

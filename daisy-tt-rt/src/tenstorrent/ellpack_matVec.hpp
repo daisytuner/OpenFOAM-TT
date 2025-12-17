@@ -1,6 +1,5 @@
 #pragma once
 
-#include "ttLduData.hpp"
 #include <cstdint>
 #include <tt-metalium/host_api.hpp>
 
@@ -16,18 +15,17 @@ constexpr EllpackHwImpl default_ellpack_hw_impl = EllpackHwImpl::None;
 
 void tt_launch_ellpack_matVecOp(
     tt::tt_metal::IDevice* device,
-    tt::daisy::tt_ldu_meta& tt_meta,
+    uint32_t cells,
+    uint32_t ellpack_cols,
+    tt::tt_metal::Buffer& d_ellpack_vals,
+    tt::tt_metal::Buffer& d_ellpack_addrs,
     tt::tt_metal::Buffer& d_inVec,
     tt::tt_metal::Buffer& d_resVec,
+    uint32_t* ellpack_first_col_per_tile,
+    uint32_t* ellpack_last_col_per_tile,
     const std::filesystem::path& kernel_dir = std::filesystem::current_path(),
     EllpackHwImpl hwImpl = default_ellpack_hw_impl,
     size_t region_id = 0 // 0 is invalid
 );
 
-std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t> calculate_ellpack_matVec_metrics(
-    tt::tt_metal::IDevice* device,
-    const tt::daisy::tt_ldu_meta& tt_meta,
-    EllpackHwImpl hwImpl = default_ellpack_hw_impl
-);
-
-}   // namespace tt::daisy::foam
+}   // namespace tt::daisy

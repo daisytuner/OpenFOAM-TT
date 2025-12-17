@@ -16,6 +16,7 @@ add_library(daisy_tt_rt STATIC
     src/tenstorrent/dense_matMul.cpp
     src/tenstorrent/dense_matNeg.cpp
     src/tenstorrent/ellpack_matVec.cpp
+    src/tenstorrent/ellpack_matVec_foam.cpp
     src/tenstorrent/ttLduData.cpp
 )
 

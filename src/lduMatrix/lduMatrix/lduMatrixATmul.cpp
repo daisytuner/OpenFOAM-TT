@@ -41,7 +41,7 @@ Description
 #include "kernel_launcher.hpp"
 #include "ldu_meta_cache.hpp"
 #include "device_transfers.hpp"
-#include "ellpack_matVec.hpp"
+#include "ellpack_matVec_foam.hpp"
 
 #define ENABLE_TT_AMUL
 
@@ -96,7 +96,7 @@ void Foam::lduMatrix::Amul
 
         #ifdef ENABLE_DAISY_RTL
             #if TT_IMPL == TT_IMPL_ELLPACK
-            auto [dram_bytes_rd, dram_bytes_wr, mul_flops, add_flops, mat_h2d_bytes, vec_transfer_bytes] = tt::daisy::calculate_ellpack_matVec_metrics(k.device_, tt_meta);
+            auto [dram_bytes_rd, dram_bytes_wr, mul_flops, add_flops, mat_h2d_bytes, vec_transfer_bytes] = tt::daisy::foam::calculate_ellpack_matVec_metrics(k.device_, tt_meta);
             auto mat_transfer_bytes = (h2d_dat? mat_h2d_bytes : 0) + (h2d_mesh? mat_h2d_bytes : 0);
             #elif TT_IMPL == TT_IMPL_LDU
             auto mat_transfer_bytes = (h2d_dat ? tt_meta.d_data_->size() : 0)

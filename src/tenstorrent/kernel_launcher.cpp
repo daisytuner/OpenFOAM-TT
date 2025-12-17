@@ -5,7 +5,7 @@
 #include "dense_matMul.hpp"
 #include "dense_matBinOp.hpp"
 #include "dense_matNeg.hpp"
-#include "ellpack_matVec.hpp"
+#include "ellpack_matVec_foam.hpp"
 #include "ttLduData.hpp"
 #include <cassert>
 #include <cstdlib>
