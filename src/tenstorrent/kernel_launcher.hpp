@@ -155,7 +155,7 @@ public:
 
 KernelLauncher& require_kernel_launcher();
 
-void tt_compute_amul(KernelLauncher& k, tt_ldu_meta& tt_meta, ReusableTtBuffer& tt_psi, ReusableTtBuffer& tt_Apsi);
+void tt_compute_amul(KernelLauncher& k, tt_ldu_meta& tt_meta, ReusableTtBuffer& tt_psi, ReusableTtBuffer& tt_Apsi, size_t region_id = 0);
 
 void tt_compute_sumA(
     KernelLauncher& k,

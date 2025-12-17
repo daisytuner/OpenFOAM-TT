@@ -124,6 +124,7 @@ void Foam::lduMatrix::Amul
         #endif
 
         // auto [tt_iface_contents, iface_count] = copy_interfaceCoeffs_to_device(k, interfaceBouCoeffs, interfaces);
+        unsigned long long region_kernel;
         #ifdef ENABLE_DAISY_RTL
             __daisy_metadata_t metadata_kernel = {
                 .file_name = "lduMatrixATmul.cpp",
@@ -135,11 +136,11 @@ void Foam::lduMatrix::Amul
                 .target_type = "TENSTORRENT",
                 .region_uuid = "foam_lduMatrix_Amul_kernel"
             };
-            unsigned long long region_kernel = __daisy_instrumentation_init(&metadata_kernel, __DAISY_EVENT_SET_NONE);
+            region_kernel = __daisy_instrumentation_init(&metadata_kernel, __DAISY_EVENT_SET_NONE);
             __daisy_instrumentation_enter(region_kernel);
         #endif
 
-        tt::daisy::foam::tt_compute_amul(k, tt_meta, tt_psi, tt_Apsi);
+        tt::daisy::foam::tt_compute_amul(k, tt_meta, tt_psi, tt_Apsi, region_kernel);
 
         #ifdef ENABLE_DAISY_RTL
             __daisy_instrumentation_exit(region_kernel);

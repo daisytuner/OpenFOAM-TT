@@ -127,7 +127,11 @@ void tt_launch_ellpack_matVecOp(
 
     #ifdef ENABLE_DAISY_RTL
         if (region_id != 0) {
-            __daisy_instrumentation_increment(region_id, "tt_used_cores", num_cores);
+            auto num_avail_cores = static_cast<double>(avail_cores.x * avail_cores.y);
+            auto num_cores_d = static_cast<double>(num_cores);
+            __daisy_instrumentation_metric(region_id, "tt_used_cores", num_cores_d);
+            __daisy_instrumentation_metric(region_id, "tt_cores_used_rel", num_cores_d / num_avail_cores);
+            __daisy_instrumentation_metric(region_id, "tt_work_units_per_core", ell_tiles_total / num_avail_cores);
         }
     #endif
 

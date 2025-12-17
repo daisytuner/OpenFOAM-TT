@@ -4,6 +4,8 @@ project(daisy-tt-rt VERSION 0.0.1 DESCRIPTION "A library of predefined tenstorre
 
 set(TT_IMPL -1 CACHE STRING "Implementation type for TT_IMPL (define or int)")
 
+option(ENABLE_DAISY_RTL "Enable Daisy instrumentation" OFF)
+
 if(TT_IMPL STREQUAL "-1")
     message(FATAL_ERROR "TT_IMPL is not defined. Please set TT_IMPL to one of the supported implementation types (e.g., TT_IMPL_LDU, TT_IMPL_DENSE, TT_IMPL_ELLPACK) in the cache.")
 endif()
@@ -33,6 +35,12 @@ target_compile_definitions(daisy_tt_rt PUBLIC
     SPDLOG_FMT_EXTERNAL
     TT_IMPL=${TT_IMPL}
 )
+
+if (ENABLE_DAISY_RTL)
+  target_compile_definitions(daisy_tt_rt PRIVATE
+    ENABLE_DAISY_RTL
+  )
+endif()
 
 if(NOT $ENV{TT_METAL_INSTALL_DIR} STREQUAL "")
     message(STATUS "Building against Tenstorrent Metalium installation from TT_METAL_INSTALL_DIR: $ENV{TT_METAL_INSTALL_DIR}")

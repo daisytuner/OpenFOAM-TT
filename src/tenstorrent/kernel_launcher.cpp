@@ -534,7 +534,7 @@ void KernelLauncher::launch_matSubAssign(
     launch_matOpAssign(lduDestMeta, lduAMeta, program_matSubAssign_);
 }
 
-void tt_compute_amul(KernelLauncher& k, tt_ldu_meta& tt_meta, ReusableTtBuffer& tt_psi, ReusableTtBuffer& tt_Apsi) {
+void tt_compute_amul(KernelLauncher& k, tt_ldu_meta& tt_meta, ReusableTtBuffer& tt_psi, ReusableTtBuffer& tt_Apsi, size_t region_id) {
     #if TT_IMPL == TT_IMPL_LDU
         k.launch_amul(tt_meta, *tt_psi.buffer, *tt_Apsi.buffer, 0);
     #elif TT_IMPL == TT_IMPL_DENSE
@@ -552,7 +552,7 @@ void tt_compute_amul(KernelLauncher& k, tt_ldu_meta& tt_meta, ReusableTtBuffer& 
             k.kernel_dir_
         );
     #elif TT_IMPL == TT_IMPL_ELLPACK
-        tt_launch_ellpack_matVecOp(k.device_, tt_meta, *tt_psi.buffer, *tt_Apsi.buffer, k.kernel_dir_);
+        tt_launch_ellpack_matVecOp(k.device_, tt_meta, *tt_psi.buffer, *tt_Apsi.buffer, k.kernel_dir_, default_ellpack_hw_impl, region_id);
     #else
         #error unknown TT IMPL TT_IMPL
     #endif
