@@ -220,6 +220,7 @@ int main() {
         .line_end = 218,
         .column_begin = 0,
         .column_end = 0,
+        .element_type = "map",
         .target_type = "TENSTORRENT",
         .region_uuid = "foam_ellpack_Amul_kernel"
     };

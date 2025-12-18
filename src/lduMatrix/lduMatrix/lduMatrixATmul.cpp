@@ -133,6 +133,7 @@ void Foam::lduMatrix::Amul
                 .line_end = 117,
                 .column_begin = 0,
                 .column_end = 0,
+                .element_type = "map",
                 .target_type = "TENSTORRENT",
                 .region_uuid = "foam_lduMatrix_Amul_kernel"
             };
